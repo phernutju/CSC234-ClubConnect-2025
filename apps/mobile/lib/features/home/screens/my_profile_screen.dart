@@ -193,23 +193,6 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: AppSizes.paddingM,
-            right: AppSizes.paddingM,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.cardWhite,
-              ),
-              child: const Icon(
-                Icons.more_horiz,
-                color: AppColors.textGray,
-                size: AppSizes.iconSize,
-              ),
-            ),
-          ),
-          Positioned(
             left: AppSizes.paddingL,
             bottom: 0,
             child: Container(
