@@ -6,6 +6,7 @@ import '../../../models/rating_model.dart';
 import '../../../providers/rating_provider.dart';
 import '../widgets/rate_user_modal.dart';
 import '../widgets/view_all_reviews_modal.dart';
+import '../widgets/report_user_modal.dart';
 
 // ── File-scoped helpers ────────────────────────────────────────────────────────
 
@@ -86,7 +87,10 @@ class OtherProfileScreen extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 // Gradient header band with avatar + three-dot menu
-                const _ProfileHeader(),
+                _ProfileHeader(
+                  username: username,
+                  communityName: communityName,
+                ),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -184,7 +188,13 @@ class _ProfileAppBar extends StatelessWidget {
 
 /// Salmon-to-peach gradient band with avatar circle + three-dot menu.
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+  final String username;
+  final String communityName;
+
+  const _ProfileHeader({
+    required this.username,
+    required this.communityName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -218,17 +228,70 @@ class _ProfileHeader extends StatelessWidget {
           Positioned(
             top: AppSizes.paddingM,
             right: AppSizes.paddingM,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.cardWhite,
+            child: PopupMenuButton<String>(
+              offset: const Offset(0, 40), 
+              color: AppColors.cardWhite,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSizes.radiusS),
               ),
-              child: const Icon(
-                Icons.more_horiz,
-                color: AppColors.textGray,
-                size: AppSizes.iconSize,
+              constraints: const BoxConstraints(
+                minWidth: 79,
+                maxWidth: 79,
+              ),
+              onSelected: (value) {
+                if (value == 'report') {
+                  showDialog(
+                    context: context,
+                    barrierColor: Colors.black45, 
+                    builder: (_) => ReportUserModal(
+                      username: username, 
+                      communityName: communityName,
+                    ),
+                  );
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  value: 'report',
+                  height: 29,
+                  padding: EdgeInsets.zero,
+                  child: SizedBox(
+                    width: 79, 
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.warning_rounded,
+                          color: AppColors.alertRed,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Report',
+                          style: AppTextStyles.body(
+                            fontSize: 12, 
+                            fontWeight: FontWeight.w500, 
+                            color: AppColors.alertRed, 
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.cardWhite,
+                ),
+                child: const Icon(
+                  Icons.more_horiz,
+                  color: AppColors.textGray,
+                  size: AppSizes.iconSize,
+                ),
               ),
             ),
           ),
@@ -502,4 +565,3 @@ class _CommentRow extends StatelessWidget {
     );
   }
 }
-

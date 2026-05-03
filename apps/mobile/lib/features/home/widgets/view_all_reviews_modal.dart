@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/rating_model.dart';
 
-// ── File-scoped helper ────────────────────────────────────────────────────────
+// ── File-scoped helpers ────────────────────────────────────────────────────────
 
 /// Returns "just now", "N min ago", or "N hr ago" relative to [time].
 String _relativeTime(DateTime time) {
@@ -12,17 +13,24 @@ String _relativeTime(DateTime time) {
   return '${diff.inHours}${AppStrings.rateHrAgo}';
 }
 
-// ── Public entry point ────────────────────────────────────────────────────────
+/// Renders a row of 5 stars based on the [starCount] (W11 H11).
+Widget _buildSmallStars(int starCount) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: List.generate(5, (index) {
+      return Icon(
+        index < starCount ? Icons.star : Icons.star_border,
+        color: index < starCount ? AppColors.starColor : AppColors.reviewStarEmpty,
+        size: AppSizes.reviewMiniStarSize,
+      );
+    }),
+  );
+}
 
-/// Full-screen overlay dialog showing all submitted reviews for [username].
-/// Open via:
-///   showDialog(context: context, barrierColor: Colors.black45,
-///              builder: (_) => ViewAllReviewsModal(...))
+// ── Main Modal Screen ──────────────────────────────────────────────────────────
+
 class ViewAllReviewsModal extends StatelessWidget {
-  /// The profile owner's display name — shown as the modal title.
   final String username;
-
-  /// All ratings submitted for this user (filtered by caller).
   final List<RatingModel> ratings;
 
   const ViewAllReviewsModal({
@@ -34,66 +42,84 @@ class ViewAllReviewsModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppColors.cardWhite,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
-      ),
-      child: SizedBox(
-        width: AppSizes.rateModalWidth,
-        height: AppSizes.reviewModalHeight,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+      child: Container(
+        width: AppSizes.rateModalWidth, // 296
+        height: AppSizes.reviewModalHeight, // 575
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
+        ),
         child: Stack(
           children: [
-            // ── Scrollable modal body ──────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.all(AppSizes.paddingM),
+              padding: const EdgeInsets.all(AppSizes.paddingL),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Username as title
+                  // Title
                   Text(
                     username,
                     style: AppTextStyles.body(
-                      fontSize: AppSizes.fontTitle,
+                      fontSize: AppSizes.fontTitle, // 24
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
                     ),
                   ),
-                  const SizedBox(height: AppSizes.paddingM),
+                  const SizedBox(height: AppSizes.paddingL),
 
-                  // Rating summary card
+                  // Rating Summary Card
                   _RatingSummaryCard(ratings: ratings),
-                  const SizedBox(height: AppSizes.paddingM),
+                  const SizedBox(height: AppSizes.paddingL),
 
-                  // Scrollable review list (Expanded fills remaining height)
+                  // Review List
                   Expanded(
                     child: ratings.isEmpty
                         ? Center(
                             child: Text(
                               AppStrings.reviewNoReviews,
                               style: AppTextStyles.body(
-                                fontSize: AppSizes.fontM,
+                                fontSize: AppSizes.fontS,
                                 color: AppColors.textGray,
                               ),
                             ),
                           )
                         : ListView.separated(
+                            padding: EdgeInsets.zero,
                             itemCount: ratings.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (context, index) =>
                                 const SizedBox(height: AppSizes.reviewItemSpacing),
-                            itemBuilder: (_, i) =>
-                                _ReviewItem(rating: ratings[i]),
+                            itemBuilder: (context, index) {
+                              return _ReviewItem(rating: ratings[index]);
+                            },
                           ),
                   ),
                 ],
               ),
             ),
 
-            // ── X close button (top-right corner) ─────────────────────────
+            // Close Button (Coral circle top-right)
             Positioned(
-              top: AppSizes.paddingS,
-              right: AppSizes.paddingS,
-              child: _CloseButton(),
+              top: AppSizes.paddingM,
+              right: AppSizes.paddingM,
+              child: GestureDetector(
+                onTap: () => context.pop(),
+                child: Container(
+                  width: AppSizes.fontTitle,
+                  height: AppSizes.fontTitle,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.cardWhite,
+                    size: AppSizes.fontSM,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -104,7 +130,6 @@ class ViewAllReviewsModal extends StatelessWidget {
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
-/// Summary card: average score on the left, per-star bars on the right.
 class _RatingSummaryCard extends StatelessWidget {
   final List<RatingModel> ratings;
 
@@ -113,73 +138,87 @@ class _RatingSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = ratings.length;
-
-    // Use default rating when no reviews exist
-    final avg = total == 0
-        ? AppSizes.defaultRating
+    final avgRating = total == 0
+        ? 0.0
         : ratings.map((r) => r.stars).reduce((a, b) => a + b) / total;
 
-    // Count how many reviews have each star level (index 0 = 5 stars, index 4 = 1 star)
-    final counts = List.generate(5, (i) {
-      final level = 5 - i;
-      return ratings.where((r) => r.stars == level).length;
-    });
-
     return Container(
-      width: AppSizes.rateUserCardWidth,
-      height: AppSizes.reviewSummaryHeight,
-      decoration: BoxDecoration(
-        color: AppColors.rateStarFill,
-        borderRadius: BorderRadius.circular(AppSizes.rateStarBoxRadius),
-        border: Border.all(color: AppColors.rateCardBorder),
-      ),
+      width: AppSizes.rateUserCardWidth, // 266
+      height: AppSizes.reviewSummaryHeight, // 125
       padding: const EdgeInsets.all(AppSizes.paddingM),
+      decoration: BoxDecoration(
+        color: AppColors.rateStarFill, // #FFF6EE
+        border: Border.all(color: AppColors.rateCardBorder, width: 1), // #E8DFD8
+        borderRadius: BorderRadius.circular(AppSizes.radiusS),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Left: "Rating" label + big average number + review count
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                AppStrings.reviewRatingLabel,
-                style: AppTextStyles.body(
-                  fontSize: AppSizes.fontS,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.textDark,
-                ),
-              ),
-              Text(
-                avg.toStringAsFixed(1),
-                style: AppTextStyles.body(
-                  fontSize: AppSizes.fontDisplay,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
-                ),
-              ),
-              Text(
-                '$total ${total == 1 ? AppStrings.rateReview : AppStrings.rateReviews}',
-                style: AppTextStyles.poppins(
-                  fontSize: AppSizes.fontXXS,
-                  color: AppColors.textDark,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: AppSizes.paddingM),
-
-          // Right: one distribution row per star level (5→1)
+          // Left Side: Rating Avg & Count
           Expanded(
+            flex: 2,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(5, (i) {
-                final level = 5 - i;
-                final fraction =
-                    total == 0 ? 0.0 : counts[i] / total;
-                return _StarDistributionRow(
-                  level: level,
-                  fraction: fraction,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppStrings.reviewRatingLabel,
+                  style: AppTextStyles.body(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300, // Inter Light
+                    color: AppColors.textDark,
+                  ),
+                ),
+                Text(
+                  avgRating.toStringAsFixed(1),
+                  style: AppTextStyles.body(
+                    fontSize: AppSizes.ratingStarSize, // 32
+                    fontWeight: FontWeight.w800, // Inter ExtraBold
+                    color: AppColors.primary, // #FF6B4A
+                  ),
+                ),
+                Text(
+                  '$total ${AppStrings.rateReviews}',
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXXS, // 10
+                    fontWeight: FontWeight.normal,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Right Side: 5 Progress Bars
+          Expanded(
+            flex: 3,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) {
+                final starLevel = 5 - index;
+                final count = ratings.where((r) => r.stars == starLevel).length;
+                final fraction = total == 0 ? 0.0 : count / total;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 2.0),
+                  child: Row(
+                    children: [
+                      _buildSmallStars(starLevel),
+                      const SizedBox(width: AppSizes.paddingS),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: fraction,
+                            minHeight: AppSizes.reviewBarHeight, // 4
+                            backgroundColor: AppColors.rateCardBorder, // #E8DFD8
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.reviewBarFilled, // #8CD9A7
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               }),
             ),
@@ -190,48 +229,6 @@ class _RatingSummaryCard extends StatelessWidget {
   }
 }
 
-/// One row in the distribution: [level] filled stars + empty stars + progress bar.
-class _StarDistributionRow extends StatelessWidget {
-  final int level; // 1–5
-  final double fraction; // 0.0–1.0
-
-  const _StarDistributionRow({
-    required this.level,
-    required this.fraction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // Star icons: first [level] filled, rest empty
-        ...List.generate(5, (i) => Icon(
-              i < level ? Icons.star : Icons.star_border,
-              size: AppSizes.reviewMiniStarSize,
-              color: i < level
-                  ? AppColors.starColor
-                  : AppColors.reviewStarEmpty,
-            )),
-        const SizedBox(width: AppSizes.paddingXS),
-
-        // Proportional progress bar
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: fraction,
-              backgroundColor: AppColors.rateCardBorder,
-              color: AppColors.reviewBarFilled,
-              minHeight: AppSizes.reviewBarHeight,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// One review item: coral left border, star row + meta text, optional comment.
 class _ReviewItem extends StatelessWidget {
   final RatingModel rating;
 
@@ -244,74 +241,47 @@ class _ReviewItem extends StatelessWidget {
       decoration: const BoxDecoration(
         border: Border(
           left: BorderSide(
-            color: AppColors.primary,
-            width: AppSizes.commentBorderWidth,
+            color: AppColors.primary, // #FF6B4A
+            width: AppSizes.commentBorderWidth, // 3
           ),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top line: mini stars + " · time · from community"
+          // Top Line: Stars + Meta info
           Row(
             children: [
-              ...List.generate(5, (i) => Icon(
-                    i < rating.stars ? Icons.star : Icons.star_border,
-                    size: AppSizes.reviewMiniStarSize,
-                    color: i < rating.stars
-                        ? AppColors.starColor
-                        : AppColors.reviewStarEmpty,
-                  )),
+              _buildSmallStars(rating.stars),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  ' · ${_relativeTime(rating.submittedAt)} · from ${rating.communityName}',
+                  '· ${_relativeTime(rating.submittedAt)} · from ${rating.communityName}',
+                  style: AppTextStyles.body(
+                    fontSize: AppSizes.fontXXS, // 10
+                    fontWeight: FontWeight.w300, // Inter Light
+                    color: AppColors.commentMeta, // #BABABA
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.body(
-                    fontSize: AppSizes.fontXXS,
-                    fontWeight: FontWeight.w300,
-                    color: AppColors.commentMeta,
-                  ),
                 ),
               ),
             ],
           ),
-
-          // Comment body — omitted when the user left no text
+          
+          // Comment Text (Only show if not empty)
           if (rating.comment.isNotEmpty) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               rating.comment,
               style: AppTextStyles.body(
-                fontSize: AppSizes.fontXXS,
-                color: AppColors.commentBody,
+                fontSize: AppSizes.fontXXS, // 10
+                fontWeight: FontWeight.normal, // Inter Regular
+                color: AppColors.commentBody, // #837A7A
               ),
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-/// Coral circle X button — closes the dialog.
-class _CloseButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).pop(),
-      child: Container(
-        width: AppSizes.rateCloseButtonSize,
-        height: AppSizes.rateCloseButtonSize,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.primary,
-        ),
-        child: const Icon(
-          Icons.close,
-          color: AppColors.cardWhite,
-          size: 16,
-        ),
       ),
     );
   }

@@ -124,6 +124,9 @@ class AppColors {
 
   /// View All Reviews — empty star icon color (near-black for contrast)
   static const Color reviewStarEmpty = Color(0xFF1D1B20);
+  
+  /// Alert text/icon color (e.g., Report button dropdown)
+  static const Color alertRed = Color(0xFFFF6868);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -405,6 +408,8 @@ class AppStrings {
   // View All Reviews modal
   static const String reviewNoReviews   = 'No reviews yet';
   static const String reviewRatingLabel = 'Rating';
+
+  /// Alert text/icon color (e.g., Report button dropdown)
 }
 
 // ─── Text Styles ──────────────────────────────────────────────────────────────
