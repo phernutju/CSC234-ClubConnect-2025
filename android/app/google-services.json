@@ -29,6 +29,13 @@
             {
               "client_id": "939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.csc234Clubconnect"
+              }
             }
           ]
         }
@@ -58,6 +65,13 @@
             {
               "client_id": "939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.csc234Clubconnect"
+              }
             }
           ]
         }

@@ -17,29 +17,17 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -59,4 +47,45 @@ class DefaultFirebaseOptions {
     projectId: 'clubconnect-17ec5',
     storageBucket: 'clubconnect-17ec5.firebasestorage.app',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyDvpy-0BMjeebx6FSYwpuHoyKSklnupokQ',
+    appId: '1:939992324681:web:3c5407a6f40ab1678d3d98',
+    messagingSenderId: '939992324681',
+    projectId: 'clubconnect-17ec5',
+    authDomain: 'clubconnect-17ec5.firebaseapp.com',
+    storageBucket: 'clubconnect-17ec5.firebasestorage.app',
+    measurementId: 'G-8951X6VFKC',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyDEdNZwYud7cCBd52L4M52I2Aot4dns4rg',
+    appId: '1:939992324681:ios:9ae0b57d163b764c8d3d98',
+    messagingSenderId: '939992324681',
+    projectId: 'clubconnect-17ec5',
+    storageBucket: 'clubconnect-17ec5.firebasestorage.app',
+    iosClientId: '939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com',
+    iosBundleId: 'com.example.csc234Clubconnect',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyDEdNZwYud7cCBd52L4M52I2Aot4dns4rg',
+    appId: '1:939992324681:ios:9ae0b57d163b764c8d3d98',
+    messagingSenderId: '939992324681',
+    projectId: 'clubconnect-17ec5',
+    storageBucket: 'clubconnect-17ec5.firebasestorage.app',
+    iosClientId: '939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com',
+    iosBundleId: 'com.example.csc234Clubconnect',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyDvpy-0BMjeebx6FSYwpuHoyKSklnupokQ',
+    appId: '1:939992324681:web:787f9448d89848e68d3d98',
+    messagingSenderId: '939992324681',
+    projectId: 'clubconnect-17ec5',
+    authDomain: 'clubconnect-17ec5.firebaseapp.com',
+    storageBucket: 'clubconnect-17ec5.firebasestorage.app',
+    measurementId: 'G-J40ECNS054',
+  );
+
 }
