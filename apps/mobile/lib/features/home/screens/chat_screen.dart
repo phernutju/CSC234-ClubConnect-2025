@@ -25,7 +25,7 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // ── Coral app bar ────────────────────────────────────────────────
+          // ── Coral app bar
           _ChatAppBar(),
 
           // ── Message list ─────────────────────────────────────────────────
