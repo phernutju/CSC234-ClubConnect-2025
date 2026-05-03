@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "939992324681",
+    "project_id": "clubconnect-17ec5",
+    "storage_bucket": "clubconnect-17ec5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:939992324681:android:43477639ba6ee53e8d3d98",
+        "android_client_info": {
+          "package_name": "clubconnect.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb2jylQ5BwMEXMyY5w7ZJFHG4Fzq3obvg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:939992324681:android:60967050854afe2b8d3d98",
+        "android_client_info": {
+          "package_name": "com.example.csc234_clubconnect"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb2jylQ5BwMEXMyY5w7ZJFHG4Fzq3obvg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
