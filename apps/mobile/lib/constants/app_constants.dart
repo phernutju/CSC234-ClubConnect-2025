@@ -67,6 +67,33 @@ class AppColors {
 
   /// Liquid glass card border — white at 30% opacity
   static const Color glassBorder = Color(0x4DFFFFFF);
+
+  /// Sent message bubble background
+  static const Color sentBubble = Color(0xFFF5EBE8);
+
+  /// Report modal accent — coral red for "Report" text, Post button, close button
+  static const Color reportAccent = Color(0xFFFF6B4A);
+
+  /// Report modal description field background
+  static const Color reportFieldBg = Color(0xFFE8DFD8);
+
+  /// Report modal subtitle text ("Your report is anonymous…")
+  static const Color reportSubtitleGray = Color(0xFF837A7A);
+
+  /// Report modal form labels ("Reason", "Description")
+  static const Color reportLabelGray = Color(0xFF797979);
+
+  /// Chat page scaffold background
+  static const Color chatBackground = Color(0xFFFFFCF8);
+
+  /// Form field underline and placeholder text (Create Community)
+  static const Color fieldPlaceholder = Color(0xFFBABABA);
+
+  /// Create Community page background — warm off-white
+  static const Color createBackground = Color(0xFFFFF6EE);
+
+  /// Cover image inner-shadow vignette overlay
+  static const Color coverShadowEdge = Color(0x55000000);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -86,7 +113,25 @@ class AppSizes {
   static const double radiusM    = 14.0;
   static const double radiusL    = 22.0;
   static const double radiusXL   = 32.0;
-  static const double radiusPill = 100.0;
+  static const double radiusPill    = 100.0;
+
+  // Chat bubble corners: main radius + small "tail" radius on the sender corner
+  static const double radiusBubble     = 18.0;
+  static const double radiusBubbleTail =  4.0;
+
+  // Chat image message dimensions
+  static const double chatImageMaxHeight = 200.0;
+
+  // Report modal fixed dimensions
+  static const double reportModalWidth      = 296.0;
+  static const double reportModalHeight     = 458.0;
+  static const double reportDescFieldHeight =  36.0;
+
+  // Long-press popup menu dimensions (compact floating card near the bubble)
+  static const double popupMenuWidth      =  94.0;
+  static const double popupMenuItemHeight =  22.0;
+  static const double popupMenuFontSize   =  12.0;
+  static const double popupMenuIconSize   =  14.0;
 
   // Fixed component heights / sizes
   static const double buttonHeight      = 54.0;
@@ -101,12 +146,24 @@ class AppSizes {
   static const double iconSize          = 22.0;
   static const double coverImageHeight  = 200.0;
 
+  // Fixed component heights for Create Community screen
+  static const double createButtonWidth  = 327.0;
+  static const double createButtonHeight =  50.0;
+  static const double tooltipCardWidth   = 200.0;
+  static const double tooltipCardHeight  = 120.0;
+  static const double tooltipPadding     =  12.0;
+  static const double tooltipIconSize    =  19.0;
+  static const double fieldBorderWidth   =   2.0;
+
   // Font sizes
   static const double fontXS      = 11.0;
   static const double fontS       = 13.0;
+  static const double fontSM      = 14.0;
   static const double fontM       = 15.0;
+  static const double fontML      = 16.0;
   static const double fontL       = 17.0;
   static const double fontXL      = 22.0;
+  static const double fontTitle   = 24.0;
   static const double fontXXL     = 28.0;
   static const double fontDisplay = 32.0;
 
@@ -193,8 +250,29 @@ class AppStrings {
   static const String notifBody    = '@name Lorem ipsum dolor sit amet';
 
   // Chat screen
-  static const String chatToday     = 'Today';
-  static const String chatInputHint = 'Emit...';
+  static const String chatCommunityName = 'Community name (10)';
+  static const String chatToday         = 'Today';
+  static const String chatInputHint     = 'Emit...';
+  static const String chatCopy          = 'Copy';
+  static const String chatReply         = 'Reply';
+  static const String chatReport        = 'Report';
+  static const String chatImageMessage  = '[Image]'; // fallback text for image-only messages
+
+  // Report modal
+  static const String reportTitle            = 'Why are you';
+  static const String reportTitleAccent      = 'Report';
+  static const String reportSubtitle         = 'Your report is anonymous.\nTell us the reason';
+  static const String reportReasonLabel      = 'Reason';
+  static const String reportDescriptionLabel = 'Description';
+  static const String reportDescriptionHint  = 'Tell us...';
+  static const String reportPost             = 'Post';
+  static const List<String> reportReasons    = [
+    'Hate Speech',
+    'Harassment',
+    'Threat',
+    'Scam',
+    'Others',
+  ];
 
   // Create Community screen
   static const String createTitle         = 'Host';
@@ -204,9 +282,17 @@ class AppStrings {
   static const String createAboutHint     = 'Enter Community description';
   static const String createCategoryLabel = 'Category';
   static const String createRulesLabel    = 'Community Rules';
-  static const String createRulesHint     = '1. Type your rule';
+  static const String createRulesHint     = 'Type your rule';
   static const String createAddRule       = '+ Add more rules';
   static const String createButton        = 'Create';
+  static const String createRuleTooltip  =
+      'Keep your community safe!\nWrite your custom rules below '
+      'and our AI system will help enforce them by removing violators.';
+  static const List<String> createCategories = [
+    'Badminton', 'Basketball', 'Football', 'Tennis',
+    'Swimming', 'Cooking', 'Music', 'Art',
+    'Coding', 'Dance', 'Photography', 'Gaming',
+  ];
 
   // Profile screen
   static const String profileRateUser  = 'Rate this user';
@@ -236,6 +322,20 @@ class AppTextStyles {
         color: color,
         fontStyle: fontStyle,
         height: height,
+      );
+
+  /// Poppins — read receipts, timestamps, report modal labels, chips, and buttons
+  static TextStyle poppins({
+    double fontSize = AppSizes.fontM,
+    FontWeight fontWeight = FontWeight.normal,
+    Color color = AppColors.textDark,
+    FontStyle fontStyle = FontStyle.normal,
+  }) =>
+      GoogleFonts.poppins(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        fontStyle: fontStyle,
       );
 
   /// Instrument Serif — screen titles, headings, display text

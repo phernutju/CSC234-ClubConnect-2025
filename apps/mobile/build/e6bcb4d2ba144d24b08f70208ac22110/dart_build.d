@@ -1,0 +1,1 @@
+ /Users/nonladapream/Documents/CSC234-ClubConnect-2025/apps/mobile/build/e6bcb4d2ba144d24b08f70208ac22110/dart_build_result.json:  /Users/nonladapream/Documents/CSC234-ClubConnect-2025/apps/mobile/.dart_tool/package_config.json /Users/nonladapream/Documents/CSC234-ClubConnect-2025/apps/mobile/pubspec.yaml /Users/nonladapream/flutter/bin/cache/dart-sdk/version

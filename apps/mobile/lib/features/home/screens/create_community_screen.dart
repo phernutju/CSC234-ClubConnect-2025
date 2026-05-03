@@ -1,9 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../constants/app_constants.dart';
-import '../../auth/widgets/primary_button.dart';
 
-/// "Host" screen for creating a new community.
+/// "Host" screen — create a new community.
 class CreateCommunityScreen extends StatefulWidget {
   const CreateCommunityScreen({super.key});
 
@@ -14,87 +15,96 @@ class CreateCommunityScreen extends StatefulWidget {
 class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   final _nameController  = TextEditingController();
   final _aboutController = TextEditingController();
-  final _rulesController = TextEditingController();
+  final List<TextEditingController> _rulesControllers = [TextEditingController()];
 
-  String? _selectedCategory;
-
-  static const List<String> _categories = [
-    'Cooking',
-    'Cooking',
-    'Cooking',
-    'Cooking',
-    'Badminton',
-    'Cooking',
-    'Cooking',
-    'Cooking',
-    'Cooking',
-  ];
+  Uint8List? _coverImageBytes;
+  String?    _selectedCategory;
 
   @override
   void dispose() {
     _nameController.dispose();
     _aboutController.dispose();
-    _rulesController.dispose();
+    for (final c in _rulesControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  void _onCreate() {
-    // TODO: submit form to backend and navigate back
-    context.pop();
+  Future<void> _pickCoverImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() => _coverImageBytes = bytes);
+    }
+  }
+
+  void _addRule() {
+    setState(() => _rulesControllers.add(TextEditingController()));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.cardWhite,
+      backgroundColor: const Color(0xFFFFF6EE),
       body: Column(
         children: [
-          // ── Coral app bar ────────────────────────────────────────────────
           _CreateAppBar(),
 
-          // ── Scrollable form ──────────────────────────────────────────────
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+              padding: EdgeInsets.zero,
               children: [
-                _CoverImagePicker(),
-                const SizedBox(height: AppSizes.paddingL),
-
-                _FormSectionLabel(label: AppStrings.createNameLabel),
-                _FormTextField(
-                  controller: _nameController,
-                  hint: AppStrings.createNameHint,
-                  maxLength: 50,
+                _CoverImageSection(
+                  imageBytes: _coverImageBytes,
+                  onTap: _pickCoverImage,
                 ),
-                const SizedBox(height: AppSizes.paddingM),
 
-                _FormSectionLabel(label: AppStrings.createAboutLabel),
-                _FormTextField(
-                  controller: _aboutController,
-                  hint: AppStrings.createAboutHint,
-                  maxLength: 500,
-                  maxLines: 3,
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.paddingL,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSizes.paddingM),
+
+                      const _SectionLabel(label: AppStrings.createNameLabel),
+                      _FormField(
+                        controller: _nameController,
+                        hint: AppStrings.createNameHint,
+                        maxLength: 50,
+                      ),
+                      const SizedBox(height: AppSizes.paddingM),
+
+                      const _SectionLabel(label: AppStrings.createAboutLabel),
+                      _FormField(
+                        controller: _aboutController,
+                        hint: AppStrings.createAboutHint,
+                        maxLength: 500,
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: AppSizes.paddingM),
+
+                      const _SectionLabel(label: AppStrings.createCategoryLabel),
+                      const SizedBox(height: AppSizes.paddingS),
+                      _CategoryChips(
+                        selected: _selectedCategory,
+                        onSelected: (c) => setState(() => _selectedCategory = c),
+                      ),
+                      const SizedBox(height: AppSizes.paddingM),
+
+                      _RulesSection(
+                        controllers: _rulesControllers,
+                        onAddRule: _addRule,
+                      ),
+                      const SizedBox(height: AppSizes.paddingXL),
+
+                      _CreateButton(onPressed: () => context.go('/home')),
+                      const SizedBox(height: AppSizes.paddingXL),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSizes.paddingM),
-
-                _FormSectionLabel(label: AppStrings.createCategoryLabel),
-                const SizedBox(height: AppSizes.paddingS),
-                _CategoryChipSelector(
-                  categories: _categories,
-                  selected: _selectedCategory,
-                  onSelected: (c) => setState(() => _selectedCategory = c),
-                ),
-                const SizedBox(height: AppSizes.paddingM),
-
-                _FormSectionLabel(label: AppStrings.createRulesLabel),
-                _RulesInput(controller: _rulesController),
-                const SizedBox(height: AppSizes.paddingXL),
-
-                PrimaryButton(
-                  label: AppStrings.createButton,
-                  onPressed: _onCreate,
-                ),
-                const SizedBox(height: AppSizes.paddingXL),
               ],
             ),
           ),
@@ -104,7 +114,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   }
 }
 
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
+// ── App bar ───────────────────────────────────────────────────────────────────
 
 class _CreateAppBar extends StatelessWidget {
   @override
@@ -117,18 +127,21 @@ class _CreateAppBar extends StatelessWidget {
         right: AppSizes.paddingM,
         bottom: AppSizes.paddingM,
       ),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          GestureDetector(
-            onTap: () => context.pop(),
-            child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: () => context.pop(),
+              child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+            ),
           ),
-          const SizedBox(width: AppSizes.paddingM),
           Text(
             AppStrings.createTitle,
-            style: AppTextStyles.title(
-              fontSize: AppSizes.fontL,
-              fontWeight: FontWeight.w600,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontTitle,
+              fontWeight: FontWeight.w500,
               color: AppColors.cardWhite,
             ),
           ),
@@ -138,31 +151,42 @@ class _CreateAppBar extends StatelessWidget {
   }
 }
 
-class _CoverImagePicker extends StatelessWidget {
+// ── Cover image picker ────────────────────────────────────────────────────────
+
+class _CoverImageSection extends StatelessWidget {
+  final Uint8List? imageBytes;
+  final VoidCallback onTap;
+
+  const _CoverImageSection({required this.imageBytes, required this.onTap});
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Container(
+        SizedBox(
           height: AppSizes.coverImageHeight,
           width: double.infinity,
-          color: AppColors.inputFill,
-          child: const SizedBox(),
+          child: imageBytes != null
+              ? Image.memory(imageBytes!, fit: BoxFit.cover)
+              : Container(color: AppColors.inputFill),
         ),
-
         Positioned(
           bottom: AppSizes.paddingS,
           right: AppSizes.paddingS,
-          child: Container(
-            padding: const EdgeInsets.all(AppSizes.paddingS),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.cardWhite,
-            ),
-            child: const Icon(
-              Icons.camera_alt,
-              size: 18,
-              color: AppColors.textDark,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.cardWhite,
+              ),
+              child: const Icon(
+                Icons.camera_alt_outlined,
+                size: 18,
+                color: AppColors.textDark,
+              ),
             ),
           ),
         ),
@@ -171,37 +195,35 @@ class _CoverImagePicker extends StatelessWidget {
   }
 }
 
-class _FormSectionLabel extends StatelessWidget {
-  final String label;
+// ── Form helpers ──────────────────────────────────────────────────────────────
 
-  const _FormSectionLabel({required this.label});
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSizes.paddingXS),
-      child: Text(
-        label,
-        style: AppTextStyles.body(
-          fontSize: AppSizes.fontM,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textDark,
-        ),
+    return Text(
+      label,
+      style: AppTextStyles.poppins(
+        fontSize: AppSizes.fontML,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textDark,
       ),
     );
   }
 }
 
-class _FormTextField extends StatelessWidget {
+class _FormField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final int maxLength;
   final int maxLines;
 
-  const _FormTextField({
+  const _FormField({
     required this.controller,
     required this.hint,
-    this.maxLength = 100,
+    required this.maxLength,
     this.maxLines = 1,
   });
 
@@ -209,45 +231,55 @@ class _FormTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      maxLength: maxLength,
       maxLines: maxLines,
-      style: AppTextStyles.body(fontSize: AppSizes.fontM, color: AppColors.textDark),
+      maxLength: maxLength,
+      buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
+          Text(
+            '$currentLength/${maxLength ?? this.maxLength}',
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXS,
+              color: AppColors.textGray,
+            ),
+          ),
+      style: AppTextStyles.poppins(
+        fontSize: AppSizes.fontM,
+        color: AppColors.textDark,
+      ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: AppTextStyles.body(color: AppColors.textGray),
+        hintStyle: AppTextStyles.poppins(
+          fontSize: AppSizes.fontM,
+          color: AppColors.fieldPlaceholder,
+        ),
         enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: AppColors.inputBorder),
+          borderSide: BorderSide(color: AppColors.fieldPlaceholder),
         ),
         focusedBorder: const UnderlineInputBorder(
           borderSide: BorderSide(color: AppColors.primary),
         ),
-        counterStyle: AppTextStyles.body(
-          fontSize: AppSizes.fontXS,
-          color: AppColors.textGray,
+        border: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.fieldPlaceholder),
         ),
       ),
     );
   }
 }
 
-class _CategoryChipSelector extends StatelessWidget {
-  final List<String> categories;
+// ── Category chips ────────────────────────────────────────────────────────────
+
+class _CategoryChips extends StatelessWidget {
   final String? selected;
   final ValueChanged<String> onSelected;
 
-  const _CategoryChipSelector({
-    required this.categories,
-    required this.selected,
-    required this.onSelected,
-  });
+  const _CategoryChips({required this.selected, required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
       spacing: AppSizes.paddingS,
       runSpacing: AppSizes.paddingS,
-      children: categories.map((cat) {
-        final isActive = cat == selected;
+      children: AppStrings.createCategories.map((cat) {
+        final isSelected = cat == selected;
         return GestureDetector(
           onTap: () => onSelected(cat),
           child: Container(
@@ -256,18 +288,20 @@ class _CategoryChipSelector extends StatelessWidget {
               vertical: AppSizes.paddingS,
             ),
             decoration: BoxDecoration(
-              color: isActive ? AppColors.chipSelected : AppColors.cardWhite,
-              borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+              color: isSelected ? AppColors.chipSelected : AppColors.cardWhite,
+              borderRadius: BorderRadius.circular(64),
               border: Border.all(
-                color: isActive ? AppColors.chipSelected : AppColors.chipBorder,
+                color: isSelected ? AppColors.chipSelected : AppColors.chipBorder,
               ),
             ),
             child: Text(
               cat,
-              style: AppTextStyles.body(
-                fontSize: AppSizes.fontS,
-                color: isActive ? AppColors.chipSelectedText : AppColors.textDark,
-                fontWeight: FontWeight.w500,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? AppColors.chipSelectedText
+                    : AppColors.textDark,
               ),
             ),
           ),
@@ -277,45 +311,189 @@ class _CategoryChipSelector extends StatelessWidget {
   }
 }
 
-class _RulesInput extends StatelessWidget {
-  final TextEditingController controller;
+// ── Rules section ─────────────────────────────────────────────────────────────
 
-  const _RulesInput({required this.controller});
+class _RulesSection extends StatefulWidget {
+  final List<TextEditingController> controllers;
+  final VoidCallback onAddRule;
+
+  const _RulesSection({required this.controllers, required this.onAddRule});
+
+  @override
+  State<_RulesSection> createState() => _RulesSectionState();
+}
+
+class _RulesSectionState extends State<_RulesSection> {
+  final _iconKey = GlobalKey();
+  OverlayEntry? _tooltipEntry;
+
+  void _toggleTooltip() {
+    if (_tooltipEntry != null) {
+      _dismissTooltip();
+      return;
+    }
+
+    final box = _iconKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final pos = box.localToGlobal(Offset.zero);
+
+    _tooltipEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismissTooltip,
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            left: pos.dx + box.size.width + 6,
+            top: pos.dy - (AppSizes.tooltipCardHeight - box.size.height) / 2,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: AppSizes.tooltipCardWidth,
+                height: AppSizes.tooltipCardHeight,
+                padding: const EdgeInsets.all(AppSizes.paddingS),
+                decoration: BoxDecoration(
+                  color: AppColors.cardWhite,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1A000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  AppStrings.createRuleTooltip,
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    color: AppColors.reportAccent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_tooltipEntry!);
+  }
+
+  void _dismissTooltip() {
+    _tooltipEntry?.remove();
+    _tooltipEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _dismissTooltip();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          controller: controller,
-          style: AppTextStyles.body(fontSize: AppSizes.fontM, color: AppColors.textDark),
-          decoration: InputDecoration(
-            hintText: AppStrings.createRulesHint,
-            hintStyle: AppTextStyles.body(color: AppColors.textGray),
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.inputBorder),
+        Row(
+          children: [
+            const _SectionLabel(label: AppStrings.createRulesLabel),
+            const SizedBox(width: AppSizes.paddingXS),
+            GestureDetector(
+              key: _iconKey,
+              onTap: _toggleTooltip,
+              child: Icon(
+                Icons.error_outline,
+                size: AppSizes.tooltipIconSize,
+                color: AppColors.reportAccent,
+              ),
             ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.primary),
-            ),
-          ),
+          ],
         ),
         const SizedBox(height: AppSizes.paddingS),
 
+        ...widget.controllers.asMap().entries.map((entry) {
+          final i   = entry.key;
+          final ctrl = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSizes.paddingS),
+            child: TextField(
+              controller: ctrl,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontM,
+                color: AppColors.textDark,
+              ),
+              decoration: InputDecoration(
+                hintText: '${i + 1}. ${AppStrings.createRulesHint}',
+                hintStyle: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontM,
+                  color: AppColors.fieldPlaceholder,
+                ),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.fieldPlaceholder),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+                border: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.fieldPlaceholder),
+                ),
+              ),
+            ),
+          );
+        }),
+
         GestureDetector(
-          onTap: () {
-            // TODO: add additional rule fields dynamically
-          },
+          onTap: widget.onAddRule,
           child: Text(
             AppStrings.createAddRule,
-            style: AppTextStyles.body(
+            style: AppTextStyles.poppins(
               fontSize: AppSizes.fontS,
               color: AppColors.textGray,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Create button ─────────────────────────────────────────────────────────────
+
+class _CreateButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _CreateButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: AppSizes.createButtonWidth,
+        height: AppSizes.createButtonHeight,
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.reportAccent,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+            ),
+          ),
+          child: Text(
+            AppStrings.createButton,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontTitle,
+              fontWeight: FontWeight.w600,
+              color: AppColors.cardWhite,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
