@@ -9,7 +9,7 @@ class AppColors {
   AppColors._();
 
   /// Coral/terracotta: primary action color (buttons, nav bar, active tabs)
-  static const Color primary = Color(0xFFE07355);
+  static const Color primary = Color(0xFFFF6B4A);
 
   /// Warm cream: background for auth screens
   static const Color background = Color(0xFFFAF5F0);
@@ -36,7 +36,7 @@ class AppColors {
   static const Color stepInactive = Color(0xFFD8D8D8);
 
   /// Interest chip — selected background
-  static const Color chipSelected = Color(0xFF1A1A1A);
+  static const Color chipSelected = Color(0xFFFF6B4A);
 
   /// Interest chip — selected text color
   static const Color chipSelectedText = Color(0xFFFFFFFF);
@@ -54,10 +54,10 @@ class AppColors {
   static const Color categoryPurple = Color(0xFFBBADD8);
 
   /// Notification item left-border accent
-  static const Color notifBorder = Color(0xFFE07355);
+  static const Color notifBorder = Color(0xFFFF6B4A);
 
   /// Salmon placeholder for avatars / profile circles
-  static const Color avatarSalmon = Color(0xFFE8A898);
+  static const Color avatarSalmon = Color(0xFFE8A598);
 
   /// Subtle divider line
   static const Color divider = Color(0xFFEEEEEE);
@@ -89,7 +89,7 @@ class AppSizes {
   static const double radiusPill = 100.0;
 
   // Fixed component heights / sizes
-  static const double buttonHeight      = 54.0;
+  static const double buttonHeight      = 56.0;
   static const double inputHeight       = 52.0;
   static const double bottomNavHeight   = 68.0;
   static const double stepBarHeight     = 5.0;
@@ -169,7 +169,7 @@ class AppStrings {
 
   // Category / interests screen
   static const String categoryHeading    = 'What sparks you?';
-  static const String categorySubtitle   = "Pick up to 3. We'll surface live rooms in these.";
+  static const String categorySubtitle   = "Pick your interests. We'll surface live rooms in these.";
   static const String categoryGetStarted = 'Get Started!';
 
   // Home screen
@@ -241,7 +241,7 @@ class AppTextStyles {
   /// Instrument Serif — screen titles, headings, display text
   static TextStyle title({
     double fontSize = AppSizes.fontXXL,
-    FontWeight fontWeight = FontWeight.bold,
+    FontWeight fontWeight = FontWeight.w400,
     Color color = AppColors.textDark,
     FontStyle fontStyle = FontStyle.normal,
     double? height,
@@ -252,5 +252,29 @@ class AppTextStyles {
         color: color,
         fontStyle: fontStyle,
         height: height,
+      );
+
+  /// Poppins — button text
+  static TextStyle button({
+    double fontSize = 24.0,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = AppColors.cardWhite,
+  }) =>
+      GoogleFonts.poppins(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+      );
+
+  /// Roboto — category chip labels
+  static TextStyle chipLabel({
+    double fontSize = AppSizes.fontS,
+    FontWeight fontWeight = FontWeight.w500,
+    Color color = AppColors.textDark,
+  }) =>
+      GoogleFonts.roboto(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
       );
 }
