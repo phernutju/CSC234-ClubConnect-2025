@@ -9,7 +9,7 @@ class AppColors {
   AppColors._();
 
   /// Coral/terracotta: primary action color (buttons, nav bar, active tabs)
-  static const Color primary = Color(0xFFE07355);
+  static const Color primary = Color(0xFFFF6B4A);
 
   /// Warm cream: background for auth screens
   static const Color background = Color(0xFFFAF5F0);
@@ -89,11 +89,41 @@ class AppColors {
   /// Form field underline and placeholder text (Create Community)
   static const Color fieldPlaceholder = Color(0xFFBABABA);
 
+  /// Profile header gradient — start color (salmon)
+  static const Color profileHeaderStart = Color(0xFFFFB199);
+
+  /// Profile header gradient — end color (peach cream)
+  static const Color profileHeaderEnd = Color(0xFFFFD5BE);
+
+  /// Profile star rating icon
+  static const Color starColor = Color(0xFFFFC963);
+
+  /// Comment timestamp meta text ("1 hr ago · from …")
+  static const Color commentMeta = Color(0xFFBABABA);
+
+  /// Comment body text
+  static const Color commentBody = Color(0xFF837A7A);
+
   /// Create Community page background — warm off-white
   static const Color createBackground = Color(0xFFFFF6EE);
 
   /// Cover image inner-shadow vignette overlay
   static const Color coverShadowEdge = Color(0x55000000);
+
+  /// Rate User modal — user info card border and comment field border
+  static const Color rateCardBorder = Color(0xFFE8DFD8);
+
+  /// Rate User modal — unselected star icon color
+  static const Color rateStarEmpty = Color(0xFFE8DFD8);
+
+  /// Rate User modal — star box fill background
+  static const Color rateStarFill = Color(0xFFFFF6EE);
+
+  /// View All Reviews — per-star distribution bar filled portion (green)
+  static const Color reviewBarFilled = Color(0xFF8CD9A7);
+
+  /// View All Reviews — empty star icon color (near-black for contrast)
+  static const Color reviewStarEmpty = Color(0xFF1D1B20);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -133,6 +163,9 @@ class AppSizes {
   static const double popupMenuFontSize   =  12.0;
   static const double popupMenuIconSize   =  14.0;
 
+  // App bar
+  static const double appBarHeight = 64.0;
+
   // Fixed component heights / sizes
   static const double buttonHeight      = 54.0;
   static const double inputHeight       = 52.0;
@@ -155,7 +188,41 @@ class AppSizes {
   static const double tooltipIconSize    =  19.0;
   static const double fieldBorderWidth   =   2.0;
 
+  // Default rating shown before any reviews are submitted
+  static const double defaultRating = 5.0;
+
+  // View All Reviews modal
+  static const double reviewModalHeight   = 575.0;
+  static const double reviewSummaryHeight = 125.0;
+  static const double reviewMiniStarSize  =  11.0;
+  static const double reviewBarHeight     =   4.0;
+  static const double reviewItemSpacing   =  12.0;
+
+  // Rate User modal fixed dimensions
+  static const double rateModalWidth         = 296.0;
+  static const double rateModalRadius        =  16.0;
+  static const double rateUserCardWidth      = 266.0;
+  static const double rateUserCardHeight     = 132.0;
+  static const double rateUserAvatarSize     =  54.0;
+  static const double rateStarBoxSize        =  41.0;
+  static const double rateStarBoxRadius      =   8.0;
+  static const double rateStarIconSize       =  18.0;
+  static const double ratePostButtonWidth    = 245.0;
+  static const double ratePostButtonHeight   =  38.0;
+  static const double rateCommentFieldHeight =  36.0;
+  static const double rateCloseButtonSize    =  28.0;
+
+  // Profile screen fixed dimensions
+  static const double profileHeaderHeight = 200.0;
+  static const double interestChipWidth   = 108.0;
+  static const double interestChipHeight  =  35.0;
+  static const double interestChipRadius  =  64.0;
+  static const double starIconSize        =  13.0;
+  static const double ratingStarSize      =  32.0;
+  static const double commentBorderWidth  =   3.0;
+
   // Font sizes
+  static const double fontXXS     = 10.0;
   static const double fontXS      = 11.0;
   static const double fontS       = 13.0;
   static const double fontSM      = 14.0;
@@ -285,23 +352,59 @@ class AppStrings {
   static const String createRulesHint     = 'Type your rule';
   static const String createAddRule       = '+ Add more rules';
   static const String createButton        = 'Create';
-  static const String createRuleTooltip  =
-      'Keep your community safe!\nWrite your custom rules below '
-      'and our AI system will help enforce them by removing violators.';
+  static const String createRuleTooltip =
+      'Keep your community safe! Write your custom rules below, '
+      'and our AI assistant will help enforce them by removing violators';
   static const List<String> createCategories = [
     'Badminton', 'Basketball', 'Football', 'Tennis',
     'Swimming', 'Cooking', 'Music', 'Art',
     'Coding', 'Dance', 'Photography', 'Gaming',
   ];
 
+  // Community (My club tab)
+  static const String myClubEmpty            = 'No communities yet.\nTap + to create one!';
+  static const String communityMemberDefault      = '1 member';
+  static const String communityMemberCountDefault = '1';
+
   // Profile screen
-  static const String profileRateUser  = 'Rate this user';
-  static const String profileAbout     = 'About me';
-  static const String profileInterests = 'Interests';
-  static const String profileComments  = 'Comments';
-  static const String profileViewAll   = 'view all';
+  static const String profileRateUser   = 'Rate this user';
+  static const String profileEditButton = 'Edit Profile';
+  static const String profileRating     = '4.8';
+  static const String profileAbout      = 'About me';
+  static const String profileInterests  = 'Interests';
+  static const String profileComments   = 'Comments';
+  static const String profileViewAll    = 'view all';
+  static const String profileSubmitRate = 'Submit';
   static const String profileBio =
       "Hello everyone, I'm seeking for friend to play Badminton with me !";
+  static const String profileCommentBody =
+      'Lorem ipsum dolor sit amet, consectetuer adipiscing elit';
+
+  // Rate User modal — test data (used until real auth is wired)
+  static const String rateTestUsername    = 'TestUser';
+  static const String rateTestCommunity   = 'Badminton KMUTT';
+
+  // Rate User modal — display strings
+  static const String rateModalTitle1     = 'What in';
+  static const String rateModalTitle2     = 'Your mind?';
+  static const String rateModalAnonymous  = 'Your rating is anonymous.';
+  static const String rateCommentOptional = '(optional)';
+  static const String rateCommentHint     = 'Type something here!';
+  static const String ratePost            = 'Post';
+
+  // Relative time labels for comment timestamps
+  static const String rateJustNow  = 'just now';
+  static const String rateMinAgo   = ' min ago';
+  static const String rateHrAgo    = ' hr ago';
+
+  // Comments section empty state and view-all sheet
+  static const String rateNoComments   = 'No comments yet';
+  static const String rateReview       = 'review';
+  static const String rateReviews      = 'reviews';
+
+  // View All Reviews modal
+  static const String reviewNoReviews   = 'No reviews yet';
+  static const String reviewRatingLabel = 'Rating';
 }
 
 // ─── Text Styles ──────────────────────────────────────────────────────────────

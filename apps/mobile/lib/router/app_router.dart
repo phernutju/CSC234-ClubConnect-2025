@@ -10,9 +10,13 @@ import '../features/auth/screens/category_screen.dart';
 import '../features/home/screens/shell_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/home/screens/notification_screen.dart';
-import '../features/home/screens/profile_screen.dart';
+import '../features/home/screens/my_profile_screen.dart';
+import '../features/home/screens/other_profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
+import '../models/chat_args.dart';
+import '../models/profile_args.dart';
+import '../constants/app_constants.dart';
 
 /// Defines every named route in the app and their order in the navigation stack.
 ///
@@ -66,7 +70,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/profile',
-          builder: (context, state) => const ProfileScreen(),
+          builder: (context, state) => const MyProfileScreen(),
         ),
       ],
     ),
@@ -74,11 +78,27 @@ final GoRouter appRouter = GoRouter(
     // ── Full-screen overlay routes (no bottom nav) ───────────────────────────
     GoRoute(
       path: '/chat',
-      builder: (context, state) => const ChatScreen(),
+      builder: (context, state) {
+        final args = state.extra as ChatArgs?;
+        return ChatScreen(
+          communityName: args?.communityName ?? AppStrings.chatCommunityName,
+          memberCount: args?.memberCount ?? '',
+        );
+      },
     ),
     GoRoute(
       path: '/create-community',
       builder: (context, state) => const CreateCommunityScreen(),
+    ),
+    GoRoute(
+      path: '/other-profile',
+      builder: (context, state) {
+        final args = state.extra as ProfileArgs?;
+        return OtherProfileScreen(
+          username: args?.username ?? AppStrings.rateTestUsername,
+          communityName: args?.communityName ?? AppStrings.rateTestCommunity,
+        );
+      },
     ),
   ],
 );

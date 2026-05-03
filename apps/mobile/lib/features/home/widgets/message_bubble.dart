@@ -38,14 +38,21 @@ class ChatMessage {
 
 /// Renders the correct bubble variant and fires [onLongPress] with the global
 /// tap position so the caller can anchor showMenu() next to the bubble.
+/// [onSenderTap] fires when the user taps the avatar or name of a received
+/// message — typically navigates to the sender's profile.
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final void Function(Offset globalPosition)? onLongPress;
+
+  /// Called when the user taps the avatar or sender name of a received bubble.
+  /// Not used for sent messages (isSent == true).
+  final VoidCallback? onSenderTap;
 
   const MessageBubble({
     super.key,
     required this.message,
     this.onLongPress,
+    this.onSenderTap,
   });
 
   @override
@@ -56,7 +63,7 @@ class MessageBubble extends StatelessWidget {
           : (details) => onLongPress!(details.globalPosition),
       child: message.isSent
           ? _SentBubble(message: message)
-          : _ReceivedBubble(message: message),
+          : _ReceivedBubble(message: message, onSenderTap: onSenderTap),
     );
   }
 }
@@ -143,7 +150,11 @@ class _SentBubble extends StatelessWidget {
 
 class _ReceivedBubble extends StatelessWidget {
   final ChatMessage message;
-  const _ReceivedBubble({required this.message});
+
+  /// Fires when the user taps the avatar or sender name.
+  final VoidCallback? onSenderTap;
+
+  const _ReceivedBubble({required this.message, this.onSenderTap});
 
   // All corners 18, bottom-left 4 → tail pointing toward the receiver
   static final _shape = BorderRadius.only(
@@ -159,13 +170,16 @@ class _ReceivedBubble extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Salmon avatar circle
-        Container(
-          width: AppSizes.avatarSmall,
-          height: AppSizes.avatarSmall,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.avatarSalmon,
+        // Tappable salmon avatar circle → other user profile
+        GestureDetector(
+          onTap: onSenderTap,
+          child: Container(
+            width: AppSizes.avatarSmall,
+            height: AppSizes.avatarSmall,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.avatarSalmon,
+            ),
           ),
         ),
         const SizedBox(width: AppSizes.paddingS),
@@ -173,13 +187,16 @@ class _ReceivedBubble extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Sender name — Inter Bold
-            Text(
-              message.senderName,
-              style: AppTextStyles.body(
-                fontSize: AppSizes.fontS,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
+            // Tappable sender name → other user profile
+            GestureDetector(
+              onTap: onSenderTap,
+              child: Text(
+                message.senderName,
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontS,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
               ),
             ),
             const SizedBox(height: 4),

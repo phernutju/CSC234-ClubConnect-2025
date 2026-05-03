@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'constants/app_constants.dart';
+import 'providers/community_provider.dart';
+import 'providers/rating_provider.dart';
 import 'router/app_router.dart';
 
 void main() {
@@ -12,7 +16,12 @@ class ClubConnectApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CommunityProvider()),
+        ChangeNotifierProvider(create: (_) => RatingProvider()),
+      ],
+      child: MaterialApp.router(
       title: 'ClubConnect',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -25,8 +34,12 @@ class ClubConnectApp extends StatelessWidget {
         // Remove the Material splash / ink-well ripple in favor of custom GestureDetectors
         splashFactory: NoSplash.splashFactory,
         highlightColor: Colors.transparent,
+        appBarTheme: const AppBarTheme(
+          toolbarHeight: AppSizes.appBarHeight,
+        ),
       ),
       routerConfig: appRouter,
+      ),
     );
   }
 }

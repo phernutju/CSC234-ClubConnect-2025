@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/profile_args.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';
@@ -9,7 +10,17 @@ import '../widgets/report_message_modal.dart';
 
 /// Full-screen chat room for a single community conversation.
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final String communityName;
+
+  /// Numeric member count shown in parentheses after the name.
+  /// Empty string suppresses the parentheses.
+  final String memberCount;
+
+  const ChatScreen({
+    super.key,
+    required this.communityName,
+    required this.memberCount,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -19,8 +30,23 @@ class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
 
-  // Messages live only in local state — starts empty, gone on restart
-  final List<ChatMessage> _messages = [];
+  // TESTING ONLY - remove when DB connected
+  final List<ChatMessage> _messages = [
+    ChatMessage(
+      id: 'test_1',
+      text: 'Hey! Anyone want to play badminton?',
+      isSent: false,
+      senderName: 'TestUser',
+      time: '10:14',
+    ),
+    ChatMessage(
+      id: 'test_2',
+      text: "I'm in! Let's meet tomorrow",
+      isSent: false,
+      senderName: 'JohnDoe',
+      time: '10:15',
+    ),
+  ];
 
   // When non-null, the user is in reply mode targeting this message
   ChatMessage? _replyingTo;
@@ -96,7 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
       onReport: () => showReportModal(
         context,
         reportedUsername: message.senderName,
-        communityName: AppStrings.chatCommunityName,
+        communityName: widget.communityName,
         messageSnippet: message.text,
       ),
     );
@@ -109,7 +135,10 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           // ── App bar ──────────────────────────────────────────────────────
-          const _ChatAppBar(),
+          _ChatAppBar(
+            communityName: widget.communityName,
+            memberCount: widget.memberCount,
+          ),
 
           // ── Message list ─────────────────────────────────────────────────
           Expanded(
@@ -127,6 +156,16 @@ class _ChatScreenState extends State<ChatScreen> {
                 return MessageBubble(
                   message: message,
                   onLongPress: (pos) => _onLongPressMessage(message, pos),
+                  // Tapping a received message's avatar/name → other user profile
+                  onSenderTap: message.isSent
+                      ? null
+                      : () => context.push(
+                            '/other-profile',
+                            extra: ProfileArgs(
+                              username: message.senderName,
+                              communityName: widget.communityName,
+                            ),
+                          ),
                 );
               },
             ),
@@ -149,9 +188,18 @@ class _ChatScreenState extends State<ChatScreen> {
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
 
-/// Coral app bar: back arrow, community name (Inter Bold), hamburger menu.
+/// Coral app bar: back arrow, community name + member count, hamburger menu.
 class _ChatAppBar extends StatelessWidget {
-  const _ChatAppBar();
+  final String communityName;
+  final String memberCount;
+
+  const _ChatAppBar({
+    required this.communityName,
+    required this.memberCount,
+  });
+
+  String get _title =>
+      memberCount.isEmpty ? communityName : '$communityName ($memberCount)';
 
   @override
   Widget build(BuildContext context) {
@@ -161,29 +209,33 @@ class _ChatAppBar extends StatelessWidget {
         top: MediaQuery.of(context).padding.top,
         left: AppSizes.paddingM,
         right: AppSizes.paddingM,
-        bottom: AppSizes.paddingM,
       ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => context.pop(),
-            child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
-          ),
-          const SizedBox(width: AppSizes.paddingM),
+      child: SizedBox(
+        height: AppSizes.appBarHeight,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => context.pop(),
+              child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+            ),
+            const SizedBox(width: AppSizes.paddingM),
 
-          Expanded(
-            child: Text(
-              AppStrings.chatCommunityName,
-              style: AppTextStyles.body(
-                fontSize: AppSizes.fontL,
-                fontWeight: FontWeight.bold,
-                color: AppColors.cardWhite,
+            Expanded(
+              child: Text(
+                _title,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontL,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.cardWhite,
+                ),
               ),
             ),
-          ),
 
-          const Icon(Icons.menu, color: AppColors.cardWhite),
-        ],
+            const Icon(Icons.menu, color: AppColors.cardWhite),
+          ],
+        ),
       ),
     );
   }

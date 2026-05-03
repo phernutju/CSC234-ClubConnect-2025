@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/chat_args.dart';
+import '../../../models/community_model.dart';
+import '../../../providers/community_provider.dart';
 import '../widgets/home_tab_bar.dart';
 import '../widgets/club_card.dart';
 import '../widgets/category_tag.dart';
@@ -22,21 +26,25 @@ class _HomeScreenState extends State<HomeScreen> {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '10 members',
+      'count': '10',
     },
     {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '10 members',
+      'count': '10',
     },
     {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '10 members',
+      'count': '10',
     },
     {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '10 members',
+      'count': '10',
     },
   ];
 
@@ -45,26 +53,32 @@ class _HomeScreenState extends State<HomeScreen> {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '500 members',
+      'count': '500',
     },
     {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '500 members',
+      'count': '500',
     },
     {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '500 members',
+      'count': '500',
     },
     {
       'name': 'Badminton Thonburi',
       'desc': 'Welcome everyone who love to play badminton come and join our ....',
       'members': '500 members',
+      'count': '500',
     },
   ];
 
   @override
   Widget build(BuildContext context) {
+    final myCommunities = context.watch<CommunityProvider>().communities;
+
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
@@ -95,7 +109,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   selectedTab: _selectedTab,
                   discoverClubs: _discoverClubs,
                   trendingClubs: _trendingClubs,
-                  onClubTap: () => context.push('/chat'),
+                  myCommunities: myCommunities,
+                  onClubTap: (args) => context.push('/chat', extra: args),
                 ),
               ),
             ],
@@ -178,12 +193,14 @@ class _TabContent extends StatelessWidget {
   final int selectedTab;
   final List<Map<String, String>> discoverClubs;
   final List<Map<String, String>> trendingClubs;
-  final VoidCallback onClubTap;
+  final List<CommunityModel> myCommunities;
+  final void Function(ChatArgs) onClubTap;
 
   const _TabContent({
     required this.selectedTab,
     required this.discoverClubs,
     required this.trendingClubs,
+    required this.myCommunities,
     required this.onClubTap,
   });
 
@@ -191,7 +208,7 @@ class _TabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (selectedTab) {
       case 1:
-        return _ClubList(clubs: discoverClubs, onTap: onClubTap);
+        return _MyClubList(communities: myCommunities, onTap: onClubTap);
       case 2:
         return _ClubList(clubs: trendingClubs, onTap: onClubTap);
       default:
@@ -200,9 +217,43 @@ class _TabContent extends StatelessWidget {
   }
 }
 
+class _MyClubList extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final void Function(ChatArgs) onTap;
+
+  const _MyClubList({required this.communities, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (communities.isEmpty) {
+      return Center(
+        child: Text(
+          AppStrings.myClubEmpty,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.body(color: AppColors.textGray),
+        ),
+      );
+    }
+    return ListView(
+      children: communities
+          .map((c) => ClubCard(
+                name: c.name,
+                description: c.description.isEmpty ? c.category : c.description,
+                memberCount: AppStrings.communityMemberDefault,
+                coverImage: c.coverImage,
+                onTap: () => onTap(ChatArgs(
+                  communityName: c.name,
+                  memberCount: AppStrings.communityMemberCountDefault,
+                )),
+              ))
+          .toList(),
+    );
+  }
+}
+
 class _DiscoverTab extends StatelessWidget {
   final List<Map<String, String>> clubs;
-  final VoidCallback onTap;
+  final void Function(ChatArgs) onTap;
 
   const _DiscoverTab({required this.clubs, required this.onTap});
 
@@ -227,7 +278,7 @@ class _DiscoverTab extends StatelessWidget {
 
 class _ClubList extends StatelessWidget {
   final List<Map<String, String>> clubs;
-  final VoidCallback onTap;
+  final void Function(ChatArgs) onTap;
 
   const _ClubList({required this.clubs, required this.onTap});
 
@@ -239,14 +290,17 @@ class _ClubList extends StatelessWidget {
 
 List<Widget> _buildClubCards(
   List<Map<String, String>> clubs,
-  VoidCallback onTap,
+  void Function(ChatArgs) onTap,
 ) {
   return clubs
       .map((c) => ClubCard(
             name: c['name']!,
             description: c['desc']!,
             memberCount: c['members']!,
-            onTap: onTap,
+            onTap: () => onTap(ChatArgs(
+              communityName: c['name']!,
+              memberCount: c['count']!,
+            )),
           ))
       .toList();
 }

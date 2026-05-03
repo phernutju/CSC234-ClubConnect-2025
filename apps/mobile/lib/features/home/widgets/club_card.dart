@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 
@@ -6,6 +7,7 @@ class ClubCard extends StatelessWidget {
   final String name;
   final String description;
   final String memberCount;
+  final Uint8List? coverImage;
   final VoidCallback? onTap;
 
   const ClubCard({
@@ -13,6 +15,7 @@ class ClubCard extends StatelessWidget {
     required this.name,
     required this.description,
     required this.memberCount,
+    this.coverImage,
     this.onTap,
   });
 
@@ -36,7 +39,7 @@ class ClubCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _ClubThumbnail(),
+            _ClubThumbnail(imageBytes: coverImage),
 
             const SizedBox(width: AppSizes.paddingM),
 
@@ -61,16 +64,21 @@ class ClubCard extends StatelessWidget {
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
 class _ClubThumbnail extends StatelessWidget {
+  final Uint8List? imageBytes;
+  const _ClubThumbnail({this.imageBytes});
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: AppSizes.cardThumbnailSize,
-      height: AppSizes.cardThumbnailSize,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSizes.radiusS),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+      child: Container(
+        width: AppSizes.cardThumbnailSize,
+        height: AppSizes.cardThumbnailSize,
         color: AppColors.inputFill,
+        child: imageBytes != null
+            ? Image.memory(imageBytes!, fit: BoxFit.cover)
+            : null,
       ),
-      child: const SizedBox(),
     );
   }
 }

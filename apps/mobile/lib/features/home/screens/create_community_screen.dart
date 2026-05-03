@@ -2,7 +2,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/community_model.dart';
+import '../../../providers/community_provider.dart';
 
 /// "Host" screen — create a new community.
 class CreateCommunityScreen extends StatefulWidget {
@@ -43,10 +46,30 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     setState(() => _rulesControllers.add(TextEditingController()));
   }
 
+  void _onCreate() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+
+    final rules = _rulesControllers
+        .map((c) => c.text.trim())
+        .where((r) => r.isNotEmpty)
+        .toList();
+
+    context.read<CommunityProvider>().addCommunity(CommunityModel(
+      name: name,
+      description: _aboutController.text.trim(),
+      category: _selectedCategory ?? '',
+      coverImage: _coverImageBytes,
+      rules: rules,
+    ));
+
+    context.go('/home');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF6EE),
+      backgroundColor: AppColors.createBackground,
       body: Column(
         children: [
           _CreateAppBar(),
@@ -100,7 +123,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
 
-                      _CreateButton(onPressed: () => context.go('/home')),
+                      _CreateButton(onPressed: _onCreate),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
                   ),
@@ -125,27 +148,29 @@ class _CreateAppBar extends StatelessWidget {
         top: MediaQuery.of(context).padding.top,
         left: AppSizes.paddingM,
         right: AppSizes.paddingM,
-        bottom: AppSizes.paddingM,
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: GestureDetector(
-              onTap: () => context.pop(),
-              child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+      child: SizedBox(
+        height: AppSizes.appBarHeight,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: () => context.pop(),
+                child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+              ),
             ),
-          ),
-          Text(
-            AppStrings.createTitle,
-            style: AppTextStyles.poppins(
-              fontSize: AppSizes.fontTitle,
-              fontWeight: FontWeight.w500,
-              color: AppColors.cardWhite,
+            Text(
+              AppStrings.createTitle,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontTitle,
+                fontWeight: FontWeight.w500,
+                color: AppColors.cardWhite,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -170,6 +195,25 @@ class _CoverImageSection extends StatelessWidget {
               ? Image.memory(imageBytes!, fit: BoxFit.cover)
               : Container(color: AppColors.inputFill),
         ),
+
+        // Inner-shadow vignette: dark top/bottom edges, transparent centre
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.coverShadowEdge,
+                  Colors.transparent,
+                  AppColors.coverShadowEdge,
+                ],
+                stops: [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+        ),
+
         Positioned(
           bottom: AppSizes.paddingS,
           right: AppSizes.paddingS,
@@ -252,13 +296,22 @@ class _FormField extends StatelessWidget {
           color: AppColors.fieldPlaceholder,
         ),
         enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: AppColors.fieldPlaceholder),
+          borderSide: BorderSide(
+            color: AppColors.fieldPlaceholder,
+            width: AppSizes.fieldBorderWidth,
+          ),
         ),
         focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: AppColors.primary),
+          borderSide: BorderSide(
+            color: AppColors.primary,
+            width: AppSizes.fieldBorderWidth,
+          ),
         ),
         border: const UnderlineInputBorder(
-          borderSide: BorderSide(color: AppColors.fieldPlaceholder),
+          borderSide: BorderSide(
+            color: AppColors.fieldPlaceholder,
+            width: AppSizes.fieldBorderWidth,
+          ),
         ),
       ),
     );
@@ -355,7 +408,7 @@ class _RulesSectionState extends State<_RulesSection> {
               child: Container(
                 width: AppSizes.tooltipCardWidth,
                 height: AppSizes.tooltipCardHeight,
-                padding: const EdgeInsets.all(AppSizes.paddingS),
+                padding: const EdgeInsets.all(AppSizes.tooltipPadding),
                 decoration: BoxDecoration(
                   color: AppColors.cardWhite,
                   borderRadius: BorderRadius.circular(AppSizes.radiusS),
@@ -435,13 +488,22 @@ class _RulesSectionState extends State<_RulesSection> {
                   color: AppColors.fieldPlaceholder,
                 ),
                 enabledBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.fieldPlaceholder),
+                  borderSide: BorderSide(
+                    color: AppColors.fieldPlaceholder,
+                    width: AppSizes.fieldBorderWidth,
+                  ),
                 ),
                 focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary),
+                  borderSide: BorderSide(
+                    color: AppColors.primary,
+                    width: AppSizes.fieldBorderWidth,
+                  ),
                 ),
                 border: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.fieldPlaceholder),
+                  borderSide: BorderSide(
+                    color: AppColors.fieldPlaceholder,
+                    width: AppSizes.fieldBorderWidth,
+                  ),
                 ),
               ),
             ),
