@@ -62,3 +62,18 @@ lib/
 ### Theme
 
 `MaterialApp.router` with Material 3, seed color `AppColors.primary`. Ripple/splash is globally disabled (`NoSplash.splashFactory`) — use `GestureDetector` for custom tap feedback.
+
+### State management
+
+No state management framework is used. All state is local to each screen via `StatefulWidget`. `TextEditingController` instances are disposed in `dispose()`. There is no cross-screen state sharing yet.
+
+### Data layer
+
+No models, repositories, or services exist yet. All displayed data is hardcoded as `List<Map<String, String>>` directly inside screen widgets. Business logic stubs (login validation, OTP verification, category saving, community creation) are marked with `// TODO` comments at their call sites.
+
+### Widget conventions
+
+- Screens decompose internal sections into private sub-widgets using the `_WidgetName` naming convention.
+- `CategoryScreen` allows selecting **up to 3** interests; selection logic is managed with a local `Set<String>`.
+- `OtpScreen` uses 4 individual `TextField` nodes with auto-focus advancing on each character entry.
+- `LiquidCard` achieves its frosted-glass look via `BackdropFilter` + semi-transparent white — requires an image or gradient behind it to be visible.

@@ -13,6 +13,9 @@ import '../features/home/screens/notification_screen.dart';
 import '../features/home/screens/profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
+import '../features/admin/screens/admin_reports_screen.dart';
+import '../features/admin/screens/admin_report_detail_screen.dart';
+import '../features/admin/models/report_model.dart';
 
 /// Defines every named route in the app and their order in the navigation stack.
 ///
@@ -94,6 +97,23 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/create-community',
       builder: (context, state) => const CreateCommunityScreen(),
+    ),
+
+    // ── Admin routes ─────────────────────────────────────────────────────────
+    GoRoute(
+      path: '/admin',
+      builder: (context, state) => const AdminReportsScreen(),
+    ),
+    GoRoute(
+      path: '/admin-reports',
+      builder: (context, state) => const AdminReportsScreen(),
+    ),
+    GoRoute(
+      path: '/admin-report-detail',
+      builder: (context, state) {
+        final report = state.extra as ReportModel;
+        return AdminReportDetailScreen(report: report);
+      },
     ),
   ],
 );
