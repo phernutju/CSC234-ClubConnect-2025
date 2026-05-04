@@ -1,31 +1,44 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ReviewModel {
-  final String reviewId;
-  final String authorId;
-  final String targetId;
-  final double rating;
-  final String body;
+  final String id;
+  final String raterId;
+  final String communityId;
+  final int score;
+  final String comment;
+  final Timestamp createdAt;
 
   const ReviewModel({
-    required this.reviewId,
-    required this.authorId,
-    required this.targetId,
-    required this.rating,
-    this.body = '',
+    required this.id,
+    required this.raterId,
+    required this.communityId,
+    required this.score,
+    required this.comment,
+    required this.createdAt,
   });
 
-  factory ReviewModel.fromJson(Map<String, dynamic> json) => ReviewModel(
-        reviewId: json['reviewId'] as String,
-        authorId: json['authorId'] as String,
-        targetId: json['targetId'] as String,
-        rating: (json['rating'] as num).toDouble(),
-        body: json['body'] as String? ?? '',
+  factory ReviewModel.fromJson(String id, Map<String, dynamic> json) =>
+      ReviewModel(
+        id: id,
+        raterId: json['raterId'] as String,
+        communityId: json['communityId'] as String? ?? '',
+        score: json['score'] as int,
+        comment: json['comment'] as String,
+        createdAt: json['createdAt'] as Timestamp,
       );
 
   Map<String, dynamic> toJson() => {
-        'reviewId': reviewId,
-        'authorId': authorId,
-        'targetId': targetId,
-        'rating': rating,
-        'body': body,
+        'raterId': raterId,
+        'communityId': communityId,
+        'score': score,
+        'comment': comment,
+        'createdAt': createdAt,
       };
+}
+
+class ReviewsResult {
+  final List<ReviewModel> reviews;
+  final double averageScore;
+
+  const ReviewsResult({required this.reviews, required this.averageScore});
 }

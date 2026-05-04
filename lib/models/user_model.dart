@@ -1,51 +1,53 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel {
   final String uid;
   final String displayName;
+  final String email;
+  final String phoneNumber;
+  final String photoURL;
   final String bio;
   final List<String> interests;
-  final String avatarUrl;
-  final String phone;
+  final String role;
+  final Timestamp createdAt;
+  final Timestamp updatedAt;
 
   const UserModel({
     required this.uid,
     required this.displayName,
-    this.bio = '',
-    this.interests = const [],
-    this.avatarUrl = '',
-    this.phone = '',
+    required this.email,
+    required this.phoneNumber,
+    required this.photoURL,
+    required this.bio,
+    required this.interests,
+    required this.role,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
-  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        uid: json['uid'] as String,
-        displayName: json['displayName'] as String,
-        bio: json['bio'] as String? ?? '',
-        interests: List<String>.from(json['interests'] as List? ?? []),
-        avatarUrl: json['avatarUrl'] as String? ?? '',
-        phone: json['phone'] as String? ?? '',
-      );
+ factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
+  uid: json['uid']?.toString() ?? '',
+  displayName: json['displayName']?.toString() ?? '',
+  email: json['email']?.toString() ?? '',
+  phoneNumber: json['phoneNumber']?.toString() ?? '',
+  photoURL: json['photoURL']?.toString() ?? '',
+  bio: json['bio']?.toString() ?? '',
+  interests: List<String>.from(json['interests'] ?? []),
+  role: json['role']?.toString() ?? 'user',
+  createdAt: json['createdAt'] as Timestamp,
+  updatedAt: json['updatedAt'] as Timestamp,
+);
 
   Map<String, dynamic> toJson() => {
         'uid': uid,
         'displayName': displayName,
+        'email': email,
+        'phoneNumber': phoneNumber,
+        'photoURL': photoURL,
         'bio': bio,
         'interests': interests,
-        'avatarUrl': avatarUrl,
-        'phone': phone,
+        'role': role,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
       };
-
-  UserModel copyWith({
-    String? displayName,
-    String? bio,
-    List<String>? interests,
-    String? avatarUrl,
-    String? phone,
-  }) =>
-      UserModel(
-        uid: uid,
-        displayName: displayName ?? this.displayName,
-        bio: bio ?? this.bio,
-        interests: interests ?? this.interests,
-        avatarUrl: avatarUrl ?? this.avatarUrl,
-        phone: phone ?? this.phone,
-      );
 }

@@ -40,6 +40,14 @@ class DefaultFirebaseOptions {
     }
   }
 
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyDb2jylQ5BwMEXMyY5w7ZJFHG4Fzq3obvg',
+    appId: '1:939992324681:android:60967050854afe2b8d3d98',
+    messagingSenderId: '939992324681',
+    projectId: 'clubconnect-17ec5',
+    storageBucket: 'clubconnect-17ec5.firebasestorage.app',
+  );
+
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDvpy-0BMjeebx6FSYwpuHoyKSklnupokQ',
     appId: '1:939992324681:web:3c5407a6f40ab1678d3d98',
@@ -50,15 +58,7 @@ class DefaultFirebaseOptions {
     measurementId: 'G-8951X6VFKC',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDb2jylQ5BwMEXMyY5w7ZJFHG4Fzq3obvg',
-    appId: '1:939992324681:android:60967050854afe2b8d3d98',
-    messagingSenderId: '939992324681',
-    projectId: 'clubconnect-17ec5',
-    storageBucket: 'clubconnect-17ec5.firebasestorage.app',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
+  static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDEdNZwYud7cCBd52L4M52I2Aot4dns4rg',
     appId: '1:939992324681:ios:9ae0b57d163b764c8d3d98',
     messagingSenderId: '939992324681',
@@ -68,7 +68,7 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.example.csc234Clubconnect',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
+  static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDEdNZwYud7cCBd52L4M52I2Aot4dns4rg',
     appId: '1:939992324681:ios:9ae0b57d163b764c8d3d98',
     messagingSenderId: '939992324681',
@@ -87,4 +87,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'clubconnect-17ec5.firebasestorage.app',
     measurementId: 'G-J40ECNS054',
   );
+
 }
