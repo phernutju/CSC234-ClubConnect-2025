@@ -29,13 +29,8 @@ Message: "$text"
 Reply with ONLY one word: "FLAGGED" if the message is inappropriate, or "SAFE" if it is acceptable.
 ''';
 
-    try {
-      final response = await _instance.generateContent([Content.text(prompt)]);
-      final result = response.text?.trim().toUpperCase() ?? 'SAFE';
-      return result.contains('FLAGGED');
-    } catch (e) {
-      // Fail open — if Gemini is unreachable, allow the message through
-      return false;
-    }
+    final response = await _instance.generateContent([Content.text(prompt)]);
+    final result = response.text?.trim().toUpperCase() ?? 'SAFE';
+    return result.contains('FLAGGED');
   }
 }
