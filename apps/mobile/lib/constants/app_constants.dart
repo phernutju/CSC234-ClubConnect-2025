@@ -127,6 +127,9 @@ class AppColors {
   
   /// Alert text/icon color (e.g., Report button dropdown)
   static const Color alertRed = Color(0xFFFF6868);
+
+  /// Edit Profile save button — green
+  static const Color saveButtonColor = Color(0xFF00C95C);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -223,6 +226,13 @@ class AppSizes {
   static const double starIconSize        =  13.0;
   static const double ratingStarSize      =  32.0;
   static const double commentBorderWidth  =   3.0;
+
+  // Edit Profile save button
+  static const double saveButtonWidth  = 67.0;
+  static const double saveButtonHeight = 18.0;
+
+  // Camera overlay button on avatar and cover photo in edit mode
+  static const double profileCameraButtonSize = 28.0;
 
   // Font sizes
   static const double fontXXS     = 10.0;
@@ -408,6 +418,17 @@ class AppStrings {
   // View All Reviews modal
   static const String reviewNoReviews   = 'No reviews yet';
   static const String reviewRatingLabel = 'Rating';
+
+  // Edit Profile
+  static const String profileSaveButton = 'Save';
+  static const List<String> interestOptions = [
+    'Design 🎨',     'Coding 💻',       'Badminton 🏸',  'Writing ✍️',   'Cycling 🚴',
+    'Yoga 🧘',       'Vegan 🌿',        'Home cooking 🍳','Climbing 🧗',  'Hardware 🔧',
+    'Football ⚽',   'Running 🏃',      'Baking 🥐',     'Startups 🚀',  'Wine 🍷',
+    'Music 🎵',      'Art 🖼️',          'Photography 📷', 'Gaming 🎮',    'Travel ✈️',
+    'Fitness 💪',    'Reading 📚',      'Film 🎬',        'Language 🗣️', 'Sports 🏅',
+    'Technology ⚙️', 'Swimming 🏊',    'Tennis 🎾',      'Basketball 🏀','Dance 💃',
+  ];
 
   /// Alert text/icon color (e.g., Report button dropdown)
 }

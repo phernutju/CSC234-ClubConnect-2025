@@ -1,13 +1,17 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/rating_model.dart';
 import '../../../providers/rating_provider.dart';
+import '../widgets/interest_chip.dart';
+import '../widgets/edit_profile_header.dart';
+import '../widgets/view_all_reviews_modal.dart';
 
 // ── File-scoped helpers ────────────────────────────────────────────────────────
 
-/// Returns "just now", "N min ago", or "N hr ago" relative to [time].
 String _relativeTime(DateTime time) {
   final diff = DateTime.now().difference(time);
   if (diff.inMinutes < 1) return AppStrings.rateJustNow;
@@ -15,7 +19,6 @@ String _relativeTime(DateTime time) {
   return '${diff.inHours}${AppStrings.rateHrAgo}';
 }
 
-/// Comment body: the typed comment if non-empty, otherwise a filled/empty star string.
 String _ratingBody(RatingModel r) {
   if (r.comment.isNotEmpty) return r.comment;
   return '${'★' * r.stars}${'☆' * (5 - r.stars)}';
@@ -24,55 +27,117 @@ String _ratingBody(RatingModel r) {
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 /// Profile screen for the current user — reached via the "You" bottom-nav tab.
-/// Shows "Edit Profile" outlined button; comments come from [RatingProvider].
-/// TODO: filter by current user ID once auth is connected.
-class MyProfileScreen extends StatelessWidget {
+/// Toggles between view mode and edit mode via the "Edit Profile" / "Save" button.
+class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
 
-  // Hardcoded current username until auth is connected
-  static const String _myUsername = 'Username';
+  @override
+  State<MyProfileScreen> createState() => _MyProfileScreenState();
+}
 
-  void _showViewAllSheet(BuildContext context, List<RatingModel> ratings) {
-    showModalBottomSheet(
+class _MyProfileScreenState extends State<MyProfileScreen> {
+  static const String _defaultUsername = 'Username';
+
+  bool _isEditing = false;
+  String _username = _defaultUsername;
+  String _bio = AppStrings.profileBio;
+  Uint8List? _avatarBytes;
+  Uint8List? _coverBytes;
+  final Set<String> _selectedInterests = {};
+
+  late final TextEditingController _usernameController;
+  late final TextEditingController _bioController;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController = TextEditingController(text: _username);
+    _bioController = TextEditingController(text: _bio);
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() => _avatarBytes = bytes);
+  }
+
+  Future<void> _pickCover() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() => _coverBytes = bytes);
+  }
+
+  void _enterEditMode() {
+    _usernameController.text = _username;
+    _bioController.text = _bio;
+    setState(() => _isEditing = true);
+  }
+
+  void _saveProfile() {
+    final newName = _usernameController.text.trim();
+    setState(() {
+      _username = newName.isEmpty ? _defaultUsername : newName;
+      _bio = _bioController.text.trim();
+      _isEditing = false;
+    });
+  }
+
+  void _showViewAllModal(BuildContext context, List<RatingModel> ratings) {
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppSizes.radiusL)),
+      barrierColor: Colors.black45,
+      builder: (_) => ViewAllReviewsModal(
+        username: _username,
+        ratings: ratings,
       ),
-      builder: (_) =>
-          _ViewAllSheet(username: _myUsername, ratings: ratings),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch provider — filter ratings submitted for the current user
     final ratings = context
         .watch<RatingProvider>()
         .ratings
-        .where((r) => r.ratedUsername == _myUsername)
+        .where((r) => r.ratedUsername == _username)
         .toList();
 
     final avgRating = ratings.isEmpty
         ? AppSizes.defaultRating
-        : ratings.map((r) => r.stars).reduce((a, b) => a + b) /
-            ratings.length;
+        : ratings.map((r) => r.stars).reduce((a, b) => a + b) / ratings.length;
 
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
-          // ── Coral app bar ────────────────────────────────────────────────
-          _ProfileAppBar(),
-
-          // ── Scrollable profile content ───────────────────────────────────
+          _ProfileAppBar(title: _username),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                // Gradient header band with avatar + three-dot menu
-                _ProfileHeader(),
+                // Gradient header — edit mode adds camera overlay
+                if (_isEditing)
+                  EditProfileHeader(
+                    avatarBytes: _avatarBytes,
+                    onAvatarTap: _pickAvatar,
+                    coverBytes: _coverBytes,
+                    onCoverTap: _pickCover,
+                  )
+                else
+                  _ProfileHeader(
+                    avatarBytes: _avatarBytes,
+                    coverBytes: _coverBytes,
+                  ),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -80,32 +145,52 @@ class MyProfileScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Username + optional star rating + "Edit Profile" button
-                      _UserInfoRow(avgRating: avgRating),
+                      _UserInfoRow(
+                        username: _username,
+                        avgRating: avgRating,
+                        isEditing: _isEditing,
+                        usernameController: _usernameController,
+                        onEditTap: _enterEditMode,
+                        onSaveTap: _saveProfile,
+                      ),
                       const SizedBox(height: AppSizes.paddingL),
 
                       const _SectionLabel(AppStrings.profileAbout),
                       const SizedBox(height: AppSizes.paddingXS),
-                      Text(
-                        AppStrings.profileBio,
-                        style: AppTextStyles.poppins(
-                          fontSize: AppSizes.fontSM,
-                          fontWeight: FontWeight.w300,
-                          color: AppColors.commentBody,
+                      if (_isEditing)
+                        _BioField(controller: _bioController)
+                      else
+                        Text(
+                          _bio,
+                          style: AppTextStyles.poppins(
+                            fontSize: AppSizes.fontSM,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.commentBody,
+                          ),
                         ),
-                      ),
                       const SizedBox(height: AppSizes.paddingL),
 
                       const _SectionLabel(AppStrings.profileInterests),
                       const SizedBox(height: AppSizes.paddingS),
-                      const _InterestsRow(),
+                      if (_isEditing)
+                        _InterestsGrid(
+                          selectedInterests: _selectedInterests,
+                          onToggle: (interest) => setState(() {
+                            if (_selectedInterests.contains(interest)) {
+                              _selectedInterests.remove(interest);
+                            } else {
+                              _selectedInterests.add(interest);
+                            }
+                          }),
+                        )
+                      else
+                        _SelectedInterestsView(
+                            selectedInterests: _selectedInterests),
                       const SizedBox(height: AppSizes.paddingL),
 
-                      // Comments from RatingProvider — empty until rated
                       _CommentsSection(
                         ratings: ratings,
-                        onViewAll: () =>
-                            _showViewAllSheet(context, ratings),
+                        onViewAll: () => _showViewAllModal(context, ratings),
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
@@ -124,6 +209,10 @@ class MyProfileScreen extends StatelessWidget {
 
 /// Coral app bar — back arrow shown only when there is navigation history.
 class _ProfileAppBar extends StatelessWidget {
+  final String title;
+
+  const _ProfileAppBar({required this.title});
+
   @override
   Widget build(BuildContext context) {
     final canGoBack = context.canPop();
@@ -147,7 +236,9 @@ class _ProfileAppBar extends StatelessWidget {
             Expanded(
               child: Center(
                 child: Text(
-                  'Username',
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                   style: AppTextStyles.body(
                     fontSize: AppSizes.fontTitle,
                     fontWeight: FontWeight.bold,
@@ -164,34 +255,54 @@ class _ProfileAppBar extends StatelessWidget {
   }
 }
 
-/// Salmon-to-peach gradient band with avatar circle + three-dot menu.
+/// Salmon-to-peach gradient band (or cover photo) with avatar circle.
+/// View mode only — no camera overlays.
 class _ProfileHeader extends StatelessWidget {
+  final Uint8List? avatarBytes;
+  final Uint8List? coverBytes;
+
+  const _ProfileHeader({
+    required this.avatarBytes,
+    required this.coverBytes,
+  });
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: AppSizes.profileHeaderHeight + AppSizes.avatarLarge / 2,
       child: Stack(
         children: [
+          // Cover area — photo if selected, gradient otherwise
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Container(
+            child: SizedBox(
               height: AppSizes.profileHeaderHeight,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.profileHeaderStart,
-                    AppColors.profileHeaderEnd,
-                    AppColors.profileHeaderEnd,
-                  ],
-                  stops: [0.0, 0.44, 0.9],
-                ),
-              ),
+              child: coverBytes != null
+                  ? Image.memory(
+                      coverBytes!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                    )
+                  : Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.profileHeaderStart,
+                            AppColors.profileHeaderEnd,
+                            AppColors.profileHeaderEnd,
+                          ],
+                          stops: [0.0, 0.44, 0.9],
+                        ),
+                      ),
+                    ),
             ),
           ),
+
+          // Avatar circle
           Positioned(
             left: AppSizes.paddingL,
             bottom: 0,
@@ -203,6 +314,10 @@ class _ProfileHeader extends StatelessWidget {
                 color: AppColors.avatarSalmon,
                 border: Border.all(color: AppColors.cardWhite, width: 3),
               ),
+              clipBehavior: avatarBytes != null ? Clip.antiAlias : Clip.none,
+              child: avatarBytes != null
+                  ? Image.memory(avatarBytes!, fit: BoxFit.cover)
+                  : null,
             ),
           ),
         ],
@@ -211,32 +326,76 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-/// Username + star icon + rating + outlined coral "Edit Profile" pill.
-/// Shows [AppSizes.defaultRating] when no reviews exist; real average thereafter.
+/// Username + star rating + Edit Profile / Save button.
+/// In view mode: static text + outlined coral "Edit Profile" pill pushed to the right.
+/// In edit mode: username TextField (Expanded) + star rating + green "Save" pill.
 class _UserInfoRow extends StatelessWidget {
+  final String username;
   final double avgRating;
+  final bool isEditing;
+  final TextEditingController usernameController;
+  final VoidCallback onEditTap;
+  final VoidCallback onSaveTap;
 
-  const _UserInfoRow({required this.avgRating});
+  const _UserInfoRow({
+    required this.username,
+    required this.avgRating,
+    required this.isEditing,
+    required this.usernameController,
+    required this.onEditTap,
+    required this.onSaveTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // Flat Row: username · star · rating · [8px] · button, all left-aligned.
+    // Flexible on username truncates long names without pushing the button off screen.
+    // In edit mode, Expanded on the TextField bounds it to the remaining row width.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Username',
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontTitle,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textDark,
+        if (isEditing)
+          Expanded(
+            child: TextField(
+              controller: usernameController,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontTitle,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingS,
+                  vertical: AppSizes.paddingXS,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                  borderSide: const BorderSide(color: AppColors.inputBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+            ),
+          )
+        else
+          Flexible(
+            child: Text(
+              username,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontTitle,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
           ),
-        ),
+
         const SizedBox(width: AppSizes.paddingXS),
-        const Icon(
-          Icons.star,
-          color: AppColors.starColor,
-          size: AppSizes.starIconSize,
-        ),
+        const Icon(Icons.star, color: AppColors.starColor, size: AppSizes.starIconSize),
         const SizedBox(width: 2),
         Text(
           avgRating.toStringAsFixed(1),
@@ -247,33 +406,53 @@ class _UserInfoRow extends StatelessWidget {
           ),
         ),
 
-        const Spacer(),
+        const SizedBox(width: AppSizes.paddingS),
 
-        // Outlined coral pill: pencil icon + "Edit Profile"
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.paddingM,
-            vertical: AppSizes.paddingXS,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSizes.radiusPill),
-            border: Border.all(color: AppColors.primary),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.edit, color: AppColors.primary, size: 12),
-              const SizedBox(width: 4),
-              Text(
-                AppStrings.profileEditButton,
-                style: AppTextStyles.body(
-                  fontSize: AppSizes.fontXS,
-                  color: AppColors.primary,
-                ),
+        if (isEditing)
+          GestureDetector(
+            onTap: onSaveTap,
+            child: Container(
+              width: AppSizes.saveButtonWidth,
+              height: AppSizes.saveButtonHeight,
+              decoration: BoxDecoration(
+                color: AppColors.saveButtonColor,
+                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
               ),
-            ],
+              alignment: Alignment.center,
+              child: Text(
+                AppStrings.profileSaveButton,
+                style: AppTextStyles.body(fontSize: 12, color: AppColors.cardWhite),
+              ),
+            ),
+          )
+        else
+          GestureDetector(
+            onTap: onEditTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.paddingM,
+                vertical: AppSizes.paddingXS,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                border: Border.all(color: AppColors.primary),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.edit, color: AppColors.primary, size: 12),
+                  const SizedBox(width: 4),
+                  Text(
+                    AppStrings.profileEditButton,
+                    style: AppTextStyles.body(
+                      fontSize: AppSizes.fontXS,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -298,35 +477,125 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Two empty interest chips + an "add" chip.
-class _InterestsRow extends StatelessWidget {
-  const _InterestsRow();
+/// Multi-line bio text field shown in edit mode.
+class _BioField extends StatelessWidget {
+  final TextEditingController controller;
+
+  const _BioField({required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const _InterestChip(),
-        const SizedBox(width: AppSizes.paddingS),
-        const _InterestChip(),
-        const SizedBox(width: AppSizes.paddingS),
-        Container(
-          width: AppSizes.interestChipHeight,
-          height: AppSizes.interestChipHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
-            border: Border.all(color: AppColors.inputBorder),
-          ),
-          child: const Icon(Icons.add, size: 16, color: AppColors.textDark),
+    return TextField(
+      controller: controller,
+      maxLines: 3,
+      style: AppTextStyles.poppins(
+        fontSize: AppSizes.fontSM,
+        fontWeight: FontWeight.w300,
+        color: AppColors.textDark,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.all(AppSizes.paddingS),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+          borderSide: const BorderSide(color: AppColors.inputBorder),
         ),
-      ],
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+          borderSide: const BorderSide(color: AppColors.primary),
+        ),
+      ),
     );
   }
 }
 
-/// Empty rounded chip (W108 × H35, radius 64).
-class _InterestChip extends StatelessWidget {
-  const _InterestChip();
+/// Wrap of all 30 interest chips shown in edit mode.
+class _InterestsGrid extends StatelessWidget {
+  final Set<String> selectedInterests;
+  final void Function(String) onToggle;
+
+  const _InterestsGrid({
+    required this.selectedInterests,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSizes.paddingS,
+      runSpacing: AppSizes.paddingS,
+      children: AppStrings.interestOptions.map((interest) {
+        return InterestChip(
+          label: interest,
+          selected: selectedInterests.contains(interest),
+          onTap: () => onToggle(interest),
+        );
+      }).toList(),
+    );
+  }
+}
+
+/// View mode interests: shows selected chips as outlined pills.
+/// Falls back to placeholder chips when nothing is selected yet.
+class _SelectedInterestsView extends StatelessWidget {
+  final Set<String> selectedInterests;
+
+  const _SelectedInterestsView({required this.selectedInterests});
+
+  @override
+  Widget build(BuildContext context) {
+    if (selectedInterests.isEmpty) {
+      return Row(
+        children: [
+          const _PlaceholderChip(),
+          const SizedBox(width: AppSizes.paddingS),
+          const _PlaceholderChip(),
+          const SizedBox(width: AppSizes.paddingS),
+          Container(
+            width: AppSizes.interestChipHeight,
+            height: AppSizes.interestChipHeight,
+            decoration: BoxDecoration(
+              borderRadius:
+                  BorderRadius.circular(AppSizes.interestChipRadius),
+              border: Border.all(color: AppColors.inputBorder),
+            ),
+            child: const Icon(Icons.add, size: 16, color: AppColors.textDark),
+          ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: AppSizes.paddingS,
+      runSpacing: AppSizes.paddingS,
+      children: selectedInterests.map((interest) {
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingM,
+            vertical: AppSizes.paddingXS,
+          ),
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(AppSizes.interestChipRadius),
+            border: Border.all(color: AppColors.inputBorder),
+          ),
+          child: Text(
+            interest,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+/// Empty rounded chip placeholder (view mode, no interests selected yet).
+class _PlaceholderChip extends StatelessWidget {
+  const _PlaceholderChip();
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +611,7 @@ class _InterestChip extends StatelessWidget {
 }
 
 /// Comments section — populated from [RatingProvider], empty until rated.
-/// Shows up to 5 entries; tapping "view all (N)" opens [_ViewAllSheet].
+/// Shows up to 5 entries; tapping "view all (N)" opens [ViewAllReviewsModal].
 class _CommentsSection extends StatelessWidget {
   final List<RatingModel> ratings;
   final VoidCallback onViewAll;
@@ -440,76 +709,6 @@ class _CommentRow extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Draggable bottom sheet listing all ratings for the user.
-class _ViewAllSheet extends StatelessWidget {
-  final String username;
-  final List<RatingModel> ratings;
-
-  const _ViewAllSheet({
-    required this.username,
-    required this.ratings,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.3,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (_, controller) {
-        return Column(
-          children: [
-            // Drag handle bar
-            Container(
-              margin:
-                  const EdgeInsets.symmetric(vertical: AppSizes.paddingS),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.inputBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // "N reviews" header
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingL,
-                vertical: AppSizes.paddingXS,
-              ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${ratings.length} '
-                  '${ratings.length == 1 ? AppStrings.rateReview : AppStrings.rateReviews}',
-                  style: AppTextStyles.body(
-                    fontSize: AppSizes.fontML,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ),
-            ),
-
-            // All comment rows
-            Expanded(
-              child: ListView(
-                controller: controller,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingL,
-                ),
-                children:
-                    ratings.map((r) => _CommentRow(rating: r)).toList(),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }
