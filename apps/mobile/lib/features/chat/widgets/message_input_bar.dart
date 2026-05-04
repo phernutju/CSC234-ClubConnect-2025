@@ -108,7 +108,6 @@ class _MessageInputBarState extends State<MessageInputBar> {
               // Pill-shaped text field
               Expanded(
                 child: Container(
-                  height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.cardWhite,
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
@@ -127,8 +126,8 @@ class _MessageInputBarState extends State<MessageInputBar> {
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingM,
-                        vertical: 0,
+                        horizontal: 16,
+                        vertical: 12,
                       ),
                     ),
                   ),
