@@ -11,23 +11,24 @@ class ChatMessage {
 
   /// Raw bytes of an image picked from the gallery.
   /// Non-null means this is an image message.
+  /// Uses Uint8List (not File path) so it works on Flutter Web.
   final Uint8List? imageBytes;
 
-  final bool isSent;        // true = current user's message (right side)
-  final bool isFlagged;     // true = content was flagged by moderation
+  final bool isSent;       // true = current user's message (right side)
   final String senderName;
-  final String time;        // displayed as "HH:mm"
-  final String? readCount;  // e.g. "Read 3" — only used for sent messages
-  final String? replyToName;
-  final String? replyToText;
+  final String senderId;     // needed for tapping sender name/avatar to view profile
+  final String time;       // displayed as "HH:mm"
+  final String? readCount; // e.g. "Read 3" — only used for sent messages
+  final String? replyToName; // sender name being replied to
+  final String? replyToText; // text snippet of the message being replied to
 
   const ChatMessage({
     required this.id,
     required this.text,
     this.imageBytes,
     required this.isSent,
-    this.isFlagged = false,
     required this.senderName,
+    required this.senderId,
     required this.time,
     this.readCount,
     this.replyToName,
@@ -44,6 +45,9 @@ class ChatMessage {
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final void Function(Offset globalPosition)? onLongPress;
+
+  /// Called when the user taps the avatar or sender name of a received bubble.
+  /// Not used for sent messages (isSent == true).
   final VoidCallback? onSenderTap;
 
   const MessageBubble({
@@ -59,18 +63,9 @@ class MessageBubble extends StatelessWidget {
       onLongPressStart: onLongPress == null
           ? null
           : (details) => onLongPress!(details.globalPosition),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          message.isSent
-              ? _SentBubble(message: message)
-              : _ReceivedBubble(message: message, onSenderTap: onSenderTap),
-          if (message.isSent && message.isFlagged) ...[
-            const SizedBox(height: 6),
-            const Center(child: _WarningBox()),
-          ],
-        ],
-      ),
+      child: message.isSent
+          ? _SentBubble(message: message)
+          : _ReceivedBubble(message: message, onSenderTap: onSenderTap),
     );
   }
 }
@@ -79,9 +74,9 @@ class MessageBubble extends StatelessWidget {
 
 class _SentBubble extends StatelessWidget {
   final ChatMessage message;
-
   const _SentBubble({required this.message});
 
+  // All corners 18, bottom-right 4 → tail pointing toward the sender
   static final _shape = BorderRadius.only(
     topLeft:     Radius.circular(AppSizes.radiusBubble),
     topRight:    Radius.circular(AppSizes.radiusBubble),
@@ -91,73 +86,62 @@ class _SentBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImage    = message.imageBytes != null;
-    final isFlagged  = message.isFlagged;
-
+    final isImage = message.imageBytes != null;
     return Align(
       alignment: Alignment.centerRight,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // "Read N" + timestamp to the left of the bubble
-              if (message.readCount != null) ...[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      message.readCount!,
-                      style: AppTextStyles.poppins(
-                        fontSize: AppSizes.fontXS,
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.reportAccent,
-                      ),
-                    ),
-                    Text(
-                      message.time,
-                      style: AppTextStyles.poppins(
-                        fontSize: AppSizes.fontXS,
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.reportAccent,
-                      ),
-                    ),
-                  ],
+          // "Read N" + timestamp — Poppins Light coral, to the LEFT of the bubble
+          if (message.readCount != null) ...[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message.readCount!,
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    fontWeight: FontWeight.w300,
+                    color: AppColors.reportAccent,
+                  ),
                 ),
-                const SizedBox(width: 4),
+                Text(
+                  message.time,
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    fontWeight: FontWeight.w300,
+                    color: AppColors.reportAccent,
+                  ),
+                ),
               ],
+            ),
+            const SizedBox(width: 4),
+          ],
 
-              // Bubble — red/pink when flagged, default colour otherwise
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.65,
-                ),
-                padding: isImage && message.replyToName == null
-                    ? EdgeInsets.zero
-                    : const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingM,
-                        vertical: AppSizes.paddingS,
-                      ),
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: isFlagged ? AppColors.flaggedBubble : AppColors.sentBubble,
-                  borderRadius: _shape,
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x0A000000), blurRadius: 4),
-                  ],
-                ),
-                child: _BubbleBody(
-                  message: message,
-                  textColor: isFlagged ? AppColors.cardWhite : null,
-                ),
-              ),
-            ],
+          // Bubble — clipBehavior clips the image to the bubble's border radius
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.65,
+            ),
+            // No padding for image-only messages so the image fills edge-to-edge
+            padding: isImage && message.replyToName == null
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(
+                    horizontal: AppSizes.paddingM,
+                    vertical: AppSizes.paddingS,
+                  ),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColors.sentBubble,
+              borderRadius: _shape,
+              boxShadow: const [
+                BoxShadow(color: Color(0x0A000000), blurRadius: 4),
+              ],
+            ),
+            child: _BubbleBody(message: message),
           ),
-
         ],
       ),
     );
@@ -168,10 +152,13 @@ class _SentBubble extends StatelessWidget {
 
 class _ReceivedBubble extends StatelessWidget {
   final ChatMessage message;
+
+  /// Fires when the user taps the avatar or sender name.
   final VoidCallback? onSenderTap;
 
   const _ReceivedBubble({required this.message, this.onSenderTap});
 
+  // All corners 18, bottom-left 4 → tail pointing toward the receiver
   static final _shape = BorderRadius.only(
     topLeft:     Radius.circular(AppSizes.radiusBubbleTail),
     topRight:    Radius.circular(AppSizes.radiusBubble),
@@ -185,6 +172,7 @@ class _ReceivedBubble extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Tappable salmon avatar circle → other user profile
         GestureDetector(
           onTap: onSenderTap,
           child: Container(
@@ -201,6 +189,7 @@ class _ReceivedBubble extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Tappable sender name → other user profile
             GestureDetector(
               onTap: onSenderTap,
               child: Text(
@@ -217,6 +206,7 @@ class _ReceivedBubble extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // Bubble
                 Container(
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.sizeOf(context).width * 0.55,
@@ -239,6 +229,7 @@ class _ReceivedBubble extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
 
+                // Timestamp — Poppins Light, coral
                 Text(
                   message.time,
                   style: AppTextStyles.poppins(
@@ -258,16 +249,14 @@ class _ReceivedBubble extends StatelessWidget {
 
 // ── Bubble body (reply strip + text/image) ────────────────────────────────────
 
+/// Renders the optional reply strip followed by the message content.
 class _BubbleBody extends StatelessWidget {
   final ChatMessage message;
-
-  /// Override text color (used for flagged messages where text is white).
-  final Color? textColor;
-
-  const _BubbleBody({required this.message, this.textColor});
+  const _BubbleBody({required this.message});
 
   @override
   Widget build(BuildContext context) {
+    // Image-only (no reply) → image fills the bubble with no padding wrapper
     if (message.imageBytes != null && message.replyToName == null) {
       return _ImageContent(bytes: message.imageBytes!, context: context);
     }
@@ -290,7 +279,7 @@ class _BubbleBody extends StatelessWidget {
             message.text,
             style: AppTextStyles.body(
               fontSize: AppSizes.fontM,
-              color: textColor ?? AppColors.textDark,
+              color: AppColors.textDark,
             ),
           ),
       ],
@@ -298,51 +287,10 @@ class _BubbleBody extends StatelessWidget {
   }
 }
 
-// ── Warning box (shown below a flagged sent message) ──────────────────────────
-
-class _WarningBox extends StatelessWidget {
-  const _WarningBox();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: AppSizes.warningBoxWidth,
-      constraints: const BoxConstraints(minHeight: AppSizes.warningBoxHeight),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingM,
-        vertical: AppSizes.paddingS,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.warningBoxBg.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(AppSizes.warningBoxRadius),
-      ),
-      child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontXXS,
-            fontWeight: FontWeight.w300,
-            color: AppColors.primary,
-          ),
-          children: [
-            TextSpan(text: AppStrings.warningText),
-            TextSpan(
-              text: AppStrings.warningReviewRules,
-              style: AppTextStyles.body(
-                fontSize: AppSizes.fontXXS,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ).copyWith(decoration: TextDecoration.underline),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ── Image content ─────────────────────────────────────────────────────────────
 
+/// Displays image bytes using Image.memory() — works on Flutter Web and mobile.
+/// Falls back to a grey placeholder if the bytes can't be decoded.
 class _ImageContent extends StatelessWidget {
   final Uint8List bytes;
   final BuildContext context;
@@ -357,6 +305,7 @@ class _ImageContent extends StatelessWidget {
         bytes,
         width: targetWidth,
         fit: BoxFit.cover,
+        // Show a grey placeholder if the bytes can't be decoded
         errorBuilder: (_, __, ___) => Container(
           width: targetWidth,
           height: AppSizes.chatImageMaxHeight,
@@ -374,6 +323,7 @@ class _ImageContent extends StatelessWidget {
 
 // ── Reply strip (inside bubble, above text) ───────────────────────────────────
 
+/// 3 px coral left border + "↳ replying to Name" + optional quoted snippet.
 class _ReplyStrip extends StatelessWidget {
   final String name;
   final String? snippet;
@@ -397,6 +347,7 @@ class _ReplyStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // "↳ replying to " Inter Light  +  "Name" Inter Bold
           RichText(
             text: TextSpan(
               children: [

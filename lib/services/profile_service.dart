@@ -25,13 +25,11 @@ class ProfileService {
   CollectionReference<Map<String, dynamic>> _ratings(String userId) =>
       _users.doc(userId).collection('rating');
 
-  // ── Profile (3.3) ──────────────────────────────────────────────────────────
+  // ── Profile ────────────────────────────────────────────────────────────────
 
   Future<UserModel> getUserProfile(String userId) async {
-    print("Fetching profile for user ID: $userId");
     final doc = await _users.doc(userId).get();
     if (!doc.exists) throw Exception('User not found: $userId');
-    print("This is docs data: ${doc.data()}");
     return UserModel.fromJson(doc.data()!);
   }
 
@@ -73,12 +71,12 @@ class ProfileService {
     await _users.doc(userId).delete();
   }
 
-  // ── Reviews (3.5) ──────────────────────────────────────────────────────────
+  // ── Reviews ────────────────────────────────────────────────────────────────
 
   Future<ReviewModel> createReview(
     String targetUserId, {
     required String communityId,
-    required String score,
+    required double score,
     required String comment,
   }) async {
     final current = _requireAuth();
@@ -107,8 +105,7 @@ class ProfileService {
         .toList();
     final average = reviews.isEmpty
         ? 0.0
-        : reviews.fold<int>(0, (acc, r) => acc + r.score) /
-            reviews.length;
+        : reviews.fold<double>(0.0, (acc, r) => acc + r.score) / reviews.length;
     return ReviewsResult(reviews: reviews, averageScore: average);
   }
 
@@ -128,8 +125,9 @@ class ProfileService {
 
     final updates = <String, dynamic>{};
     if (data.containsKey('score')) {
-      _validateScore(data['score'] as String);
-      updates['score'] = data['score'];
+      final score = (data['score'] as num).toDouble();
+      _validateScore(score);
+      updates['score'] = score;
     }
     if (data.containsKey('comment')) {
       final comment = data['comment'] as String;
@@ -153,6 +151,14 @@ class ProfileService {
     await _ratings(targetUserId).doc(reviewId).delete();
   }
 
+  // ── Community name lookup ──────────────────────────────────────────────────
+
+  Future<String?> getCommunityName(String communityId) async {
+    if (communityId.isEmpty) return null;
+    final doc = await _db.collection('communities').doc(communityId).get();
+    return doc.data()?['communityName'] as String?;
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   User _requireAuth() {
@@ -166,9 +172,9 @@ class ProfileService {
     if (doc.data()?['role'] != 'admin') throw Exception('Permission denied');
   }
 
-  void _validateScore(String score) {
-    if (!{'1', '2', '3', '4', '5'}.contains(score)) {
-      throw ArgumentError('score must be "1"–"5", got "$score"');
+  void _validateScore(double score) {
+    if (score < 1.0 || score > 5.0) {
+      throw ArgumentError('score must be between 1.0 and 5.0, got $score');
     }
   }
 }

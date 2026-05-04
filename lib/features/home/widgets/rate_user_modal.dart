@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../models/rating_model.dart';
-import '../../../providers/rating_provider.dart';
+import '../../../providers/profile_provider.dart';
 
 /// Shows the rate-user modal centered over a dimmed overlay.
 /// Call via:
@@ -11,6 +10,8 @@ import '../../../providers/rating_provider.dart';
 class RateUserModal extends StatefulWidget {
   /// Name of the user being rated.
   final String username;
+  final String userId;
+  final String communityId;
 
   /// Community the rater encountered this user in.
   final String communityName;
@@ -19,6 +20,8 @@ class RateUserModal extends StatefulWidget {
     super.key,
     required this.username,
     required this.communityName,
+    required this.userId,
+    required this.communityId,
   });
 
   @override
@@ -36,15 +39,16 @@ class _RateUserModalState extends State<RateUserModal> {
     super.dispose();
   }
 
-  /// Saves the rating to [RatingProvider] and closes the modal.
+  /// Saves the rating to [ProfileProvider] and closes the modal.
   void _onPost() {
     if (_stars == 0) return;
-    context.read<RatingProvider>().addRating(RatingModel(
-      ratedUsername: widget.username,
-      communityName: widget.communityName,
-      stars: _stars,
-      comment: _commentController.text.trim(),
-    ));
+    
+    context.read<ProfileProvider>().createReview(
+      widget.userId,
+      communityId: widget.communityId, // TODO: pass actual communityId
+      score: _stars.toDouble(),
+      comment: _commentController.text,
+    );
     Navigator.of(context).pop();
   }
 

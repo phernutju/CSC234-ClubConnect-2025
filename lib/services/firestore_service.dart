@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../models/message_models.dart';
+import '../models/message_model.dart';
 import '../models/report_model.dart';
 import '../models/review_model.dart';
 import '../models/room_model.dart';
@@ -45,25 +45,18 @@ class FirestoreService {
 
   // ── Messages ───────────────────────────────────────────────────────────────
 
-  Future<void> sendMessage(MessageModel message) => _db
-      .collection(Collections.rooms)
-      .doc(message.roomId)
-      .collection(Collections.messages)
-      .doc(message.msgId)
-      .set(message.toJson());
-
-  Stream<List<MessageModel>> messagesStream(String roomId) => _db
-      .collection(Collections.rooms)
-      .doc(roomId)
+  Stream<List<MessageModel>> messagesStream(String communityId) => _db
+      .collection('communities')
+      .doc(communityId)
       .collection(Collections.messages)
       .orderBy('timestamp')
       .snapshots()
       .map((snap) =>
-          snap.docs.map((d) => MessageModel.fromJson(d.data())).toList());
+          snap.docs.map((d) => MessageModel.fromJson(d.data(), d.id)).toList());
 
-  Future<void> deleteMessage(String roomId, String msgId) => _db
-      .collection(Collections.rooms)
-      .doc(roomId)
+  Future<void> deleteMessage(String communityId, String msgId) => _db
+      .collection('communities')
+      .doc(communityId)
       .collection(Collections.messages)
       .doc(msgId)
       .delete();

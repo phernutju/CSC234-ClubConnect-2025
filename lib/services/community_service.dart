@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
+import '../models/rule_model.dart';
 
 class CommunityService {
   final FirebaseFirestore _db;
@@ -13,12 +14,12 @@ class CommunityService {
     'category',
     'description',
     'coverImageURL',
-    'rule',
+    'rules',
   };
 
   CommunityService({FirebaseFirestore? db, FirebaseAuth? auth})
-      : _db = db ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+    : _db = db ?? FirebaseFirestore.instance,
+      _auth = auth ?? FirebaseAuth.instance;
 
   // ── Collection refs ────────────────────────────────────────────────────────
 
@@ -37,9 +38,104 @@ class CommunityService {
     return _communities
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snap) => snap.docs
+              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  // Alternative: Get communities with limit for performance
+  Stream<List<CommunityModel>> getCommunitiesLimited({int limit = 20}) {
+    return _communities
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  /// Get only the first 10 communities from Firestore.
+  Stream<List<CommunityModel>> getFirst10Communities() {
+    return getCommunitiesLimited(limit: 10);
+  }
+
+  // Alternative: Get communities by specific IDs
+  Stream<List<CommunityModel>> getCommunitiesByIds(List<String> communityIds) {
+    if (communityIds.isEmpty) return Stream.value([]);
+
+    return _communities
+        .where(FieldPath.documentId, whereIn: communityIds)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  // Get communities filtered by category
+  Stream<List<CommunityModel>> getCommunitiesByCategory(String category) {
+    return _communities
+        .where('category', arrayContains: category)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  // Get communities the user is a member of
+  Stream<List<CommunityModel>> getMyCommunities() async* {
+    final user = _requireAuth();
+
+    // ✅ Fetch communities ONCE
+    final communitiesSnapshot = await _communities.get();
+    final communityDocs = communitiesSnapshot.docs;
+
+    // ✅ Check membership
+    final memberChecks = await Future.wait(
+      communityDocs.map((doc) => _members(doc.id).doc(user.uid).get()),
+    );
+
+    // ✅ Extract IDs safely
+    final communityIds = <String>[];
+
+    for (int i = 0; i < memberChecks.length; i++) {
+      if (memberChecks[i].exists) {
+        communityIds.add(communityDocs[i].id);
+      }
+    }
+
+    if (communityIds.isEmpty) {
+      yield [];
+      return;
+    }
+
+    // ⚠️ Firestore limit: whereIn max 10
+    final limitedIds = communityIds.take(10).toList();
+
+    yield* _communities
+        .where(FieldPath.documentId, whereIn: limitedIds)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  // Get a specific community by ID
+  Future<CommunityModel?> getCommunity(String communityId) async {
+    final doc = await _communities.doc(communityId).get();
+    if (!doc.exists) return null;
+    return CommunityModel.fromJson(doc.data()!, doc.id);
   }
 
   Future<String> createCommunity({
@@ -47,12 +143,11 @@ class CommunityService {
     required List<String> category,
     required String description,
     required String coverImageURL,
-    required String rule,
+    required List<RuleModel> rules,
   }) async {
     final user = _requireAuth();
     final communityRef = _communities.doc();
     final createdAt = FieldValue.serverTimestamp();
-
     final batch = _db.batch();
     batch.set(communityRef, {
       'communityId': communityRef.id,
@@ -60,11 +155,11 @@ class CommunityService {
       'category': category,
       'description': description,
       'coverImageURL': coverImageURL,
-      'rule': rule,
-      'hostName': user.displayName ?? '',
+      'rules': rules.map((r) => r.toJson()).toList(),
       'memberCount': 1,
       'createdAt': createdAt,
       'updatedAt': createdAt,
+      'createdById': user.uid,
     });
     batch.set(_members(communityRef.id).doc(user.uid), {
       'joinedAt': createdAt,
@@ -145,9 +240,11 @@ class CommunityService {
   }
 
   Stream<List<MemberModel>> getMembers(String communityId) {
-    return _members(communityId).snapshots().map((snap) => snap.docs
-        .map((doc) => MemberModel.fromJson(doc.data(), doc.id))
-        .toList());
+    return _members(communityId).snapshots().map(
+      (snap) => snap.docs
+          .map((doc) => MemberModel.fromJson(doc.data(), doc.id))
+          .toList(),
+    );
   }
 
   Future<void> editMember(
@@ -180,9 +277,11 @@ class CommunityService {
     return _messages(communityId)
         .orderBy('timestamp', descending: false)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => MessageModel.fromJson(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snap) => snap.docs
+              .map((doc) => MessageModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   Future<void> sendMessage(
@@ -212,6 +311,13 @@ class CommunityService {
     await _messages(communityId).doc(messageId).update({
       'seenBy': FieldValue.arrayUnion([user.uid]),
     });
+  }
+
+  // ── Users ──────────────────────────────────────────────────────────────────
+
+  Future<String> getUserDisplayName(String uid) async {
+    final doc = await _db.collection('users').doc(uid).get();
+    return doc.data()?['displayName'] as String? ?? 'User';
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

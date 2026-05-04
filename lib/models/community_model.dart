@@ -1,96 +1,84 @@
-import 'dart:typed_data';
-import 'rule_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/rule_model.dart';
 
 class CommunityModel {
   final String id;
-  final String name;
+  final String communityId;
+  final String communityName;
+  final List<String> category;
   final String description;
-  final String category;
-  final Uint8List? coverImage;
+  final String coverImageURL;
+  final String createdById;
   final List<RuleModel> rules;
   final int memberCount;
-  final String hostName;
-  final double hostRating;
-  final String coverImageUrl;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const CommunityModel({
-    this.id = '',
-    required this.name,
-    required this.description,
+    required this.id,
+    required this.communityId,
+    required this.communityName,
     required this.category,
-    this.coverImage,
-    this.rules = const [],
-    this.memberCount = 1,
-    this.hostName = '',
-    this.hostRating = 5.0,
-    this.coverImageUrl = '',
+    required this.description,
+    required this.coverImageURL,
+    required this.createdById,
+    required this.rules,
+    required this.memberCount,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   factory CommunityModel.fromJson(Map<String, dynamic> json, String id) {
-    // category may be stored as List<String> (Firestore) or plain String
-    final rawCategory = json['category'];
-    final category = rawCategory is List
-        ? (rawCategory.isNotEmpty ? rawCategory.first as String : '')
-        : (rawCategory as String? ?? '');
-
-    // rule stored as '\n'-joined String; rules stored as List<Map>
-    List<RuleModel> rules = [];
-    if (json['rules'] is List) {
-      rules = (json['rules'] as List<dynamic>)
-          .map((r) => RuleModel.fromJson(r as Map<String, dynamic>))
-          .toList();
-    } else if (json['rule'] is String && (json['rule'] as String).isNotEmpty) {
-      rules = (json['rule'] as String)
-          .split('\n')
-          .where((s) => s.trim().isNotEmpty)
-          .map((t) => RuleModel(title: t.trim()))
-          .toList();
-    }
-
     return CommunityModel(
       id: id,
-      name: json['communityName'] as String? ?? json['name'] as String? ?? '',
+      communityId: json['communityId'] as String? ?? id,
+      communityName: json['communityName'] as String? ?? '',
+      category: List<String>.from(json['category'] as List? ?? []),
       description: json['description'] as String? ?? '',
-      category: category,
+      coverImageURL: json['coverImageURL'] as String? ?? '',
+      createdById: json['createdById'] as String? ?? '',
+      rules: (json['rules'] as List<dynamic>? ?? [])
+          .map((e) => RuleModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
       memberCount: json['memberCount'] as int? ?? 0,
-      hostName: json['hostName'] as String? ?? '',
-      hostRating: (json['hostRating'] as num?)?.toDouble() ?? 5.0,
-      coverImageUrl: json['coverImageURL'] as String? ?? json['coverImageUrl'] as String? ?? '',
-      rules: rules,
+      createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (json['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'description': description,
-        'category': category,
-        'memberCount': memberCount,
-        'hostName': hostName,
-        'hostRating': hostRating,
-        'coverImageUrl': coverImageUrl,
-        'rules': rules.map((r) => r.toJson()).toList(),
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'communityId': communityId,
+      'communityName': communityName,
+      'category': category,
+      'description': description,
+      'coverImageURL': coverImageURL,
+      'rules': rules.map((r) => r.toJson()).toList(),
+      'memberCount': memberCount,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+    };
+  }
 
   CommunityModel copyWith({
-    String? id,
-    String? name,
+    String? communityName,
+    List<String>? category,
     String? description,
-    String? category,
-    Uint8List? coverImage,
+    String? coverImageURL,
     List<RuleModel>? rules,
     int? memberCount,
-    String? hostName,
-    double? hostRating,
   }) =>
       CommunityModel(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        description: description ?? this.description,
+        id: id,
+        communityId: communityId,
+        communityName: communityName ?? this.communityName,
         category: category ?? this.category,
-        coverImage: coverImage ?? this.coverImage,
+        description: description ?? this.description,
+        coverImageURL: coverImageURL ?? this.coverImageURL,
+        createdById: createdById,
         rules: rules ?? this.rules,
         memberCount: memberCount ?? this.memberCount,
-        hostName: hostName ?? this.hostName,
-        hostRating: hostRating ?? this.hostRating,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
       );
 }

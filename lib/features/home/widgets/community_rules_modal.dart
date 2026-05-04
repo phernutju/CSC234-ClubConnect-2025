@@ -28,7 +28,7 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
   bool _accepted = false;
 
   void _onJoin() {
-    context.read<CommunityProvider>().joinCommunity(widget.community);
+    context.read<CommunityProvider>().joinCommunity(widget.community.id);
     Navigator.of(context).pop();
     widget.onJoined();
   }
@@ -207,20 +207,13 @@ class _RuleItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$index.${rule.title}',
+            '$index.${rule.text}',
             style: AppTextStyles.poppins(
               fontSize: AppSizes.fontML,
               color: AppColors.textDark,
             ),
           ),
-          if (rule.description.isNotEmpty)
-            Text(
-              rule.description,
-              style: AppTextStyles.poppins(
-                fontSize: AppSizes.fontXII,
-                color: AppColors.commentBody,
-              ),
-            ),
+          
         ],
       ),
     );

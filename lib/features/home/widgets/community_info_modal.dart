@@ -39,7 +39,9 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageBytes: community.coverImage),
+                _CoverArea(imageBytes: community.coverImageURL != null
+                    ? Uint8List.fromList(community.coverImageURL!.codeUnits)
+                    : null),
                 Positioned(
                   top: AppSizes.paddingS,
                   right: AppSizes.paddingS,
@@ -65,7 +67,7 @@ class CommunityInfoModal extends StatelessWidget {
                   children: [
                     // Community name
                     Text(
-                      community.name,
+                      community.communityName,
                       style: AppTextStyles.poppins(
                         fontSize: AppSizes.fontTitle,
                         color: AppColors.textDark,
@@ -105,8 +107,9 @@ class CommunityInfoModal extends StatelessWidget {
                         context.push(
                           '/other-profile',
                           extra: ProfileArgs(
-                            username: community.hostName,
-                            communityName: community.name,
+                            userId: community.createdById,
+                            username: community.createdById,
+                            communityName: community.communityName,
                           ),
                         );
                       },
@@ -189,7 +192,8 @@ class _HostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filledStars = community.hostRating.floor();
+    final hostRating = 4.3; // Replace with actual rating from community.hostRating when available
+    final filledStars = hostRating.floor();
 
     return Container(
       width: double.infinity,
@@ -223,7 +227,7 @@ class _HostCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  community.hostName,
+                  community.createdById,
                   style: AppTextStyles.poppins(
                     fontSize: AppSizes.fontXII,
                     color: AppColors.textDark,
@@ -244,7 +248,7 @@ class _HostCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      community.hostRating.toStringAsFixed(1),
+                      hostRating.toStringAsFixed(1),
                       style: AppTextStyles.poppins(
                         fontSize: AppSizes.fontXXS,
                         color: AppColors.hostRatingColor,
