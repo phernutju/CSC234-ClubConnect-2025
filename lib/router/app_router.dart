@@ -98,6 +98,8 @@ final GoRouter appRouter = GoRouter(
         final args = state.extra as ChatArgs?;
         return ChatScreen(
           communityName: args?.communityName ?? AppStrings.chatCommunityName,
+          communityId: args?.communityId ?? '',
+          communityRules: args?.communityRules ?? '',
           memberCount: args?.memberCount ?? '',
         );
       },

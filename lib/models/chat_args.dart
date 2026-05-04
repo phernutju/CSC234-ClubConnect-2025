@@ -1,8 +1,13 @@
-/// Payload passed via GoRouter `extra` when navigating to `/chat`.
-/// Holds the minimum info the chat app bar needs to display.
 class ChatArgs {
   final String communityName;
+  final String communityId;
   final String memberCount;
+  final String communityRules;
 
-  const ChatArgs({required this.communityName, required this.memberCount});
+  const ChatArgs({
+    required this.communityName,
+    required this.communityId,
+    this.memberCount = '',
+    this.communityRules = '',
+  });
 }

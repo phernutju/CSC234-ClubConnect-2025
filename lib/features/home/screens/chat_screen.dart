@@ -7,6 +7,7 @@ import '../../../models/community_model.dart';
 import '../../../models/profile_args.dart';
 import '../../../providers/community_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../../../services/message_service.dart';
 import '../widgets/community_info_modal.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_bar.dart';
@@ -16,6 +17,8 @@ import '../widgets/report_message_modal.dart';
 /// Full-screen chat room for a single community conversation.
 class ChatScreen extends StatefulWidget {
   final String communityName;
+  final String communityId;
+  final String communityRules;
 
   /// Numeric member count shown in parentheses after the name.
   /// Empty string suppresses the parentheses.
@@ -24,6 +27,8 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({
     super.key,
     required this.communityName,
+    required this.communityId,
+    this.communityRules = '',
     required this.memberCount,
   });
 
@@ -36,41 +41,52 @@ class _ChatScreenState extends State<ChatScreen> {
   final _scrollController = ScrollController();
 
   bool _menuOpen = false;
+  bool _isBanned = false;
+  DateTime? _banUntil;
+  bool _showFlaggedBanner = false;
+  List<ChatMessage> _messages = [];
 
-  // TESTING ONLY - remove when backend connected
-  static const bool _testFlaggedMessage = true;
-  static const bool _testIsBanned = false;
-  static final DateTime _testBanUntil = DateTime(2026, 5, 5, 6, 14, 48);
-
-  // TESTING ONLY - remove when DB connected
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      id: 'test_1',
-      text: 'Hey! Anyone want to play badminton?',
-      isSent: false,
-      senderName: 'TestUser',
-      time: '10:14',
-    ),
-    ChatMessage(
-      id: 'test_2',
-      text: "I'm in! Let's meet tomorrow",
-      isSent: false,
-      senderName: 'JohnDoe',
-      time: '10:15',
-    ),
-    if (_testFlaggedMessage)
-      ChatMessage(
-        id: 'test_flagged',
-        text: 'Fuck you bitch ass hole ur mom mother fucker',
-        isSent: true,
-        senderName: 'Me',
-        time: '10:16',
-        isFlagged: true,
-      ),
-  ];
-
-  // When non-null, the user is in reply mode targeting this message
   ChatMessage? _replyingTo;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBanStatus();
+    _listenMessages();
+  }
+
+  void _loadBanStatus() async {
+    final uid = MessageService.currentUid;
+    if (uid == null) return;
+    final status = await MessageService.getBanStatus(uid);
+    if (mounted) setState(() {
+      _isBanned = status.isBanned;
+      _banUntil = status.bannedUntil;
+    });
+  }
+
+  void _listenMessages() {
+    MessageService.messagesStream(widget.communityId).listen((msgs) {
+      if (!mounted) return;
+      final uid = MessageService.currentUid;
+      setState(() {
+        _messages = msgs.map((m) => ChatMessage(
+          id: m.id,
+          text: m.text,
+          isSent: m.senderId == uid,
+          senderName: m.senderName,
+          time: _formatTime(m.timestamp),
+          isFlagged: m.flagged,
+          replyToName: m.replyToName,
+          replyToText: m.replyToText,
+        )).toList();
+      });
+      _scrollToBottom();
+    });
+  }
+
+  String _formatTime(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
   @override
   void dispose() {
@@ -85,26 +101,32 @@ class _ChatScreenState extends State<ChatScreen> {
     return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
   }
 
-  void _sendTextMessage() {
+  Future<void> _sendTextMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      _messages.add(ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        text: text,
-        isSent: true,
-        senderName: 'Me',
-        time: _nowTime,
-        readCount: 'Read 0',
-        replyToName: _replyingTo?.senderName,
-        replyToText: _replyingTo?.text,
-      ));
-      _replyingTo = null;
-    });
-
     _inputController.clear();
-    _scrollToBottom();
+    setState(() => _showFlaggedBanner = false);
+
+    final result = await MessageService.sendMessage(
+      communityId: widget.communityId,
+      text: text,
+      communityRules: widget.communityRules,
+      replyToName: _replyingTo?.senderName,
+      replyToText: _replyingTo?.text,
+    );
+
+    setState(() => _replyingTo = null);
+
+    if (result.status == SendStatus.flagged || result.status == SendStatus.banned) {
+      setState(() {
+        _showFlaggedBanner = true;
+        if (result.newBan || result.status == SendStatus.banned) {
+          _isBanned = true;
+          _banUntil = result.banUntil;
+        }
+      });
+    }
   }
 
   void _sendImageMessage(Uint8List bytes) {
@@ -263,9 +285,24 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
 
+              // ── Flagged banner ─────────────────────────────────────────
+              if (_showFlaggedBanner)
+                _FlaggedBanner(
+                  onReviewRules: () => showDialog(
+                    context: context,
+                    builder: (_) => CommunityInfoModal(
+                      community: CommunityModel(
+                        name: widget.communityName,
+                        description: '',
+                        category: '',
+                      ),
+                    ),
+                  ),
+                ),
+
               // ── Ban banner ─────────────────────────────────────────────
-              if (_testIsBanned)
-                _BanBanner(banUntil: _testBanUntil),
+              if (_isBanned && _banUntil != null)
+                _BanBanner(banUntil: _banUntil!),
 
               // ── Input bar ──────────────────────────────────────────────
               MessageInputBar(
@@ -275,7 +312,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 replyToName: _replyingTo?.senderName,
                 replyToText: _replyingTo?.text,
                 onCancelReply: () => setState(() => _replyingTo = null),
-                enabled: !_testIsBanned,
+                enabled: !_isBanned,
               ),
             ],
           ),
@@ -535,6 +572,51 @@ class _DateSeparator extends StatelessWidget {
         style: AppTextStyles.body(
           fontSize: AppSizes.fontXS,
           color: AppColors.textGray,
+        ),
+      ),
+    );
+  }
+}
+
+/// Gray banner shown when Gemini flags a message as inappropriate.
+class _FlaggedBanner extends StatelessWidget {
+  final VoidCallback onReviewRules;
+  const _FlaggedBanner({required this.onReviewRules});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.commentBody,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingXS,
+      ),
+      child: RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontXXS,
+            color: AppColors.textGray,
+          ),
+          children: [
+            const TextSpan(
+              text: 'Message failed to send. This content goes against\nour community standards. Repeated offenses will result in a ban.\n',
+            ),
+            WidgetSpan(
+              child: GestureDetector(
+                onTap: onReviewRules,
+                child: Text(
+                  'Review rules',
+                  style: AppTextStyles.body(
+                    fontSize: AppSizes.fontXXS,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

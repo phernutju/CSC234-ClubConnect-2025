@@ -182,6 +182,8 @@ class _MyClubTab extends StatelessWidget {
             '/chat',
             extra: ChatArgs(
               communityName: c.name,
+              communityId: c.id,
+              communityRules: c.rules.map((r) => r.title).join('\n'),
               memberCount: memberLabel,
             ),
           ),
@@ -247,6 +249,8 @@ class _DiscoverTabState extends State<_DiscoverTab> {
             '/chat',
             extra: ChatArgs(
               communityName: community.name,
+              communityId: community.id,
+              communityRules: community.rules.map((r) => r.title).join('\n'),
               memberCount:
                   '${community.memberCount + 1} ${AppStrings.communityMembersLabel}',
             ),
