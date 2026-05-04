@@ -92,6 +92,21 @@ class CommunityProvider extends ChangeNotifier {
         if (activeCommunity?.id == communityId) clearActiveCommunity();
       });
 
+  Future<void> addCommunity({
+    required String communityName,
+    required List<String> category,
+    required String description,
+    required String coverImageURL,
+    required String rule,
+  }) =>
+      _run(() => _service.createCommunity(
+            communityName: communityName,
+            category: category,
+            description: description,
+            coverImageURL: coverImageURL,
+            rule: rule,
+          ));
+
   // ── Member actions ─────────────────────────────────────────────────────────
 
   Future<void> editMember(

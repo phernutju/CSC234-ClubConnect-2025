@@ -25,18 +25,18 @@ class UserModel {
     required this.updatedAt,
   });
 
-  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        uid: json['uid'] as String,
-        displayName: json['displayName'] as String,
-        email: json['email'] as String,
-        phoneNumber: json['phoneNumber'] as String? ?? '',
-        photoURL: json['photoURL'] as String? ?? '',
-        bio: json['bio'] as String? ?? '',
-        interests: List<String>.from(json['interests'] as List? ?? []),
-        role: json['role'] as String? ?? 'user',
-        createdAt: json['createdAt'] as Timestamp,
-        updatedAt: json['updatedAt'] as Timestamp,
-      );
+ factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
+  uid: json['uid']?.toString() ?? '',
+  displayName: json['displayName']?.toString() ?? '',
+  email: json['email']?.toString() ?? '',
+  phoneNumber: json['phoneNumber']?.toString() ?? '',
+  photoURL: json['photoURL']?.toString() ?? '',
+  bio: json['bio']?.toString() ?? '',
+  interests: List<String>.from(json['interests'] ?? []),
+  role: json['role']?.toString() ?? 'user',
+  createdAt: json['createdAt'] as Timestamp,
+  updatedAt: json['updatedAt'] as Timestamp,
+);
 
   Map<String, dynamic> toJson() => {
         'uid': uid,

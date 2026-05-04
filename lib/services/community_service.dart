@@ -42,6 +42,36 @@ class CommunityService {
             .toList());
   }
 
+  Future<void> createCommunity({
+    required String communityName,
+    required List<String> category,
+    required String description,
+    required String coverImageURL,
+    required String rule,
+  }) async {
+    final user = _requireAuth();
+    final communityRef = _communities.doc();
+    final createdAt = FieldValue.serverTimestamp();
+
+    final batch = _db.batch();
+    batch.set(communityRef, {
+      'communityId': communityRef.id,
+      'communityName': communityName,
+      'category': category,
+      'description': description,
+      'coverImageURL': coverImageURL,
+      'rule': rule,
+      'memberCount': 1,
+      'createdAt': createdAt,
+      'updatedAt': createdAt,
+    });
+    batch.set(_members(communityRef.id).doc(user.uid), {
+      'joinedAt': createdAt,
+      'role': 'creator',
+    });
+    await batch.commit();
+  }
+
   Future<void> editCommunity(
     String communityId,
     Map<String, dynamic> data,

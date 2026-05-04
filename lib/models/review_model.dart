@@ -4,7 +4,7 @@ class ReviewModel {
   final String id;
   final String raterId;
   final String communityId;
-  final String score;
+  final int score;
   final String comment;
   final Timestamp createdAt;
 
@@ -22,7 +22,7 @@ class ReviewModel {
         id: id,
         raterId: json['raterId'] as String,
         communityId: json['communityId'] as String? ?? '',
-        score: json['score'] as String,
+        score: json['score'] as int,
         comment: json['comment'] as String,
         createdAt: json['createdAt'] as Timestamp,
       );

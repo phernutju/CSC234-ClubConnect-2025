@@ -71,17 +71,19 @@ class ProfileProvider extends ChangeNotifier {
 
   // ── Helper ────────────────────────────────────────────────────────────────
 
-  Future<void> _run(Future<void> Function() action) async {
-    isLoading = true;
-    error = null;
+  Future<void> _run(Future<void> Function() fn) async {
+  isLoading = true;
+  notifyListeners();
+
+  try {
+    await fn();
+  } catch (e, stack) {
+    print('❌ ERROR in _run: $e');
+    print(stack);
+    rethrow; // 🔥 important for debugging
+  } finally {
+    isLoading = false;
     notifyListeners();
-    try {
-      await action();
-    } catch (e) {
-      error = e.toString();
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
   }
+}
 }

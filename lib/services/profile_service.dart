@@ -28,8 +28,10 @@ class ProfileService {
   // ── Profile (3.3) ──────────────────────────────────────────────────────────
 
   Future<UserModel> getUserProfile(String userId) async {
+    print("Fetching profile for user ID: $userId");
     final doc = await _users.doc(userId).get();
     if (!doc.exists) throw Exception('User not found: $userId');
+    print("This is docs data: ${doc.data()}");
     return UserModel.fromJson(doc.data()!);
   }
 
@@ -105,7 +107,7 @@ class ProfileService {
         .toList();
     final average = reviews.isEmpty
         ? 0.0
-        : reviews.fold<int>(0, (acc, r) => acc + int.parse(r.score)) /
+        : reviews.fold<int>(0, (acc, r) => acc + r.score) /
             reviews.length;
     return ReviewsResult(reviews: reviews, averageScore: average);
   }
