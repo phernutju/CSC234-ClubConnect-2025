@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'constants/app_constants.dart';
 import 'providers/community_provider.dart';
+import 'providers/profile_provider.dart';
 import 'providers/rating_provider.dart';
 import 'router/app_router.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ClubConnectApp());
 }
 
@@ -19,6 +21,7 @@ class ClubConnectApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => RatingProvider()),
       ],
       child: MaterialApp.router(
@@ -28,7 +31,7 @@ class ClubConnectApp extends StatelessWidget {
         useMaterial3: true,
         // Suppress the default blue focus/cursor color across the app
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFE07355),
+          seedColor: const Color(0xFFFF6B4A),
           brightness: Brightness.light,
         ),
         // Remove the Material splash / ink-well ripple in favor of custom GestureDetectors

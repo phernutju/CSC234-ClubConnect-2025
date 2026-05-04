@@ -49,11 +49,21 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/set-profile',
-      builder: (context, state) => const SetProfileScreen(),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return SetProfileScreen(
+          googleDisplayName: extra?['googleDisplayName'] as String?,
+        );
+      },
     ),
     GoRoute(
       path: '/category',
-      builder: (context, state) => const CategoryScreen(),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return CategoryScreen(
+          displayName: extra?['displayName'] as String?,
+        );
+      },
     ),
 
     // ── Main-app shell (bottom nav shared across these three routes) ─────────
@@ -62,7 +72,12 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/home',
-          builder: (context, state) => const HomeScreen(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return HomeScreen(
+              displayName: extra?['displayName'] as String?,
+            );
+          },
         ),
         GoRoute(
           path: '/notification',

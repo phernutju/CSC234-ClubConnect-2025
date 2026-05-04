@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/profile_provider.dart';
 import '../widgets/step_progress_bar.dart';
-import '../widgets/primary_button.dart';
 
-/// Step 4 of 4: user picks up to 3 interest categories.
 class CategoryScreen extends StatefulWidget {
-  const CategoryScreen({super.key});
+  final String? displayName;
+
+  const CategoryScreen({super.key, this.displayName});
 
   @override
   State<CategoryScreen> createState() => _CategoryScreenState();
@@ -23,9 +26,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
     {'emoji': '🧘', 'label': 'Yoga'},
     {'emoji': '🚴', 'label': 'Cycling'},
     {'emoji': '⚽', 'label': 'Football'},
-    {'emoji': '🔍', 'label': 'Home cooking'},
+    {'emoji': '🍳', 'label': 'Home cooking'},
     {'emoji': '🍷', 'label': 'Wine'},
-    {'emoji': '🥦', 'label': 'Vegan'},
+    {'emoji': '🌿', 'label': 'Vegan'},
     {'emoji': '💻', 'label': 'Coding'},
     {'emoji': '🚀', 'label': 'Startups'},
     {'emoji': '🔧', 'label': 'Hardware'},
@@ -37,119 +40,115 @@ class _CategoryScreenState extends State<CategoryScreen> {
     setState(() {
       if (_selected.contains(label)) {
         _selected.remove(label);
-      } else if (_selected.length < 3) {
+      } else {
         _selected.add(label);
       }
     });
   }
 
   void _onGetStarted() {
-    // TODO: save selected categories, then navigate to the main app
-    context.go('/home');
+    // Format as "label emoji" to match AppStrings.interestOptions keys
+    final interests = _selected.map((label) {
+      final cat = _categories.firstWhere(
+        (c) => c['label'] == label,
+        orElse: () => {'emoji': '', 'label': label},
+      );
+      final emoji = cat['emoji']!;
+      return emoji.isEmpty ? label : '$label $emoji';
+    }).toSet();
+
+    context.read<ProfileProvider>().saveInterests(interests);
+    context.go('/home', extra: {'displayName': widget.displayName ?? ''});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _onGetStarted,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B4A),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: Text(
+              AppStrings.categoryGetStarted,
+              style: GoogleFonts.poppins(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
+        minimum: const EdgeInsets.only(top: 16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppSizes.paddingM),
-
-              // Step 4 of 4 — all segments filled
+              const SizedBox(height: 48),
               const StepProgressBar(currentStep: 4),
               const SizedBox(height: AppSizes.paddingL),
 
-              // Back arrow
-              _BackButton(),
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+              ),
               const SizedBox(height: AppSizes.paddingM),
 
-              // Page title
               Text(
                 AppStrings.categoryHeading,
-                style: AppTextStyles.title(color: AppColors.textDark),
+                style: AppTextStyles.title(
+                  fontSize: 36.0,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textDark,
+                ),
               ),
               const SizedBox(height: AppSizes.paddingXS),
 
-              // Subtitle
               Text(
                 AppStrings.categorySubtitle,
                 style: AppTextStyles.body(
-                  fontSize: AppSizes.fontS,
+                  fontSize: 13.0,
+                  fontWeight: FontWeight.w400,
                   color: AppColors.textGray,
                 ),
               ),
               const SizedBox(height: AppSizes.paddingL),
 
-              // Scrollable chip grid
               Expanded(
-                child: _CategoryChipGrid(
-                  categories: _categories,
-                  selected: _selected,
-                  onTap: _toggleCategory,
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _categories.map((cat) {
+                      final label    = cat['label']!;
+                      final emoji    = cat['emoji']!;
+                      final isActive = _selected.contains(label);
+                      return _CategoryChip(
+                        emoji: emoji,
+                        label: label,
+                        isSelected: isActive,
+                        onTap: () => _toggleCategory(label),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
-
-              const SizedBox(height: AppSizes.paddingM),
-
-              // Get Started button
-              PrimaryButton(
-                label: AppStrings.categoryGetStarted,
-                onPressed: _onGetStarted,
-              ),
-              const SizedBox(height: AppSizes.paddingXL),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-class _BackButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.pop(),
-      child: const Icon(Icons.arrow_back, color: AppColors.textDark),
-    );
-  }
-}
-
-class _CategoryChipGrid extends StatelessWidget {
-  final List<Map<String, String>> categories;
-  final Set<String> selected;
-  final ValueChanged<String> onTap;
-
-  const _CategoryChipGrid({
-    required this.categories,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Wrap(
-        spacing: AppSizes.paddingS,
-        runSpacing: AppSizes.paddingS,
-        children: categories.map((cat) {
-          final label    = cat['label']!;
-          final emoji    = cat['emoji']!;
-          final isActive = selected.contains(label);
-          return _CategoryChip(
-            emoji: emoji,
-            label: label,
-            isSelected: isActive,
-            onTap: () => onTap(label),
-          );
-        }).toList(),
       ),
     );
   }
@@ -174,39 +173,35 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.paddingM,
-          vertical: AppSizes.paddingS,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.chipSelected : AppColors.cardWhite,
-          borderRadius: BorderRadius.circular(AppSizes.radiusPill),
-          border: Border.all(
-            color: isSelected ? AppColors.chipSelected : AppColors.chipBorder,
-          ),
+          color: isSelected ? const Color(0xFF000000) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: isSelected
+              ? null
+              : Border.all(color: const Color(0xFFDDDDDD), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: AppTextStyles.body(fontSize: AppSizes.fontM)),
-            const SizedBox(width: AppSizes.paddingXS),
+            Text(emoji, style: GoogleFonts.roboto(fontSize: 15)),
+            const SizedBox(width: 6),
             Text(
               label,
-              style: AppTextStyles.body(
-                fontSize: AppSizes.fontS,
-                color: isSelected
-                    ? AppColors.chipSelectedText
-                    : AppColors.textDark,
+              style: GoogleFonts.roboto(
+                fontSize: 15,
                 fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
               ),
             ),
             if (isSelected) ...[
-              const SizedBox(width: AppSizes.paddingXS),
-              Text(
+              const SizedBox(width: 4),
+              const Text(
                 '✓',
-                style: AppTextStyles.body(
-                  fontSize: AppSizes.fontS,
-                  color: AppColors.chipSelectedText,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

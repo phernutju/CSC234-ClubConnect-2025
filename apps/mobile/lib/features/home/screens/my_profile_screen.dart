@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/rating_model.dart';
+import '../../../providers/profile_provider.dart';
 import '../../../providers/rating_provider.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
@@ -36,14 +37,9 @@ class MyProfileScreen extends StatefulWidget {
 }
 
 class _MyProfileScreenState extends State<MyProfileScreen> {
-  static const String _defaultUsername = 'Username';
-
+  // Only edit-mode transient state lives here; all persisted data is in ProfileProvider.
   bool _isEditing = false;
-  String _username = _defaultUsername;
-  String _bio = AppStrings.profileBio;
-  Uint8List? _avatarBytes;
-  Uint8List? _coverBytes;
-  final Set<String> _selectedInterests = {};
+  Set<String> _editInterests = {}; // working copy while editing
 
   late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
@@ -51,8 +47,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _usernameController = TextEditingController(text: _username);
-    _bioController = TextEditingController(text: _bio);
+    _usernameController = TextEditingController();
+    _bioController = TextEditingController();
   }
 
   @override
@@ -62,43 +58,51 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     super.dispose();
   }
 
+  /// Pick avatar and persist immediately via provider (no Save required).
   Future<void> _pickAvatar() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
-    setState(() => _avatarBytes = bytes);
+    if (mounted) context.read<ProfileProvider>().updateAvatar(bytes);
   }
 
+  /// Pick cover photo and persist immediately via provider (no Save required).
   Future<void> _pickCover() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
-    setState(() => _coverBytes = bytes);
+    if (mounted) context.read<ProfileProvider>().updateCover(bytes);
   }
 
   void _enterEditMode() {
-    _usernameController.text = _username;
-    _bioController.text = _bio;
-    setState(() => _isEditing = true);
+    final profile = context.read<ProfileProvider>();
+    _usernameController.text = profile.username;
+    _bioController.text = profile.bio;
+    setState(() {
+      _editInterests = Set.from(profile.selectedInterests);
+      _isEditing = true;
+    });
   }
 
   void _saveProfile() {
     final newName = _usernameController.text.trim();
-    setState(() {
-      _username = newName.isEmpty ? _defaultUsername : newName;
-      _bio = _bioController.text.trim();
-      _isEditing = false;
-    });
+    context.read<ProfileProvider>().saveProfile(
+      username: newName.isEmpty ? 'Username' : newName,
+      bio: _bioController.text.trim(),
+      interests: _editInterests,
+    );
+    setState(() => _isEditing = false);
   }
 
   void _showViewAllModal(BuildContext context, List<RatingModel> ratings) {
+    final username = context.read<ProfileProvider>().username;
     showDialog(
       context: context,
       barrierColor: Colors.black45,
       builder: (_) => ViewAllReviewsModal(
-        username: _username,
+        username: username,
         ratings: ratings,
       ),
     );
@@ -106,10 +110,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = context.watch<ProfileProvider>();
     final ratings = context
         .watch<RatingProvider>()
         .ratings
-        .where((r) => r.ratedUsername == _username)
+        .where((r) => r.ratedUsername == profile.username)
         .toList();
 
     final avgRating = ratings.isEmpty
@@ -120,23 +125,23 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
-          _ProfileAppBar(title: _username),
+          _ProfileAppBar(title: profile.username),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                // Gradient header — edit mode adds camera overlay
+                // Gradient/cover header — edit mode adds camera overlays
                 if (_isEditing)
                   EditProfileHeader(
-                    avatarBytes: _avatarBytes,
+                    avatarBytes: profile.avatarBytes,
                     onAvatarTap: _pickAvatar,
-                    coverBytes: _coverBytes,
+                    coverBytes: profile.coverBytes,
                     onCoverTap: _pickCover,
                   )
                 else
                   _ProfileHeader(
-                    avatarBytes: _avatarBytes,
-                    coverBytes: _coverBytes,
+                    avatarBytes: profile.avatarBytes,
+                    coverBytes: profile.coverBytes,
                   ),
 
                 Padding(
@@ -146,7 +151,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _UserInfoRow(
-                        username: _username,
+                        username: profile.username,
                         avgRating: avgRating,
                         isEditing: _isEditing,
                         usernameController: _usernameController,
@@ -161,7 +166,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                         _BioField(controller: _bioController)
                       else
                         Text(
-                          _bio,
+                          profile.bio,
                           style: AppTextStyles.poppins(
                             fontSize: AppSizes.fontSM,
                             fontWeight: FontWeight.w300,
@@ -174,18 +179,18 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       const SizedBox(height: AppSizes.paddingS),
                       if (_isEditing)
                         _InterestsGrid(
-                          selectedInterests: _selectedInterests,
+                          selectedInterests: _editInterests,
                           onToggle: (interest) => setState(() {
-                            if (_selectedInterests.contains(interest)) {
-                              _selectedInterests.remove(interest);
+                            if (_editInterests.contains(interest)) {
+                              _editInterests.remove(interest);
                             } else {
-                              _selectedInterests.add(interest);
+                              _editInterests.add(interest);
                             }
                           }),
                         )
                       else
                         _SelectedInterestsView(
-                            selectedInterests: _selectedInterests),
+                            selectedInterests: profile.selectedInterests),
                       const SizedBox(height: AppSizes.paddingL),
 
                       _CommentsSection(
