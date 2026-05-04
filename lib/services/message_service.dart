@@ -34,6 +34,7 @@ class MessageService {
     String? replyToName,
     String? replyToText,
   }) async {
+    if (communityId.isEmpty) return SendResult.error('Community not saved yet');
     final user = _auth.currentUser;
     if (user == null) return SendResult.error('Not signed in');
 

@@ -42,7 +42,7 @@ class CommunityService {
             .toList());
   }
 
-  Future<void> createCommunity({
+  Future<String> createCommunity({
     required String communityName,
     required List<String> category,
     required String description,
@@ -61,6 +61,7 @@ class CommunityService {
       'description': description,
       'coverImageURL': coverImageURL,
       'rule': rule,
+      'hostName': user.displayName ?? '',
       'memberCount': 1,
       'createdAt': createdAt,
       'updatedAt': createdAt,
@@ -70,6 +71,7 @@ class CommunityService {
       'role': 'creator',
     });
     await batch.commit();
+    return communityRef.id;
   }
 
   Future<void> editCommunity(

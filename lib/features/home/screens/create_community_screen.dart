@@ -8,6 +8,7 @@ import '../../../models/community_model.dart';
 import '../../../models/rule_model.dart';
 import '../../../providers/community_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../../../services/community_service.dart';
 
 /// Shared screen for creating a new community (isEditMode = false)
 /// and editing an existing one (isEditMode = true).
@@ -140,20 +141,44 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
       .map((text) => RuleModel(title: text))
       .toList();
 
-  void _onCreate() {
+  Future<void> _onCreate() async {
     setState(() => _submitted = true);
     if (!_isValid) return;
 
-    context.read<CommunityProvider>().addCommunity(CommunityModel(
-      name: _nameController.text.trim(),
-      description: _aboutController.text.trim(),
-      category: _selectedCategory ?? '',
-      coverImage: _coverImageBytes,
-      rules: _buildRules,
-      hostName: context.read<ProfileProvider>().username,
-    ));
+    final name = _nameController.text.trim();
+    final description = _aboutController.text.trim();
+    final category = _selectedCategory ?? '';
+    final rules = _buildRules;
+    final username = context.read<ProfileProvider>().username;
 
-    context.go('/home');
+    try {
+      final id = await CommunityService().createCommunity(
+        communityName: name,
+        category: [category],
+        description: description,
+        coverImageURL: '',
+        rule: rules.map((r) => r.title).join('\n'),
+      );
+
+      if (mounted) {
+        context.read<CommunityProvider>().addCommunity(CommunityModel(
+          id: id,
+          name: name,
+          description: description,
+          category: category,
+          coverImage: _coverImageBytes,
+          rules: rules,
+          hostName: username,
+        ));
+        context.go('/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create community: $e')),
+        );
+      }
+    }
   }
 
   void _onSave() {
