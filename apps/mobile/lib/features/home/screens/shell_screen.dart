@@ -24,11 +24,16 @@ class ShellScreen extends StatelessWidget {
 
   /// Routes to the correct path when a nav item is tapped.
   void _onNavTap(BuildContext context, int index) {
+    final location = GoRouterState.of(context).uri.toString();
     switch (index) {
       case 1:
         context.go('/notification');
       case 2:
-        context.go('/profile');
+        // Push so the back arrow on the profile screen has a route to return to.
+        // Guard prevents stacking duplicates if the tab is tapped while already there.
+        if (!location.startsWith('/profile')) {
+          context.push('/profile');
+        }
       default:
         context.go('/home');
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
+import '../services/user_service.dart';
 
 /// Holds the current user's editable profile data for the session.
 /// Shared via MultiProvider so all screens see the same instance.
@@ -30,6 +31,11 @@ class ProfileProvider extends ChangeNotifier {
         ..clear()
         ..addAll(interests);
     }
+    UserService.updateProfile(
+      username: _username,
+      bio: _bio,
+      interests: Set.unmodifiable(_selectedInterests),
+    );
     notifyListeners();
   }
 
@@ -38,18 +44,25 @@ class ProfileProvider extends ChangeNotifier {
     _selectedInterests
       ..clear()
       ..addAll(interests);
+    UserService.updateProfile(
+      username: _username,
+      bio: _bio,
+      interests: Set.unmodifiable(_selectedInterests),
+    );
     notifyListeners();
   }
 
   /// Persist avatar immediately when picked (does not require pressing Save).
   void updateAvatar(Uint8List bytes) {
     _avatarBytes = bytes;
+    UserService.updateAvatar(bytes);
     notifyListeners();
   }
 
   /// Persist cover photo immediately when picked (does not require pressing Save).
   void updateCover(Uint8List bytes) {
     _coverBytes = bytes;
+    UserService.updateCover(bytes);
     notifyListeners();
   }
 

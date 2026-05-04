@@ -5,9 +5,9 @@ import '../../../constants/app_constants.dart';
 import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
 import '../../../providers/community_provider.dart';
-import '../widgets/club_card.dart';
-import '../widgets/community_info_modal.dart';
-import '../widgets/community_rules_modal.dart';
+import '../../community/widgets/club_card.dart';
+import '../../community/widgets/community_info_modal.dart';
+import '../../community/widgets/community_rules_modal.dart';
 import '../widgets/home_tab_bar.dart';
 
 class HomeScreen extends StatefulWidget {

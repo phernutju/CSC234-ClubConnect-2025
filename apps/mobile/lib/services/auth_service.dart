@@ -2,6 +2,33 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+/// TODO: Replace stubs with real API calls.
+/// Backend team: implement these methods.
+class AuthService {
+  /// TODO: POST /api/auth/login
+  static Future<Map<String, dynamic>> login(
+      String email, String password) async {
+    return {};
+  }
+
+  /// TODO: POST /api/auth/signup
+  static Future<Map<String, dynamic>> signup(
+      String email, String password) async {
+    return {};
+  }
+
+  /// TODO: POST /api/auth/verify-phone
+  static Future<void> verifyPhone(String phoneNumber) async {}
+
+  /// TODO: POST /api/auth/verify-otp
+  static Future<bool> verifyOtp(String otp) async {
+    return true;
+  }
+
+  /// TODO: POST /api/auth/logout
+  static Future<void> logout() async {}
+}
+
 // TODO: Add google-services.json to android/app/ folder
 class GoogleAuthService {
   static final _googleSignIn = GoogleSignIn();

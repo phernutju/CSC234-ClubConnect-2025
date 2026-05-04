@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'constants/app_constants.dart';
+import 'providers/auth_provider.dart';
 import 'providers/community_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/rating_provider.dart';
@@ -20,6 +21,7 @@ class ClubConnectApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => RatingProvider()),

@@ -7,7 +7,7 @@ import '../../../models/community_model.dart';
 import '../../../models/profile_args.dart';
 import '../../../providers/community_provider.dart';
 import '../../../providers/profile_provider.dart';
-import '../widgets/community_info_modal.dart';
+import '../../community/widgets/community_info_modal.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';

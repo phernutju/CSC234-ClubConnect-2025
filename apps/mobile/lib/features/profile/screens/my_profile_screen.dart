@@ -80,10 +80,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final profile = context.read<ProfileProvider>();
     _usernameController.text = profile.username;
     _bioController.text = profile.bio;
-    setState(() {
-      _editInterests = Set.from(profile.selectedInterests);
-      _isEditing = true;
-    });
+    if (mounted) {
+      setState(() {
+        _editInterests = Set.from(profile.selectedInterests);
+        _isEditing = true;
+      });
+    }
+  }
+
+  void _discardChanges() {
+    if (mounted) setState(() => _isEditing = false);
   }
 
   void _saveProfile() {
@@ -93,7 +99,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       bio: _bioController.text.trim(),
       interests: _editInterests,
     );
-    setState(() => _isEditing = false);
+    if (mounted) setState(() => _isEditing = false);
   }
 
   void _showLogoutDialog() {
@@ -141,6 +147,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         children: [
           _ProfileAppBar(
             title: profile.username,
+            isEditing: _isEditing,
+            onBackTap: _discardChanges,
             onLogoutTap: _showLogoutDialog,
           ),
           Expanded(
@@ -246,13 +254,17 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       if (_isEditing)
                         _InterestsGrid(
                           selectedInterests: _editInterests,
-                          onToggle: (interest) => setState(() {
-                            if (_editInterests.contains(interest)) {
-                              _editInterests.remove(interest);
-                            } else {
-                              _editInterests.add(interest);
+                          onToggle: (interest) {
+                            if (mounted) {
+                              setState(() {
+                                if (_editInterests.contains(interest)) {
+                                  _editInterests.remove(interest);
+                                } else {
+                                  _editInterests.add(interest);
+                                }
+                              });
                             }
-                          }),
+                          },
                         )
                       else
                         _SelectedInterestsView(
@@ -278,20 +290,23 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
-/// Coral app bar — back arrow shown only when there is navigation history.
+/// Coral app bar — back arrow shown only in edit mode to discard changes.
 /// Logout button always shown in the top-right corner.
 class _ProfileAppBar extends StatelessWidget {
   final String title;
+  final bool isEditing;
+  final VoidCallback onBackTap;
   final VoidCallback onLogoutTap;
 
   const _ProfileAppBar({
     required this.title,
+    required this.isEditing,
+    required this.onBackTap,
     required this.onLogoutTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final canGoBack = context.canPop();
     return Container(
       color: AppColors.primary,
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
@@ -301,11 +316,14 @@ class _ProfileAppBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(width: AppSizes.paddingM),
-            if (canGoBack)
+            if (isEditing)
               GestureDetector(
-                onTap: () => context.pop(),
-                child:
-                    const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+                onTap: onBackTap,
+                child: const Icon(
+                  Icons.arrow_back_ios,
+                  color: AppColors.cardWhite,
+                  size: AppSizes.iconSize,
+                ),
               )
             else
               const SizedBox(width: AppSizes.iconSize),

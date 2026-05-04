@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
 import 'package:provider/provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
-import '../../../services/auth_service.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/google_sign_in_button.dart';
 
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _onGoogleSignIn() async {
     setState(() => _googleLoading = true);
     try {
-      final account = await GoogleAuthService.signInWithGoogle();
+      final account = await context.read<AuthProvider>().signInWithGoogle();
       if (!mounted) return;
       if (account != null) {
         final profile = context.read<ProfileProvider>();
