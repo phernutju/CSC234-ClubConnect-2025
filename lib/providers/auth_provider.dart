@@ -65,17 +65,22 @@ class AppAuthProvider extends ChangeNotifier {
     _clearSignupData();
   }
 
-  Future<UserCredential> signIn({
+   Future<void> signIn({
     required String email,
     required String password,
   }) async {
+    isLoading = true;
+    notifyListeners();
+
     try {
-      return await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credential = await _authService.signIn(
         email: email,
         password: password,
       );
-    } on FirebaseAuthException catch (e) {
-      throw AuthException(_mapError(e.code));
+      user = credential.user;
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -93,16 +98,5 @@ class AppAuthProvider extends ChangeNotifier {
     _photoURL = null;
   }
 
-  String _mapError(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return 'No user found with this email';
-      case 'wrong-password':
-        return 'Incorrect password';
-      case 'invalid-email':
-        return 'Invalid email format';
-      default:
-        return 'Something went wrong';
-    }
-  }
+
 }

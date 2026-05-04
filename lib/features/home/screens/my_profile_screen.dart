@@ -469,6 +469,7 @@ class _UserInfoRow extends StatelessWidget {
                       color: AppColors.primary,
                     ),
                   ),
+                  // Invisible text to prevent jitter when button text changes
                 ],
               ),
             ),

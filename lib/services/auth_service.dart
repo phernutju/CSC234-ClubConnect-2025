@@ -1,15 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-
-
-
-
   ///  Sign Up
-  Future<User?> signUp({
+  Future<User> signUp({
     required String email,
     required String password,
     required String displayName,
@@ -24,44 +21,38 @@ class AuthService {
         password: password,
       );
 
-      final user = credential.user;
-      if (user != null) {
-        await user.updateDisplayName(displayName);
-        // create Firestore user document
-        await _db.collection('users').doc(user.uid).set({
-          'displayName': displayName,
-          'email': email,
-          'bio': bio,
-          'interests': interests,
-          'phoneNumber': phoneNumber,
-          'photoURL': photoURL ?? '',
-          'role': 'user',
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      return user;
+      final user = credential.user!;
+      await _db.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'displayName': displayName,
+        'email': email,
+        'phoneNumber': phoneNumber,
+        'photoURL': photoURL ?? '',
+        'bio': bio,
+        'interests': interests,
+        'role': 'user',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      return credential.user!;
     } catch (e) {
       throw Exception(e.toString());
     }
   }
 
   ///  Sign In
-  Future<User?> signIn({
+  Future<UserCredential> signIn({
     required String email,
     required String password,
   }) async {
-    
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
+      return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      return credential.user;
-    } catch (e) {
-      throw Exception(e.toString());
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapError(e.code));
     }
   }
 
@@ -106,7 +97,21 @@ class AuthService {
     await _auth.signInWithCredential(credential);
   }
 }
+
 class AuthException implements Exception {
   final String message;
   AuthException(this.message);
+}
+
+String _mapError(String code) {
+  switch (code) {
+    case 'user-not-found':
+      return 'No user found with this email';
+    case 'wrong-password':
+      return 'Incorrect password';
+    case 'invalid-email':
+      return 'Invalid email format';
+    default:
+      return 'Something went wrong';
+  }
 }
