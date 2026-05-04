@@ -135,7 +135,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
-          _ProfileAppBar(title: displayName),
+          _ProfileAppBar(
+            title: displayName,
+            onLogout: () async {
+              await context.read<AppAuthProvider>().signOut();
+            },
+          ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
@@ -228,8 +233,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
 class _ProfileAppBar extends StatelessWidget {
   final String title;
+  final Future<void> Function()? onLogout;
 
-  const _ProfileAppBar({required this.title});
+  const _ProfileAppBar({required this.title, this.onLogout});
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +270,16 @@ class _ProfileAppBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: AppSizes.iconSize + AppSizes.paddingM),
+            if (onLogout != null)
+              GestureDetector(
+                onTap: onLogout,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: AppSizes.paddingM),
+                  child: Icon(Icons.logout, color: AppColors.cardWhite),
+                ),
+              )
+            else
+              const SizedBox(width: AppSizes.iconSize + AppSizes.paddingM),
           ],
         ),
       ),

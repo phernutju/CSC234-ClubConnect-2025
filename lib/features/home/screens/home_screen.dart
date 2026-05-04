@@ -27,7 +27,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CommunityProvider>().loadMyCommunities();
+      final auth = context.read<AppAuthProvider>();
+      if (auth.user != null) {
+        context.read<CommunityProvider>().loadMyCommunities();
+      }
     });
   }
 

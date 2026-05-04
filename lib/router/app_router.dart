@@ -16,92 +16,121 @@ import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
 import '../models/chat_args.dart';
 import '../models/profile_args.dart';
+import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
+import 'package:flutter/material.dart';
 
-/// Defines every named route in the app and their order in the navigation stack.
-///
-/// Auth flow:   / → /login or /signup → /verify-phone → /otp → /set-profile → /category → /home
-/// Main app:    ShellRoute wraps /home, /notification, /profile (shares bottom nav)
-/// Overlays:    /chat and /create-community are pushed over the shell (no bottom nav)
-final GoRouter appRouter = GoRouter(
-  initialLocation: '/',
-  routes: [
-    // ── Auth routes (no bottom nav) ──────────────────────────────────────────
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const WelcomeScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/signup',
-      builder: (context, state) => const SignupScreen(),
-    ),
-    GoRoute(
-      path: '/verify-phone',
-      builder: (context, state) => const VerifyPhoneScreen(),
-    ),
-    GoRoute(
-      path: '/otp',
-      builder: (context, state) => const OtpScreen(),
-    ),
-    GoRoute(
-      path: '/set-profile',
-      builder: (context, state) => const SetProfileScreen(),
-    ),
-    GoRoute(
-      path: '/category',
-      builder: (context, state) => const CategoryScreen(),
-    ),
+GoRouter createAppRouter(AppAuthProvider authProvider) {
+    String? redirect(BuildContext context, GoRouterState state) {
+    final signedIn = authProvider.user != null;
 
-    // ── Main-app shell (bottom nav shared across these three routes) ─────────
-    ShellRoute(
-      builder: (context, state, child) => ShellScreen(child: child),
-      routes: [
-        GoRoute(
-          path: '/home',
-          builder: (context, state) => const HomeScreen(),
-        ),
-        GoRoute(
-          path: '/notification',
-          builder: (context, state) => const NotificationScreen(),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const MyProfileScreen(),
-        ),
-      ],
-    ),
+    final authRoutes = {
+      '/',
+      '/login',
+      '/signup',
+      '/verify-phone',
+      '/otp',
+      '/set-profile',
+      '/category',
+    };
 
-    // ── Full-screen overlay routes (no bottom nav) ───────────────────────────
-    GoRoute(
-      path: '/chat',
-      builder: (context, state) {
-        final args = state.extra as ChatArgs?;
-        return ChatScreen(
-          communityId: args?.communityId ?? '',
-          communityName: args?.communityName ?? AppStrings.chatCommunityName,
-          memberCount: args?.memberCount ?? '',
-        );
-      },
-    ),
-    GoRoute(
-      path: '/create-community',
-      builder: (context, state) => const CreateCommunityScreen(),
-    ),
-    GoRoute(
-      path: '/other-profile',
-      builder: (context, state) {
-        final args = state.extra as ProfileArgs?;
-        return OtherProfileScreen(
-          userId: args?.userId ?? '',
-          username: args?.username ?? AppStrings.rateTestUsername,
-          communityName: args?.communityName ?? AppStrings.rateTestCommunity,
-          communityId: args?.communityId ?? AppStrings.rateTestCommunityId,
-        );
-      },
-    ),
-  ],
-);
+    final location = state.matchedLocation;
+
+    final isAuthRoute = authRoutes.contains(location);
+
+    if (!signedIn && !isAuthRoute) {
+      return '/login';
+    }
+
+    if (signedIn && location == '/') {
+      return '/home';
+    }
+
+    return null;
+  }
+
+  return GoRouter(
+    initialLocation: '/',
+    refreshListenable: authProvider,
+    redirect: redirect,
+    routes: [
+      // ── Auth routes (no bottom nav) ──────────────────────────────────────────
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const WelcomeScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/signup',
+        builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/verify-phone',
+        builder: (context, state) => const VerifyPhoneScreen(),
+      ),
+      GoRoute(
+        path: '/otp',
+        builder: (context, state) => const OtpScreen(),
+      ),
+      GoRoute(
+        path: '/set-profile',
+        builder: (context, state) => const SetProfileScreen(),
+      ),
+      GoRoute(
+        path: '/category',
+        builder: (context, state) => const CategoryScreen(),
+      ),
+
+      // ── Main-app shell (bottom nav shared across these three routes) ─────────
+      ShellRoute(
+        builder: (context, state, child) => ShellScreen(child: child),
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (context, state) => const HomeScreen(),
+          ),
+          GoRoute(
+            path: '/notification',
+            builder: (context, state) => const NotificationScreen(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const MyProfileScreen(),
+          ),
+        ],
+      ),
+
+      // ── Full-screen overlay routes (no bottom nav) ─────────────────────────
+      GoRoute(
+        path: '/chat',
+        builder: (context, state) {
+          final args = state.extra as ChatArgs?;
+          return ChatScreen(
+            communityId: args?.communityId ?? '',
+            communityName: args?.communityName ?? AppStrings.chatCommunityName,
+            memberCount: args?.memberCount ?? '',
+          );
+        },
+      ),
+      GoRoute(
+        path: '/create-community',
+        builder: (context, state) => const CreateCommunityScreen(),
+      ),
+      GoRoute(
+        path: '/other-profile',
+        builder: (context, state) {
+          final args = state.extra as ProfileArgs?;
+          return OtherProfileScreen(
+            userId: args?.userId ?? '',
+            username: args?.username ?? AppStrings.rateTestUsername,
+            communityName: args?.communityName ?? AppStrings.rateTestCommunity,
+            communityId: args?.communityId ?? AppStrings.rateTestCommunityId,
+          );
+        },
+      ),
+    ],
+  );
+}
