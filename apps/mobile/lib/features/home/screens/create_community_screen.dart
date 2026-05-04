@@ -23,6 +23,56 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   Uint8List? _coverImageBytes;
   String?    _selectedCategory;
 
+  // Errors are only shown after the user taps Create for the first time
+  bool _submitted = false;
+
+  // ── Computed error getters ────────────────────────────────────────────────────
+
+  String? get _coverError =>
+      _submitted && _coverImageBytes == null ? AppStrings.createErrCover : null;
+
+  String? get _nameError {
+    if (!_submitted) return null;
+    final v = _nameController.text.trim();
+    return (v.isEmpty || v.length < AppSizes.createNameMinChars)
+        ? AppStrings.createErrName
+        : null;
+  }
+
+  String? get _aboutError {
+    if (!_submitted) return null;
+    final v = _aboutController.text.trim();
+    return (v.isEmpty || v.length < AppSizes.createAboutMinChars)
+        ? AppStrings.createErrAbout
+        : null;
+  }
+
+  String? get _categoryError =>
+      _submitted && _selectedCategory == null ? AppStrings.createErrCategory : null;
+
+  String? get _rulesError {
+    if (!_submitted) return null;
+    final hasRule = _rulesControllers.any((c) => c.text.trim().isNotEmpty);
+    return hasRule ? null : AppStrings.createErrRules;
+  }
+
+  // True when every field satisfies its rule
+  bool get _isValid =>
+      _coverImageBytes != null &&
+      _nameController.text.trim().length >= AppSizes.createNameMinChars &&
+      _aboutController.text.trim().length >= AppSizes.createAboutMinChars &&
+      _selectedCategory != null &&
+      _rulesControllers.any((c) => c.text.trim().isNotEmpty);
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild on every keystroke so errors disappear as soon as the field is filled
+    _nameController.addListener(() => setState(() {}));
+    _aboutController.addListener(() => setState(() {}));
+    _rulesControllers.first.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -43,13 +93,17 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   }
 
   void _addRule() {
-    setState(() => _rulesControllers.add(TextEditingController()));
+    // Attach listener so the rules error clears as soon as the user types
+    final ctrl = TextEditingController()..addListener(() => setState(() {}));
+    setState(() => _rulesControllers.add(ctrl));
   }
 
   void _onCreate() {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    // Show all errors on first tap, then abort if anything is invalid
+    setState(() => _submitted = true);
+    if (!_isValid) return;
 
+    final name = _nameController.text.trim();
     final rules = _rulesControllers
         .map((c) => c.text.trim())
         .where((r) => r.isNotEmpty)
@@ -92,11 +146,18 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                     children: [
                       const SizedBox(height: AppSizes.paddingM),
 
+                      // Cover photo error sits at the top of the form column
+                      if (_coverError != null) ...[
+                        _ErrorText(_coverError!),
+                        const SizedBox(height: AppSizes.paddingS),
+                      ],
+
                       const _SectionLabel(label: AppStrings.createNameLabel),
                       _FormField(
                         controller: _nameController,
                         hint: AppStrings.createNameHint,
                         maxLength: 50,
+                        errorText: _nameError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
 
@@ -106,6 +167,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                         hint: AppStrings.createAboutHint,
                         maxLength: 500,
                         maxLines: 4,
+                        errorText: _aboutError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
 
@@ -114,12 +176,14 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       _CategoryChips(
                         selected: _selectedCategory,
                         onSelected: (c) => setState(() => _selectedCategory = c),
+                        errorText: _categoryError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
 
                       _RulesSection(
                         controllers: _rulesControllers,
                         onAddRule: _addRule,
+                        errorText: _rulesError,
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
 
@@ -263,57 +327,68 @@ class _FormField extends StatelessWidget {
   final String hint;
   final int maxLength;
   final int maxLines;
+  final String? errorText;
 
   const _FormField({
     required this.controller,
     required this.hint,
     required this.maxLength,
     this.maxLines = 1,
+    this.errorText,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      maxLength: maxLength,
-      buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
-          Text(
-            '$currentLength/${maxLength ?? this.maxLength}',
-            style: AppTextStyles.poppins(
-              fontSize: AppSizes.fontXS,
-              color: AppColors.textGray,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          maxLength: maxLength,
+          buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
+              Text(
+                '$currentLength/${maxLength ?? this.maxLength}',
+                style: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontXS,
+                  color: AppColors.textGray,
+                ),
+              ),
+          style: AppTextStyles.poppins(
+            fontSize: AppSizes.fontM,
+            color: AppColors.textDark,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: AppTextStyles.poppins(
+              fontSize: AppSizes.fontM,
+              color: AppColors.fieldPlaceholder,
+            ),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: AppColors.fieldPlaceholder,
+                width: AppSizes.fieldBorderWidth,
+              ),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: AppColors.primary,
+                width: AppSizes.fieldBorderWidth,
+              ),
+            ),
+            border: const UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: AppColors.fieldPlaceholder,
+                width: AppSizes.fieldBorderWidth,
+              ),
             ),
           ),
-      style: AppTextStyles.poppins(
-        fontSize: AppSizes.fontM,
-        color: AppColors.textDark,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: AppTextStyles.poppins(
-          fontSize: AppSizes.fontM,
-          color: AppColors.fieldPlaceholder,
         ),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: AppColors.fieldPlaceholder,
-            width: AppSizes.fieldBorderWidth,
-          ),
-        ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: AppColors.primary,
-            width: AppSizes.fieldBorderWidth,
-          ),
-        ),
-        border: const UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: AppColors.fieldPlaceholder,
-            width: AppSizes.fieldBorderWidth,
-          ),
-        ),
-      ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          _ErrorText(errorText!),
+        ],
+      ],
     );
   }
 }
@@ -323,15 +398,23 @@ class _FormField extends StatelessWidget {
 class _CategoryChips extends StatelessWidget {
   final String? selected;
   final ValueChanged<String> onSelected;
+  final String? errorText;
 
-  const _CategoryChips({required this.selected, required this.onSelected});
+  const _CategoryChips({
+    required this.selected,
+    required this.onSelected,
+    this.errorText,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSizes.paddingS,
-      runSpacing: AppSizes.paddingS,
-      children: AppStrings.createCategories.map((cat) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: AppSizes.paddingS,
+          runSpacing: AppSizes.paddingS,
+          children: AppStrings.createCategories.map((cat) {
         final isSelected = cat == selected;
         return GestureDetector(
           onTap: () => onSelected(cat),
@@ -359,7 +442,13 @@ class _CategoryChips extends StatelessWidget {
             ),
           ),
         );
-      }).toList(),
+        }).toList(),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          _ErrorText(errorText!),
+        ],
+      ],
     );
   }
 }
@@ -369,8 +458,13 @@ class _CategoryChips extends StatelessWidget {
 class _RulesSection extends StatefulWidget {
   final List<TextEditingController> controllers;
   final VoidCallback onAddRule;
+  final String? errorText;
 
-  const _RulesSection({required this.controllers, required this.onAddRule});
+  const _RulesSection({
+    required this.controllers,
+    required this.onAddRule,
+    this.errorText,
+  });
 
   @override
   State<_RulesSection> createState() => _RulesSectionState();
@@ -520,6 +614,11 @@ class _RulesSectionState extends State<_RulesSection> {
             ),
           ),
         ),
+
+        if (widget.errorText != null) ...[
+          const SizedBox(height: 4),
+          _ErrorText(widget.errorText!),
+        ],
       ],
     );
   }
@@ -555,6 +654,25 @@ class _CreateButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Shared error label ────────────────────────────────────────────────────────
+
+/// Renders a validation error message below a form field.
+class _ErrorText extends StatelessWidget {
+  final String message;
+  const _ErrorText(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      message,
+      style: AppTextStyles.poppins(
+        fontSize: AppSizes.fontXXS,
+        color: AppColors.primary,
       ),
     );
   }

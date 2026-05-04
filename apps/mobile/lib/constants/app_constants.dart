@@ -234,6 +234,10 @@ class AppSizes {
   // Camera overlay button on avatar and cover photo in edit mode
   static const double profileCameraButtonSize = 28.0;
 
+  // Create Community — minimum character counts for validation
+  static const int createNameMinChars  = 1;
+  static const int createAboutMinChars = 1;
+
   // Home screen — community card
   static const double clubCardRadius       = 16.0;
   static const double clubThumbnailSize    = 60.0;
@@ -374,6 +378,14 @@ class AppStrings {
   static const String createRuleTooltip =
       'Keep your community safe! Write your custom rules below, '
       'and our AI assistant will help enforce them by removing violators';
+
+  // Create Community — validation error messages
+  static const String createErrCover    = 'Please add a cover photo';
+  static const String createErrName     = 'Please enter a community name';
+  static const String createErrAbout    = 'Please tell us about your community';
+  static const String createErrCategory = 'Please select at least one category';
+  static const String createErrRules    = 'Please add at least one community rule';
+
   static const List<String> createCategories = [
     'Badminton', 'Basketball', 'Football', 'Tennis',
     'Swimming', 'Cooking', 'Music', 'Art',
