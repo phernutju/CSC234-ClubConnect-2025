@@ -3,12 +3,15 @@ import 'package:flutter/foundation.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
+import '../models/rule_model.dart';
 import '../services/community_service.dart';
 
 class CommunityProvider extends ChangeNotifier {
   final CommunityService _service;
-
+  final Set<String> _mutedCommunities = {};
+  final Map<String, String> _nameCache = {};
   List<CommunityModel> communities = [];
+  List<CommunityModel> myCommunities = [];
   CommunityModel? activeCommunity;
   List<MessageModel> messages = [];
   List<MemberModel> members = [];
@@ -16,12 +19,41 @@ class CommunityProvider extends ChangeNotifier {
   String? error;
 
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
+  StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
   StreamSubscription<List<MessageModel>>? _messagesSub;
   StreamSubscription<List<MemberModel>>? _membersSub;
 
-  CommunityProvider({CommunityService? service})
-      : _service = service ?? CommunityService() {
-    _communitiesSub = _service.getCommunities().listen(
+
+  Set<String> get mutedCommunityNames => Set.unmodifiable(_mutedCommunities);
+
+  void toggleMute(String communityId) {
+    if (_mutedCommunities.contains(communityId)) {
+      _mutedCommunities.remove(communityId);
+    } else {
+      _mutedCommunities.add(communityId);
+    }
+    notifyListeners();
+  }
+
+  /// Returns the cached display name for [uid], or empty string if not yet fetched.
+  String displayNameOf(String uid) => _nameCache[uid] ?? '';
+
+  /// Fetches and caches the display name for [uid] from Firestore.
+  /// No-ops if already cached. Notifies listeners when the name arrives.
+  Future<void> fetchDisplayName(String uid) async {
+    if (_nameCache.containsKey(uid)) return;
+    _nameCache[uid] = ''; // mark as in-flight to prevent duplicate fetches
+    try {
+      _nameCache[uid] = await _service.getUserDisplayName(uid);
+    } catch (_) {
+      _nameCache[uid] = 'User';
+    }
+    notifyListeners();
+  }
+
+  void _listenToCommunities(Stream<List<CommunityModel>> stream) {
+    _communitiesSub?.cancel();
+    _communitiesSub = stream.listen(
       (list) {
         communities = list;
         notifyListeners();
@@ -31,6 +63,53 @@ class CommunityProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  void _listenToMyCommunities(Stream<List<CommunityModel>> stream) {
+    _myCommunitiesSub?.cancel();
+    _myCommunitiesSub = stream.listen(
+      (list) {
+        myCommunities = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  CommunityProvider({CommunityService? service})
+      : _service = service ?? CommunityService() {
+    _listenToCommunities(_service.getCommunities());
+  }
+
+  void loadCommunities() {
+    _listenToCommunities(_service.getCommunities());
+  }
+
+  void loadFirst10Communities() {
+    _listenToCommunities(_service.getFirst10Communities());
+  }
+
+  void loadCommunitiesLimited({int limit = 20}) {
+    _listenToCommunities(_service.getCommunitiesLimited(limit: limit));
+  }
+
+  void loadCommunitiesByIds(List<String> communityIds) {
+    _listenToCommunities(_service.getCommunitiesByIds(communityIds));
+  }
+
+  void loadCommunitiesByCategory(String category) {
+    _listenToCommunities(_service.getCommunitiesByCategory(category));
+  }
+
+  void loadMyCommunities() {
+    _listenToMyCommunities(_service.getMyCommunities());
+  }
+
+  Future<CommunityModel?> fetchCommunity(String communityId) {
+    return _service.getCommunity(communityId);
   }
 
   // ── Active community ───────────────────────────────────────────────────────
@@ -97,14 +176,14 @@ class CommunityProvider extends ChangeNotifier {
     required List<String> category,
     required String description,
     required String coverImageURL,
-    required String rule,
+    required List<RuleModel> rules,
   }) =>
       _run(() => _service.createCommunity(
             communityName: communityName,
             category: category,
             description: description,
             coverImageURL: coverImageURL,
-            rule: rule,
+            rules: rules,
           ));
 
   // ── Member actions ─────────────────────────────────────────────────────────
@@ -151,6 +230,7 @@ class CommunityProvider extends ChangeNotifier {
   @override
   void dispose() {
     _communitiesSub?.cancel();
+    _myCommunitiesSub?.cancel();
     _messagesSub?.cancel();
     _membersSub?.cancel();
     super.dispose();

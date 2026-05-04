@@ -81,6 +81,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final args = state.extra as ChatArgs?;
         return ChatScreen(
+          communityId: args?.communityId ?? '',
           communityName: args?.communityName ?? AppStrings.chatCommunityName,
           memberCount: args?.memberCount ?? '',
         );
@@ -95,6 +96,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final args = state.extra as ProfileArgs?;
         return OtherProfileScreen(
+          userId: args?.userId ?? '',
           username: args?.username ?? AppStrings.rateTestUsername,
           communityName: args?.communityName ?? AppStrings.rateTestCommunity,
         );

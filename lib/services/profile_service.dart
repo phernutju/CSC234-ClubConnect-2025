@@ -22,6 +22,9 @@ class ProfileService {
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
 
+  CollectionReference<Map<String, dynamic>> get _communities =>
+      _db.collection('communities');
+
   CollectionReference<Map<String, dynamic>> _ratings(String userId) =>
       _users.doc(userId).collection('rating');
 
@@ -78,7 +81,7 @@ class ProfileService {
   Future<ReviewModel> createReview(
     String targetUserId, {
     required String communityId,
-    required String score,
+    required double score,
     required String comment,
   }) async {
     final current = _requireAuth();
@@ -91,6 +94,7 @@ class ProfileService {
     final data = {
       'raterId': current.uid,
       'communityId': communityId,
+      'communityName': '', // TODO: fetch actual communityName based on communityId
       'score': score,
       'comment': comment.trim(),
       'createdAt': Timestamp.now(),
@@ -102,13 +106,14 @@ class ProfileService {
 
   Future<ReviewsResult> getReviews(String targetUserId) async {
     final snapshot = await _ratings(targetUserId).get();
+    
     final reviews = snapshot.docs
         .map((doc) => ReviewModel.fromJson(doc.id, doc.data()))
         .toList();
     final average = reviews.isEmpty
-        ? 0.0
-        : reviews.fold<int>(0, (acc, r) => acc + r.score) /
-            reviews.length;
+    ? 0.0
+    : reviews.fold<double>(0, (acc, r) => acc + r.score) /
+        reviews.length;
     return ReviewsResult(reviews: reviews, averageScore: average);
   }
 
@@ -128,7 +133,7 @@ class ProfileService {
 
     final updates = <String, dynamic>{};
     if (data.containsKey('score')) {
-      _validateScore(data['score'] as String);
+      _validateScore(data['score'] as double);
       updates['score'] = data['score'];
     }
     if (data.containsKey('comment')) {
@@ -153,6 +158,15 @@ class ProfileService {
     await _ratings(targetUserId).doc(reviewId).delete();
   }
 
+  // ── Community ──────────────────────────────────────────────────────────────
+
+  /// Fetch just the community name from a community ID.
+  Future<String?> getCommunityName(String communityId) async {
+    final doc = await _communities.doc(communityId).get();
+    if (!doc.exists) return null;
+    return doc.data()?['communityName'] as String?;
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   User _requireAuth() {
@@ -166,8 +180,8 @@ class ProfileService {
     if (doc.data()?['role'] != 'admin') throw Exception('Permission denied');
   }
 
-  void _validateScore(String score) {
-    if (!{'1', '2', '3', '4', '5'}.contains(score)) {
+  void _validateScore(double score) {
+    if (!{1.0, 2.0, 3.0, 4.0, 5.0}.contains(score)) {
       throw ArgumentError('score must be "1"–"5", got "$score"');
     }
   }

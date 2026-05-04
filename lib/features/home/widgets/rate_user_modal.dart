@@ -10,6 +10,8 @@ import '../../../providers/profile_provider.dart';
 class RateUserModal extends StatefulWidget {
   /// Name of the user being rated.
   final String username;
+  final String userId;
+  final String communityId;
 
   /// Community the rater encountered this user in.
   final String communityName;
@@ -18,6 +20,8 @@ class RateUserModal extends StatefulWidget {
     super.key,
     required this.username,
     required this.communityName,
+    required this.userId,
+    required this.communityId,
   });
 
   @override
@@ -38,10 +42,11 @@ class _RateUserModalState extends State<RateUserModal> {
   /// Saves the rating to [ProfileProvider] and closes the modal.
   void _onPost() {
     if (_stars == 0) return;
+    
     context.read<ProfileProvider>().createReview(
-      widget.username, // targetUserId
-      communityId: 'dummy', // TODO: pass actual communityId
-      score: _stars.toString(),
+      widget.userId,
+      communityId: widget.communityId, // TODO: pass actual communityId
+      score: _stars.toDouble(),
       comment: _commentController.text,
     );
     Navigator.of(context).pop();

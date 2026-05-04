@@ -40,7 +40,7 @@ class ProfileProvider extends ChangeNotifier {
   Future<void> createReview(
     String targetUserId, {
     required String communityId,
-    required String score,
+    required double score,
     required String comment,
   }) =>
       _run(() async {
@@ -68,6 +68,11 @@ class ProfileProvider extends ChangeNotifier {
         await _service.deleteReview(targetUserId, reviewId);
         reviewsResult = await _service.getReviews(targetUserId);
       });
+
+  // ── Community ──────────────────────────────────────────────────────────────
+
+  Future<String?> fetchCommunityName(String communityId) =>
+      _service.getCommunityName(communityId);
 
   // ── Helper ────────────────────────────────────────────────────────────────
 

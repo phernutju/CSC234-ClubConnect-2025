@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../models/rule_model.dart';
 class CommunityModel {
   final String id;
 
@@ -8,10 +8,12 @@ class CommunityModel {
   final List<String> category;
   final String description;
   final String coverImageURL;
-  final String rule;
+  final String createdById;
+  final List<RuleModel> rules;
   final int memberCount;
   final DateTime createdAt;
   final DateTime updatedAt;
+  
 
   CommunityModel({
     required this.id,
@@ -20,7 +22,8 @@ class CommunityModel {
     required this.category,
     required this.description,
     required this.coverImageURL,
-    required this.rule,
+    required this.createdById,
+    required this.rules,
     required this.memberCount,
     required this.createdAt,
     required this.updatedAt,
@@ -35,7 +38,10 @@ class CommunityModel {
       category: List<String>.from(json['category'] ?? []),
       description: json['description'] ?? '',
       coverImageURL: json['coverImageURL'] ?? '',
-      rule: json['rule'] ?? '',
+      createdById: json['createdById'] ?? '',
+      rules: (json['rules'] as List<dynamic>)
+    .map((e) => RuleModel.fromJson(e))
+    .toList(),
       memberCount: json['memberCount'] ?? 0,
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -50,7 +56,7 @@ class CommunityModel {
       'category': category,
       'description': description,
       'coverImageURL': coverImageURL,
-      'rule': rule,
+      'rules': rules.map((rule) => rule.toJson()).toList(),
       'memberCount': memberCount,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),

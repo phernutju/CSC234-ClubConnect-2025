@@ -36,7 +36,7 @@ class AppColors {
   static const Color stepInactive = Color(0xFFD8D8D8);
 
   /// Interest chip — selected background
-  static const Color chipSelected = Color(0xFF1A1A1A);
+  static const Color chipSelected = Color(0xFFFF6B4A);
 
   /// Interest chip — selected text color
   static const Color chipSelectedText = Color(0xFFFFFFFF);
@@ -54,10 +54,10 @@ class AppColors {
   static const Color categoryPurple = Color(0xFFBBADD8);
 
   /// Notification item left-border accent
-  static const Color notifBorder = Color(0xFFE07355);
+  static const Color notifBorder = Color(0xFFFF6B4A);
 
   /// Salmon placeholder for avatars / profile circles
-  static const Color avatarSalmon = Color(0xFFE8A898);
+  static const Color avatarSalmon = Color(0xFFE8A598);
 
   /// Subtle divider line
   static const Color divider = Color(0xFFEEEEEE);
@@ -129,7 +129,10 @@ class AppColors {
   static const Color alertRed = Color(0xFFFF6868);
 
   /// Edit Profile save button — green
-  static const Color saveButtonColor = Color(0xFF00C95C);
+  static const Color saveButtonColor = Color(0xFF58B97A);
+
+  /// Host info card — rating score text
+  static const Color hostRatingColor = Color(0xFF6B5F66);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -173,16 +176,20 @@ class AppSizes {
   static const double appBarHeight = 64.0;
 
   // Fixed component heights / sizes
-  static const double buttonHeight      = 54.0;
+  static const double buttonHeight      = 56.0;
   static const double inputHeight       = 52.0;
   static const double bottomNavHeight   = 68.0;
   static const double stepBarHeight     = 5.0;
   static const double cardThumbnailSize = 72.0;
   static const double avatarSmall       = 42.0;
   static const double avatarLarge       = 120.0;
+  static const double notifBorderWidth  =  2.0;
+  static const double inboxDividerWidth =  1.0;
   static const double categoryCardSize  = 90.0;
   static const double otpBoxSize        = 58.0;
   static const double iconSize          = 22.0;
+  static const double chatMenuHeight    = 105.0;
+  static const double chatMenuIconSize  =  24.0;
   static const double coverImageHeight  = 200.0;
 
   // Fixed component heights for Create Community screen
@@ -234,9 +241,43 @@ class AppSizes {
   // Camera overlay button on avatar and cover photo in edit mode
   static const double profileCameraButtonSize = 28.0;
 
+  // Create Community — minimum character counts for validation
+  static const int createNameMinChars  = 1;
+  static const int createAboutMinChars = 1;
+
+  // Home screen — community card
+  static const double clubCardRadius       = 16.0;
+  static const double clubThumbnailSize    = 60.0;
+  static const double clubArrowSize        = 12.0;
+  static const double clubCardBorderWidth  =  1.0;
+
+  // Community Info Modal
+  static const double communityModalWidth      = 296.0;
+  static const double communityInfoCoverHeight = 167.0;
+  static const double hostCardHeight           =  84.0;
+  static const double hostAvatarSize           =  50.0;
+  static const double hostStarSize             =   8.0;
+  static const double modalActionButtonWidth   = 247.0;
+  static const double modalActionButtonHeight  =  50.0;
+  static const double communityInfoContentPad  =  16.0;
+  static const double communityInfoSectionGap  =  12.0;
+  static const double communityInfoBottomPad   =  20.0;
+
+  // Community Rules Modal
+  static const double rulesBannerHeight    = 100.0;
+  static const double rulesCheckboxSize    =  16.0;
+  static const double rulesCheckboxRadius  =   2.0;
+  static const double rulesContentPadH     =  20.0;
+  static const double rulesContentPadV     =  20.0;
+  static const double rulesItemGap         =  12.0;
+  static const double rulesPreCheckboxGap  =  16.0;
+  static const double rulesPreButtonGap    =  16.0;
+
   // Font sizes
+  static const double fontXXXS    =  9.0;
   static const double fontXXS     = 10.0;
   static const double fontXS      = 11.0;
+  static const double fontXII     = 12.0;
   static const double fontS       = 13.0;
   static const double fontSM      = 14.0;
   static const double fontM       = 15.0;
@@ -244,6 +285,7 @@ class AppSizes {
   static const double fontL       = 17.0;
   static const double fontXL      = 22.0;
   static const double fontTitle   = 24.0;
+  static const double fontXXVI    = 26.0;
   static const double fontXXL     = 28.0;
   static const double fontDisplay = 32.0;
 
@@ -306,7 +348,7 @@ class AppStrings {
 
   // Category / interests screen
   static const String categoryHeading    = 'What sparks you?';
-  static const String categorySubtitle   = "Pick up to 3. We'll surface live rooms in these.";
+  static const String categorySubtitle   = "Pick your interests. We'll surface live rooms in these.";
   static const String categoryGetStarted = 'Get Started!';
 
   // Home screen
@@ -323,20 +365,32 @@ class AppStrings {
   static const String navYou          = 'You';
 
   // Notification / Inbox screen
-  static const String inboxTitle   = 'Inbox';
-  static const String inboxRecent  = 'Recent';
-  static const String inboxOld     = '2 days ago';
+  static const String inboxTitle    = 'Inbox';
+  static const String inboxEmpty    = 'No notifications yet';
+  static const String inboxRecent   = 'Recent';
+  static const String inboxHrsAgo   = ' hrs ago';
+  static const String inboxDaysAgo  = ' days ago';
   static const String notifMention = ' mentioned you in ';
   static const String notifBody    = '@name Lorem ipsum dolor sit amet';
 
   // Chat screen
   static const String chatCommunityName = 'Community name (10)';
   static const String chatToday         = 'Today';
-  static const String chatInputHint     = 'Emit...';
+  static const String chatInputHint     = 'Message...';
   static const String chatCopy          = 'Copy';
   static const String chatReply         = 'Reply';
   static const String chatReport        = 'Report';
-  static const String chatImageMessage  = '[Image]'; // fallback text for image-only messages
+  static const String chatImageMessage    = '[Image]'; // fallback text for image-only messages
+  static const String chatMenuInfo        = 'Info';
+  static const String chatMenuMute        = 'Mute';
+  static const String chatMenuUnmute      = 'Unmute';
+  static const String chatMenuLeave       = 'leave';
+  static const String chatLeaveTitle      = 'Leave this community?';
+  static const String chatLeaveYes        = 'Yes';
+  static const String chatLeaveNo         = 'No';
+  static const String chatInfoSnackbar    = 'Community info coming soon';
+  static const String chatMutedSnackbar   = 'Notifications muted';
+  static const String chatUnmutedSnackbar = 'Notifications unmuted';
 
   // Report modal
   static const String reportTitle            = 'Why are you';
@@ -355,7 +409,10 @@ class AppStrings {
   ];
 
   // Create Community screen
-  static const String createTitle         = 'Host';
+  static const String createTitle          = 'Host';
+  static const String editTitle            = 'Edit';
+  static const String editSaveButton       = 'Save';
+  static const String editSnackbar         = 'Community updated!';
   static const String createNameLabel     = 'Community Name';
   static const String createNameHint      = 'Enter Community Name';
   static const String createAboutLabel    = 'About Community';
@@ -368,6 +425,14 @@ class AppStrings {
   static const String createRuleTooltip =
       'Keep your community safe! Write your custom rules below, '
       'and our AI assistant will help enforce them by removing violators';
+
+  // Create Community — validation error messages
+  static const String createErrCover    = 'Please add a cover photo';
+  static const String createErrName     = 'Please enter a community name';
+  static const String createErrAbout    = 'Please tell us about your community';
+  static const String createErrCategory = 'Please select at least one category';
+  static const String createErrRules    = 'Please add at least one community rule';
+
   static const List<String> createCategories = [
     'Badminton', 'Basketball', 'Football', 'Tennis',
     'Swimming', 'Cooking', 'Music', 'Art',
@@ -421,6 +486,7 @@ class AppStrings {
 
   // Edit Profile
   static const String profileSaveButton = 'Save';
+  static const String profileNameLabel   = 'Name';
   static const List<String> interestOptions = [
     'Design 🎨',     'Coding 💻',       'Badminton 🏸',  'Writing ✍️',   'Cycling 🚴',
     'Yoga 🧘',       'Vegan 🌿',        'Home cooking 🍳','Climbing 🧗',  'Hardware 🔧',
@@ -430,7 +496,22 @@ class AppStrings {
     'Technology ⚙️', 'Swimming 🏊',    'Tennis 🎾',      'Basketball 🏀','Dance 💃',
   ];
 
-  /// Alert text/icon color (e.g., Report button dropdown)
+  // Discover tab — category filter chips
+  static const String discoverFilterAll = 'All';
+  static const List<String> discoverCategories = [
+    'All', 'Sports', 'Coding', 'Gaming', 'Food', 'Music', 'Art',
+  ];
+
+  // Community Info Modal
+  static const String communityInfoNext        = 'Next';
+  static const String communityInfoViewProfile = 'view profile →';
+  static const String communityMembersLabel    = 'members';
+
+  // Community Rules Modal
+  static const String rulesModalTitle  = "Admin's group rules";
+  static const String rulesAcceptLabel =
+      'I accept the rules and the consequences for breaking them.';
+  static const String rulesJoinButton  = 'Join';
 }
 
 // ─── Text Styles ──────────────────────────────────────────────────────────────
@@ -470,7 +551,7 @@ class AppTextStyles {
   /// Instrument Serif — screen titles, headings, display text
   static TextStyle title({
     double fontSize = AppSizes.fontXXL,
-    FontWeight fontWeight = FontWeight.bold,
+    FontWeight fontWeight = FontWeight.w400,
     Color color = AppColors.textDark,
     FontStyle fontStyle = FontStyle.normal,
     double? height,
@@ -481,5 +562,29 @@ class AppTextStyles {
         color: color,
         fontStyle: fontStyle,
         height: height,
+      );
+
+  /// Poppins — button text
+  static TextStyle button({
+    double fontSize = 24.0,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = AppColors.cardWhite,
+  }) =>
+      GoogleFonts.poppins(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+      );
+
+  /// Roboto — category chip labels
+  static TextStyle chipLabel({
+    double fontSize = AppSizes.fontS,
+    FontWeight fontWeight = FontWeight.w500,
+    Color color = AppColors.textDark,
+  }) =>
+      GoogleFonts.roboto(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
       );
 }

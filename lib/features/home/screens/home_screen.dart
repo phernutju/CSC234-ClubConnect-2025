@@ -4,13 +4,14 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../widgets/home_tab_bar.dart';
 import '../widgets/club_card.dart';
 import '../widgets/category_tag.dart';
+import '../widgets/community_info_modal.dart';
+import '../widgets/community_rules_modal.dart';
 
-/// Main home screen with "Welcome, [Username]", a search bar,
-/// and three tabs: Discover / My club / Trending.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -20,65 +21,67 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
+  String? _selectedCategory; // null = All
 
-  static const List<Map<String, String>> _discoverClubs = [
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CommunityProvider>().loadMyCommunities();
+    });
+  }
 
-  static const List<Map<String, String>> _trendingClubs = [
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-  ];
+  void _selectCategory(String category) {
+    final provider = context.read<CommunityProvider>();
+    setState(() {
+      if (_selectedCategory == category) {
+        _selectedCategory = null;
+        provider.loadCommunities();
+      } else {
+        _selectedCategory = category;
+        provider.loadCommunitiesByCategory(category);
+      }
+    });
+  }
+
+  void _showJoinFlow(CommunityModel community) {
+    showDialog(
+      context: context,
+      builder: (_) => CommunityInfoModal(
+        community: community,
+        onNext: () => showDialog(
+          context: context,
+          builder: (_) => CommunityRulesModal(
+            community: community,
+            onJoined: () => context.push(
+              '/chat',
+              extra: ChatArgs(
+                communityId: community.id,
+                communityName: community.communityName,
+                memberCount: community.memberCount.toString(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _goToChat(CommunityModel community) {
+    context.push(
+      '/chat',
+      extra: ChatArgs(
+        communityId: community.id,
+        communityName: community.communityName,
+        memberCount: community.memberCount.toString(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final myCommunities = context.watch<CommunityProvider>().communities;
-
+    final cp = context.watch<CommunityProvider>();
+    print(cp);
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
@@ -88,30 +91,37 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppSizes.paddingL),
-
-              // "Welcome, [Username]" serif heading
               _WelcomeHeading(),
               const SizedBox(height: AppSizes.paddingM),
-
-              // Search bar row + "+" create-community button
               _SearchRow(onCreateTap: () => context.push('/create-community')),
               const SizedBox(height: AppSizes.paddingM),
-
-              // Discover / My club / Trending tab row
               HomeTabBar(
                 selectedIndex: _selectedTab,
-                onTabChanged: (i) => setState(() => _selectedTab = i),
+                onTabChanged: (i) {
+                  setState(() => _selectedTab = i);
+                  final provider = context.read<CommunityProvider>();
+                  if (i == 1) {
+                    provider.loadMyCommunities();
+                  } else if (_selectedCategory != null) {
+                    provider.loadCommunitiesByCategory(_selectedCategory!);
+                  } else {
+                    provider.loadCommunities();
+                  }
+                },
               ),
               const SizedBox(height: AppSizes.paddingM),
-
               Expanded(
-                child: _TabContent(
-                  selectedTab: _selectedTab,
-                  discoverClubs: _discoverClubs,
-                  trendingClubs: _trendingClubs,
-                  myCommunities: myCommunities,
-                  onClubTap: (args) => context.push('/chat', extra: args),
-                ),
+                child: cp.isLoading && cp.communities.isEmpty
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                    : _TabContent(
+                        selectedTab: _selectedTab,
+                        communities: _selectedTab == 1 ? cp.myCommunities : cp.communities,
+                        myCommunities: cp.myCommunities,
+                        selectedCategory: _selectedCategory,
+                        onCategoryChanged: _selectCategory,
+                        onJoinTap: _showJoinFlow,
+                        onDirectTap: _goToChat,
+                      ),
               ),
             ],
           ),
@@ -126,8 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
 class _WelcomeHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final name = context.watch<AppAuthProvider>().user?.displayName ?? 'there';
     return Text(
-      AppStrings.homeWelcome + AppStrings.homeUsername,
+      '${AppStrings.homeWelcome}$name',
       style: AppTextStyles.title(color: AppColors.textDark),
     );
   }
@@ -165,9 +176,7 @@ class _SearchRow extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(width: AppSizes.paddingS),
-
         GestureDetector(
           onTap: onCreateTap,
           child: Container(
@@ -191,35 +200,46 @@ class _SearchRow extends StatelessWidget {
 
 class _TabContent extends StatelessWidget {
   final int selectedTab;
-  final List<Map<String, String>> discoverClubs;
-  final List<Map<String, String>> trendingClubs;
+  final List<CommunityModel> communities;
   final List<CommunityModel> myCommunities;
-  final void Function(ChatArgs) onClubTap;
+  final String? selectedCategory;
+  final ValueChanged<String> onCategoryChanged;
+  final void Function(CommunityModel) onJoinTap;
+  final void Function(CommunityModel) onDirectTap;
 
   const _TabContent({
     required this.selectedTab,
-    required this.discoverClubs,
-    required this.trendingClubs,
+    required this.communities,
     required this.myCommunities,
-    required this.onClubTap,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
+    required this.onJoinTap,
+    required this.onDirectTap,
   });
 
   @override
   Widget build(BuildContext context) {
     switch (selectedTab) {
       case 1:
-        return _MyClubList(communities: myCommunities, onTap: onClubTap);
+        return _MyClubList(communities: myCommunities, onTap: onDirectTap);
       case 2:
-        return _ClubList(clubs: trendingClubs, onTap: onClubTap);
+        final trending = [...communities]
+          ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
+        return _CommunityList(communities: trending, onTap: onJoinTap);
       default:
-        return _DiscoverTab(clubs: discoverClubs, onTap: onClubTap);
+        return _DiscoverTab(
+          communities: communities,
+          selectedCategory: selectedCategory,
+          onCategoryChanged: onCategoryChanged,
+          onTap: onJoinTap,
+        );
     }
   }
 }
 
 class _MyClubList extends StatelessWidget {
   final List<CommunityModel> communities;
-  final void Function(ChatArgs) onTap;
+  final void Function(CommunityModel) onTap;
 
   const _MyClubList({required this.communities, required this.onTap});
 
@@ -241,12 +261,10 @@ class _MyClubList extends StatelessWidget {
                 description: c.description.isEmpty
                     ? c.category.join(', ')
                     : c.description,
-                memberCount: AppStrings.communityMemberDefault,
+                memberCount:
+                    '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
                 coverImage: null,
-                onTap: () => onTap(ChatArgs(
-                  communityName: c.communityName,
-                  memberCount: c.memberCount.toString(),
-                )),
+                onTap: () => onTap(c),
               ))
           .toList(),
     );
@@ -254,55 +272,129 @@ class _MyClubList extends StatelessWidget {
 }
 
 class _DiscoverTab extends StatelessWidget {
-  final List<Map<String, String>> clubs;
-  final void Function(ChatArgs) onTap;
+  final List<CommunityModel> communities;
+  final String? selectedCategory;
+  final ValueChanged<String> onCategoryChanged;
+  final void Function(CommunityModel) onTap;
 
-  const _DiscoverTab({required this.clubs, required this.onTap});
+  const _DiscoverTab({
+    required this.communities,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final filtered = selectedCategory == null
+        ? communities
+        : communities
+            .where((c) => c.category.contains(selectedCategory))
+            .toList();
+
     return ListView(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            CategoryTag(label: 'Badminton', color: AppColors.categoryGreen),
-            CategoryTag(label: 'Coding',    color: AppColors.categoryBlue),
-            CategoryTag(label: 'Games',     color: AppColors.categoryPurple),
+          children: [
+            _SelectableCategory(
+              label: 'Badminton',
+              color: AppColors.categoryGreen,
+              isSelected: selectedCategory == 'Badminton',
+              onTap: () => onCategoryChanged('Badminton'),
+            ),
+            _SelectableCategory(
+              label: 'Coding',
+              color: AppColors.categoryBlue,
+              isSelected: selectedCategory == 'Coding',
+              onTap: () => onCategoryChanged('Coding'),
+            ),
+            _SelectableCategory(
+              label: 'Gaming',
+              color: AppColors.categoryPurple,
+              isSelected: selectedCategory == 'Gaming',
+              onTap: () => onCategoryChanged('Gaming'),
+            ),
           ],
         ),
         const SizedBox(height: AppSizes.paddingM),
-        ..._buildClubCards(clubs, onTap),
+        if (filtered.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSizes.paddingXL),
+              child: Text(
+                'No communities found',
+                style: AppTextStyles.body(color: AppColors.textGray),
+              ),
+            ),
+          )
+        else
+          ..._buildCommunityCards(filtered, onTap),
       ],
     );
   }
 }
 
-class _ClubList extends StatelessWidget {
-  final List<Map<String, String>> clubs;
-  final void Function(ChatArgs) onTap;
+class _SelectableCategory extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-  const _ClubList({required this.clubs, required this.onTap});
+  const _SelectableCategory({
+    required this.label,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ListView(children: _buildClubCards(clubs, onTap));
+    return Container(
+      decoration: isSelected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSizes.radiusM + 3),
+              border: Border.all(color: AppColors.primary, width: 3),
+            )
+          : null,
+      child: CategoryTag(label: label, color: color, onTap: onTap),
+    );
   }
 }
 
-List<Widget> _buildClubCards(
-  List<Map<String, String>> clubs,
-  void Function(ChatArgs) onTap,
+class _CommunityList extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final void Function(CommunityModel) onTap;
+
+  const _CommunityList({required this.communities, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (communities.isEmpty) {
+      return Center(
+        child: Text(
+          'No communities yet',
+          style: AppTextStyles.body(color: AppColors.textGray),
+        ),
+      );
+    }
+    return ListView(children: _buildCommunityCards(communities, onTap));
+  }
+}
+
+List<Widget> _buildCommunityCards(
+  List<CommunityModel> communities,
+  void Function(CommunityModel) onTap,
 ) {
-  return clubs
+  return communities
       .map((c) => ClubCard(
-            name: c['name']!,
-            description: c['desc']!,
-            memberCount: c['members']!,
-            onTap: () => onTap(ChatArgs(
-              communityName: c['name']!,
-              memberCount: c['count']!,
-            )),
+            name: c.communityName,
+            description:
+                c.description.isEmpty ? c.category.join(', ') : c.description,
+            memberCount:
+                '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+            coverImage: null,
+            onTap: () => onTap(c),
           ))
       .toList();
 }

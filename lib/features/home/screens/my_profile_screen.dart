@@ -21,7 +21,7 @@ String _relativeTime(DateTime time) {
 
 String _reviewBody(ReviewModel r) {
   if (r.comment.isNotEmpty) return r.comment;
-  final stars = r.score.clamp(0, 5);
+  final stars = r.score.clamp(0, 5).toInt();
   return '${'★' * stars}${'☆' * (5 - stars)}';
 }
 

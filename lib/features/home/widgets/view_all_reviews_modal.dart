@@ -248,7 +248,7 @@ class _ReviewItem extends StatelessWidget {
         children: [
           Row(
             children: [
-              _buildSmallStars(stars),
+              _buildSmallStars(stars.toInt()),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(

@@ -22,7 +22,7 @@ String _relativeTime(DateTime time) {
 /// Comment body: the typed comment if non-empty, otherwise a filled/empty star string.
 String _reviewBody(ReviewModel r) {
   if (r.comment.isNotEmpty) return r.comment;
-  final stars = r.score.clamp(0, 5);
+  final stars = r.score.clamp(0, 5).toInt();
   return '${'★' * stars}${'☆' * (5 - stars)}';
 }
 
@@ -33,11 +33,15 @@ String _reviewBody(ReviewModel r) {
 class OtherProfileScreen extends StatefulWidget {
   final String username;
   final String communityName;
+  final String userId;
+  final String communityId;
 
   const OtherProfileScreen({
     super.key,
     required this.username,
     required this.communityName,
+    required this.userId,
+    required this.communityId,
   });
 
   @override
@@ -52,7 +56,7 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
   }
 
   void _loadData() {
-    context.read<ProfileProvider>().loadReviews(widget.username);
+    context.read<ProfileProvider>().loadReviews(widget.userId);
   }
 
   void _showRateModal(BuildContext context) {
@@ -62,6 +66,8 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
       builder: (_) => RateUserModal(
         username: widget.username,
         communityName: widget.communityName,
+        userId: widget.userId,
+        communityId: widget.communityId,
       ),
     );
   }

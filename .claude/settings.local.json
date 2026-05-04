@@ -4,7 +4,9 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gammy\\\\OneDrive\\\\Desktop\\\\Project\\\\Flutter_2\\\\CSC234-ClubConnect-2025\" -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
-      "PowerShell(Test-Path *)"
+      "PowerShell(Test-Path *)",
+      "Bash(flutter analyze *)",
+      "Bash(Get-ChildItem *)"
     ]
   }
 }

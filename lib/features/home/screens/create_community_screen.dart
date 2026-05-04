@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../providers/community_provider.dart';
+import '../../../models/rule_model.dart';
 
 /// "Host" screen — create a new community.
 class CreateCommunityScreen extends StatefulWidget {
@@ -50,16 +51,27 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     if (name.isEmpty) return;
 
     final rules = _rulesControllers
-        .map((c) => c.text.trim())
-        .where((r) => r.isNotEmpty)
-        .toList();
+    .asMap()
+    .entries
+    .map((entry) {
+      final index = entry.key;
+      final text = entry.value.text.trim();
+
+       return RuleModel(
+        id: 'rule_${index + 1}',
+        text: text,
+        severity: 'medium', //dfeualt for now, can be extended later
+      );
+    })
+    .where((r) => r.text.isNotEmpty)
+    .toList();
 
     await context.read<CommunityProvider>().addCommunity(
           communityName: name,
           description: _aboutController.text.trim(),
           category: _selectedCategory != null ? [_selectedCategory!] : [],
           coverImageURL: '',
-          rule: rules.join('\n'),
+          rules: rules,
         );
 
     if (!mounted) return;
