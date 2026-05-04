@@ -72,15 +72,15 @@ class FirestoreService {
 
   Future<void> createReview(ReviewModel review) => _db
       .collection(Collections.reviews)
-      .doc(review.reviewId)
+      .doc(review.id)
       .set(review.toJson());
 
-  Stream<List<ReviewModel>> reviewsStream(String targetId) => _db
+  Stream<List<ReviewModel>> reviewsStream(String communityId) => _db
       .collection(Collections.reviews)
-      .where('targetId', isEqualTo: targetId)
+      .where('communityId', isEqualTo: communityId)
       .snapshots()
       .map((snap) =>
-          snap.docs.map((d) => ReviewModel.fromJson(d.data())).toList());
+          snap.docs.map((d) => ReviewModel.fromJson(d.id, d.data())).toList());
 
   Future<void> updateReview(String reviewId, Map<String, dynamic> fields) =>
       _db.collection(Collections.reviews).doc(reviewId).update(fields);

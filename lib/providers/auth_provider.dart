@@ -1,10 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../services/auth_service.dart';
-import '../models/user_model.dart';
+import 'package:flutter/material.dart';
+
+class AuthException implements Exception {
+  final String message;
+  const AuthException(this.message);
+  @override
+  String toString() => message;
+}
 
 class AppAuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   User? user;
   bool isLoading = false;
@@ -18,7 +25,7 @@ class AppAuthProvider extends ChangeNotifier {
   String? _photoURL;
 
   AppAuthProvider() {
-    _authService.authStateChanges.listen((u) {
+    _auth.authStateChanges().listen((u) {
       user = u;
       notifyListeners();
     });
@@ -29,9 +36,7 @@ class AppAuthProvider extends ChangeNotifier {
     _password = password;
   }
 
-  void setPhoneNumber(String phonenum) {
-    _phone = phonenum;
-  }
+  void setPhoneNumber(String phonenum) => _phone = phonenum;
 
   void setExtraInfo(String photoURL, String displayName, String bio) {
     _photoURL = photoURL;
@@ -39,30 +44,38 @@ class AppAuthProvider extends ChangeNotifier {
     _bio = bio;
   }
 
-  void setInterests(List<String> tags) {
-    _tags = tags;
-  }
+  void setInterests(List<String> tags) => _tags = tags;
 
   Future<void> signUp() async {
     isLoading = true;
     notifyListeners();
-    if (_email == null || _password == null || _displayName == null) {
-      throw Exception('Missing required signup data');
+    try {
+      if (_email == null || _password == null || _displayName == null) {
+        throw AuthException('Missing required signup data');
+      }
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: _email!,
+        password: _password!,
+      );
+      await _db.collection('users').doc(cred.user!.uid).set({
+        'uid': cred.user!.uid,
+        'displayName': _displayName,
+        'email': _email,
+        'phoneNumber': _phone ?? '',
+        'photoURL': _photoURL ?? '',
+        'bio': _bio ?? '',
+        'interests': _tags ?? [],
+        'role': 'user',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      _clearSignupData();
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapError(e.code));
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
-    await _authService.signUp(
-      email: _email!,
-      password: _password!,
-      displayName: _displayName!,
-      phoneNumber: _phone ?? '',
-      interests: _tags ?? [],
-      bio: _bio ?? '',
-      photoURL: _photoURL ?? '',
-    );
-
-    isLoading = false;
-    notifyListeners();
-
-    _clearSignupData();
   }
 
   Future<UserCredential> signIn({
@@ -70,7 +83,7 @@ class AppAuthProvider extends ChangeNotifier {
     required String password,
   }) async {
     try {
-      return await FirebaseAuth.instance.signInWithEmailAndPassword(
+      return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -79,9 +92,7 @@ class AppAuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> signOut() async {
-    await _authService.signOut();
-  }
+  Future<void> signOut() async => _auth.signOut();
 
   void _clearSignupData() {
     _email = null;
@@ -101,6 +112,8 @@ class AppAuthProvider extends ChangeNotifier {
         return 'Incorrect password';
       case 'invalid-email':
         return 'Invalid email format';
+      case 'email-already-in-use':
+        return 'This email is already registered';
       default:
         return 'Something went wrong';
     }
