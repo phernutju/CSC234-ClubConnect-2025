@@ -102,7 +102,7 @@ class MessageService {
             Timestamp.fromDate(DateTime.now().add(_banDuration));
         update['violations'] = 0; // reset after ban
       }
-      tx.update(ref, update);
+      tx.set(ref, update, SetOptions(merge: true));
     });
   }
 }

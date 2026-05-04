@@ -118,14 +118,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
     setState(() => _replyingTo = null);
 
-    if (result.status == SendStatus.flagged || result.status == SendStatus.banned) {
-      setState(() {
-        _showFlaggedBanner = true;
-        if (result.newBan || result.status == SendStatus.banned) {
-          _isBanned = true;
-          _banUntil = result.banUntil;
+    switch (result.status) {
+      case SendStatus.flagged:
+      case SendStatus.banned:
+        setState(() {
+          _showFlaggedBanner = true;
+          if (result.newBan || result.status == SendStatus.banned) {
+            _isBanned = true;
+            _banUntil = result.banUntil;
+          }
+        });
+      case SendStatus.error:
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result.errorMessage ?? 'Failed to send')),
+          );
         }
-      });
+      case SendStatus.success:
+        break;
     }
   }
 
