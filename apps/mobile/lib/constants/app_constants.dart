@@ -129,7 +129,7 @@ class AppColors {
   static const Color alertRed = Color(0xFFFF6868);
 
   /// Edit Profile save button — green
-  static const Color saveButtonColor = Color(0xFF00C95C);
+  static const Color saveButtonColor = Color(0xFF58B97A);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -439,6 +439,7 @@ class AppStrings {
 
   // Edit Profile
   static const String profileSaveButton = 'Save';
+  static const String profileNameLabel   = 'Name';
   static const List<String> interestOptions = [
     'Design 🎨',     'Coding 💻',       'Badminton 🏸',  'Writing ✍️',   'Cycling 🚴',
     'Yoga 🧘',       'Vegan 🌿',        'Home cooking 🍳','Climbing 🧗',  'Hardware 🔧',

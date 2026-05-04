@@ -150,14 +150,57 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Edit mode: Save button aligned to the far right
+                      if (_isEditing) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            GestureDetector(
+                              onTap: _saveProfile,
+                              child: Container(
+                                width: AppSizes.saveButtonWidth,
+                                height: AppSizes.saveButtonHeight,
+                                decoration: BoxDecoration(
+                                  color: AppColors.saveButtonColor,
+                                  borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  AppStrings.profileSaveButton,
+                                  style: AppTextStyles.body(
+                                    fontSize: 12,
+                                    color: AppColors.cardWhite,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSizes.paddingXS),
+                        // "Name" label above the username text field
+                        Text(
+                          AppStrings.profileNameLabel,
+                          style: AppTextStyles.body(
+                            fontSize: AppSizes.fontML,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ],
+
                       _UserInfoRow(
                         username: profile.username,
                         avgRating: avgRating,
                         isEditing: _isEditing,
                         usernameController: _usernameController,
                         onEditTap: _enterEditMode,
-                        onSaveTap: _saveProfile,
                       ),
+
+                      // Divider between Username and About me (edit mode only)
+                      if (_isEditing) ...[
+                        const SizedBox(height: AppSizes.paddingS),
+                        Container(height: 1, color: AppColors.fieldPlaceholder),
+                      ],
                       const SizedBox(height: AppSizes.paddingL),
 
                       const _SectionLabel(AppStrings.profileAbout),
@@ -173,6 +216,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                             color: AppColors.commentBody,
                           ),
                         ),
+
+                      // Divider between About me and Interests (edit mode only)
+                      if (_isEditing) ...[
+                        const SizedBox(height: AppSizes.paddingS),
+                        Container(height: 1, color: AppColors.fieldPlaceholder),
+                      ],
                       const SizedBox(height: AppSizes.paddingL),
 
                       const _SectionLabel(AppStrings.profileInterests),
@@ -331,16 +380,14 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-/// Username + star rating + Edit Profile / Save button.
-/// In view mode: static text + outlined coral "Edit Profile" pill pushed to the right.
-/// In edit mode: username TextField (Expanded) + star rating + green "Save" pill.
+/// Username + star rating + Edit Profile button (view mode) or just username field (edit mode).
+/// Save button is rendered above this row in edit mode.
 class _UserInfoRow extends StatelessWidget {
   final String username;
   final double avgRating;
   final bool isEditing;
   final TextEditingController usernameController;
   final VoidCallback onEditTap;
-  final VoidCallback onSaveTap;
 
   const _UserInfoRow({
     required this.username,
@@ -348,7 +395,6 @@ class _UserInfoRow extends StatelessWidget {
     required this.isEditing,
     required this.usernameController,
     required this.onEditTap,
-    required this.onSaveTap,
   });
 
   @override
@@ -368,20 +414,12 @@ class _UserInfoRow extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingS,
-                  vertical: AppSizes.paddingXS,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.inputBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.primary),
-                ),
+                contentPadding: EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
               ),
             ),
           )
@@ -399,38 +437,22 @@ class _UserInfoRow extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(width: AppSizes.paddingXS),
-        const Icon(Icons.star, color: AppColors.starColor, size: AppSizes.starIconSize),
-        const SizedBox(width: 2),
-        Text(
-          avgRating.toStringAsFixed(1),
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontTitle,
-            fontWeight: FontWeight.normal,
-            color: AppColors.textDark,
-          ),
-        ),
-
-        const SizedBox(width: AppSizes.paddingS),
-
-        if (isEditing)
-          GestureDetector(
-            onTap: onSaveTap,
-            child: Container(
-              width: AppSizes.saveButtonWidth,
-              height: AppSizes.saveButtonHeight,
-              decoration: BoxDecoration(
-                color: AppColors.saveButtonColor,
-                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                AppStrings.profileSaveButton,
-                style: AppTextStyles.body(fontSize: 12, color: AppColors.cardWhite),
-              ),
+        if (!isEditing) ...[
+          const SizedBox(width: AppSizes.paddingXS),
+          const Icon(Icons.star, color: AppColors.starColor, size: AppSizes.starIconSize),
+          const SizedBox(width: 2),
+          Text(
+            avgRating.toStringAsFixed(1),
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontTitle,
+              fontWeight: FontWeight.normal,
+              color: AppColors.textDark,
             ),
-          )
-        else
+          ),
+          const SizedBox(width: AppSizes.paddingS),
+        ],
+
+        if (!isEditing)
           GestureDetector(
             onTap: onEditTap,
             child: Container(
@@ -498,17 +520,12 @@ class _BioField extends StatelessWidget {
         fontWeight: FontWeight.w300,
         color: AppColors.textDark,
       ),
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.all(AppSizes.paddingS),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.inputBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.primary),
-        ),
+        contentPadding: EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
       ),
     );
   }
