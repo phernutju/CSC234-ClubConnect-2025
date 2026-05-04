@@ -1,112 +1,34 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
+// TODO: Add google-services.json to android/app/ folder
+class GoogleAuthService {
+  static final _googleSignIn = GoogleSignIn();
 
-
-
-
-  ///  Sign Up
-  Future<User?> signUp({
-    required String email,
-    required String password,
-    required String displayName,
-    required String phoneNumber,
-    required List<String> interests,
-    required String bio,
-    required String? photoURL,
-  }) async {
+  // IMPORTANT: Add your debug SHA-1 to Firebase Console → Project Settings → Android App
+  // Run: cd android && ./gradlew signingReport to get your SHA-1
+  static Future<GoogleSignInAccount?> signInWithGoogle() async {
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final user = credential.user;
-      if (user != null) {
-        await user.updateDisplayName(displayName);
-        // create Firestore user document
-        await _db.collection('users').doc(user.uid).set({
-          'displayName': displayName,
-          'email': email,
-          'bio': bio,
-          'interests': interests,
-          'phoneNumber': phoneNumber,
-          'photoURL': photoURL ?? '',
-          'role': 'user',
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+      await _googleSignIn.signOut();
+      return await _googleSignIn.signIn();
+    } catch (e, stackTrace) {
+      // ignore: avoid_print
+      print('Google Sign-In Error: $e');
+      // ignore: avoid_print
+      print('Stack trace: $stackTrace');
+      if (e is PlatformException) {
+        debugPrint('Google Sign-In PlatformException: code=${e.code} message=${e.message}');
+        // DEVELOPER_ERROR (code 10) means google-services.json is missing or SHA-1 is not registered
+        if (e.code == 'sign_in_failed' ||
+            (e.message?.contains('DEVELOPER_ERROR') ?? false) ||
+            (e.message?.contains(': 10') ?? false)) {
+          throw Exception(
+            'Google Sign-In is not configured. Please add google-services.json',
+          );
+        }
       }
-
-      return user;
-    } catch (e) {
-      throw Exception(e.toString());
+      rethrow;
     }
   }
-
-  ///  Sign In
-  Future<User?> signIn({
-    required String email,
-    required String password,
-  }) async {
-    
-    try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      return credential.user;
-    } catch (e) {
-      throw Exception(e.toString());
-    }
-  }
-
-  /// 🚪 Sign Out
-  Future<void> signOut() async {
-    await _auth.signOut();
-  }
-
-  /// 👤 Current user stream
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  /// 📱 Phone verification (basic)
-  Future<void> verifyPhone({
-    required String phoneNumber,
-    required Function(String verificationId) codeSent,
-  }) async {
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _auth.signInWithCredential(credential);
-      },
-      verificationFailed: (e) {
-        throw Exception(e.message);
-      },
-      codeSent: (verificationId, _) {
-        codeSent(verificationId);
-      },
-      codeAutoRetrievalTimeout: (_) {},
-    );
-  }
-
-  /// 🔢 Confirm OTP
-  Future<void> confirmOtp({
-    required String verificationId,
-    required String smsCode,
-  }) async {
-    final credential = PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: smsCode,
-    );
-
-    await _auth.signInWithCredential(credential);
-  }
-}
-class AuthException implements Exception {
-  final String message;
-  AuthException(this.message);
 }

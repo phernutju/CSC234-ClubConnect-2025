@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../providers/profile_provider.dart';
+import '../../../models/rating_model.dart';
+import '../../../providers/rating_provider.dart';
 
 /// Shows the rate-user modal centered over a dimmed overlay.
 /// Call via:
@@ -35,15 +36,15 @@ class _RateUserModalState extends State<RateUserModal> {
     super.dispose();
   }
 
-  /// Saves the rating to [ProfileProvider] and closes the modal.
+  /// Saves the rating to [RatingProvider] and closes the modal.
   void _onPost() {
     if (_stars == 0) return;
-    context.read<ProfileProvider>().createReview(
-      widget.username, // targetUserId
-      communityId: 'dummy', // TODO: pass actual communityId
-      score: _stars.toString(),
-      comment: _commentController.text,
-    );
+    context.read<RatingProvider>().addRating(RatingModel(
+      ratedUsername: widget.username,
+      communityName: widget.communityName,
+      stars: _stars,
+      comment: _commentController.text.trim(),
+    ));
     Navigator.of(context).pop();
   }
 

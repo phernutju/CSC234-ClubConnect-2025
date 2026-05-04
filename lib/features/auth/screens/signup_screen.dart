@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
+import '../../../services/auth_service.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/primary_button.dart';
 import '../widgets/google_sign_in_button.dart';
-import '../widgets/liquid_card.dart';
-import '../../../providers/auth_provider.dart';
-import 'package:provider/provider.dart';
-/// Sign-up screen: email, password, confirm-password fields.
-/// Heading uses a mix of black regular text and italic coral accent.
+
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -21,6 +18,11 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmController  = TextEditingController();
 
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmError;
+  bool _googleLoading = false;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -29,100 +31,205 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _onNext() {
-    // TODO: validate form fields before proceeding
-    final email = _emailController.text;
+  bool _validate() {
+    final email    = _emailController.text.trim();
     final password = _passwordController.text;
-    context.read<AppAuthProvider>()
-  .setEmailPassword(email, password);
+    final confirm  = _confirmController.text;
+    String? emailErr;
+    String? passErr;
+    String? confirmErr;
 
-    context.push('/verify-phone');
+    if (email.isEmpty) {
+      emailErr = 'Email is required';
+    } else if (!RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,}$').hasMatch(email)) {
+      emailErr = 'Enter a valid email address';
+    }
+
+    if (password.isEmpty) {
+      passErr = 'Password is required';
+    } else if (password.length < 6) {
+      passErr = 'Password must be at least 6 characters';
+    }
+
+    if (confirm.isEmpty) {
+      confirmErr = 'Please confirm your password';
+    } else if (confirm != password) {
+      confirmErr = 'Passwords do not match';
+    }
+
+    setState(() {
+      _emailError    = emailErr;
+      _passwordError = passErr;
+      _confirmError  = confirmErr;
+    });
+
+    return emailErr == null && passErr == null && confirmErr == null;
+  }
+
+  void _onNext() {
+    if (_validate()) {
+      // TODO: create account on backend
+      context.push('/verify-phone');
+    }
+  }
+
+  Future<void> _onGoogleSignIn() async {
+    setState(() => _googleLoading = true);
+    try {
+      final account = await GoogleAuthService.signInWithGoogle();
+      if (!mounted) return;
+      if (account != null) {
+        context.push('/set-profile', extra: {
+          'googleDisplayName': account.displayName,
+          'email': account.email,
+        });
+      }
+    } catch (e, stackTrace) {
+      // ignore: avoid_print
+      print('Google Sign-In Error: $e');
+      // ignore: avoid_print
+      print('Stack trace: $stackTrace');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google Sign-In failed: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
+      backgroundColor: const Color(0xFFFAF0EC),
+      body: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height,
+          child: Column(
         children: [
-          // ── Illustration area (mascot characters placeholder) ────────────
           Expanded(
-            flex: 4,
-            child: const SizedBox(width: double.infinity),
+            flex: 45,
+            child: Image.asset(
+              'assets/images/background.png',
+              width: double.infinity,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
           ),
-
-          // ── Glass liquid card: form fields ───────────────────────────────
-          LiquidCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // "Create your account" — mixed style heading
-                _SignupHeading(),
-                const SizedBox(height: AppSizes.paddingL),
-
-                // Email
-                AuthTextField(
-                  label: AppStrings.signupEmail,
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
+          Expanded(
+            flex: 55,
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
                 ),
-                const SizedBox(height: AppSizes.paddingM),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: AppStrings.signupHeading,
+                            style: GoogleFonts.instrumentSerif(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          TextSpan(
+                            text: AppStrings.signupHeadingAccent,
+                            style: GoogleFonts.instrumentSerif(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w400,
+                              fontStyle: FontStyle.italic,
+                              color: const Color(0xFFFF6B4A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-                // Password
-                AuthTextField(
-                  label: AppStrings.signupPassword,
-                  controller: _passwordController,
-                  obscureText: true,
+                    AuthTextField(
+                      label: AppStrings.signupEmail,
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      errorText: _emailError,
+                      fillColor: Colors.white,
+                      fieldBorderRadius: 30,
+                      enabledBorderColor: const Color(0xFFDDDDDD),
+                      contentPaddingVertical: 14,
+                    ),
+                    const SizedBox(height: 16),
+
+                    AuthTextField(
+                      label: AppStrings.signupPassword,
+                      controller: _passwordController,
+                      obscureText: true,
+                      errorText: _passwordError,
+                      fillColor: Colors.white,
+                      fieldBorderRadius: 30,
+                      enabledBorderColor: const Color(0xFFDDDDDD),
+                      contentPaddingVertical: 14,
+                    ),
+                    const SizedBox(height: 16),
+
+                    AuthTextField(
+                      label: AppStrings.signupConfirm,
+                      controller: _confirmController,
+                      obscureText: true,
+                      errorText: _confirmError,
+                      fillColor: Colors.white,
+                      fieldBorderRadius: 30,
+                      enabledBorderColor: const Color(0xFFDDDDDD),
+                      contentPaddingVertical: 14,
+                    ),
+                    const SizedBox(height: 24),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _onNext,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF6B4A),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: Text(
+                          AppStrings.signupNext,
+                          style: GoogleFonts.poppins(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    GoogleSignInButton(
+                      isLoading: _googleLoading,
+                      onPressed: _onGoogleSignIn,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppSizes.paddingM),
-
-                // Confirm password
-                AuthTextField(
-                  label: AppStrings.signupConfirm,
-                  controller: _confirmController,
-                  obscureText: true,
-                ),
-                const SizedBox(height: AppSizes.paddingXL),
-
-                // Next button
-                PrimaryButton(
-                  label: AppStrings.signupNext,
-                  onPressed: _onNext,
-                ),
-                const SizedBox(height: AppSizes.paddingM),
-
-                // Google sign-in option
-                GoogleSignInButton(onPressed: () {}),
-              ],
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-/// "Create your " (black) + "account" (italic coral) heading.
-class _SignupHeading extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: AppStrings.signupHeading,
-            style: AppTextStyles.title(color: AppColors.textDark),
           ),
-          TextSpan(
-            text: AppStrings.signupHeadingAccent,
-            style: AppTextStyles.title(
-              fontStyle: FontStyle.italic,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -4,14 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../models/review_model.dart';
-import '../../../providers/auth_provider.dart';
+import '../../../models/rating_model.dart';
 import '../../../providers/profile_provider.dart';
+import '../../../providers/rating_provider.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
 import '../widgets/view_all_reviews_modal.dart';
 
-// ── File-scoped helpers ─────────────────────────
+// ── File-scoped helpers ────────────────────────────────────────────────────────
+
 String _relativeTime(DateTime time) {
   final diff = DateTime.now().difference(time);
   if (diff.inMinutes < 1) return AppStrings.rateJustNow;
@@ -19,10 +20,9 @@ String _relativeTime(DateTime time) {
   return '${diff.inHours}${AppStrings.rateHrAgo}';
 }
 
-String _reviewBody(ReviewModel r) {
+String _ratingBody(RatingModel r) {
   if (r.comment.isNotEmpty) return r.comment;
-  final stars = r.score.clamp(0, 5);
-  return '${'★' * stars}${'☆' * (5 - stars)}';
+  return '${'★' * r.stars}${'☆' * (5 - r.stars)}';
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
@@ -37,10 +37,9 @@ class MyProfileScreen extends StatefulWidget {
 }
 
 class _MyProfileScreenState extends State<MyProfileScreen> {
+  // Only edit-mode transient state lives here; all persisted data is in ProfileProvider.
   bool _isEditing = false;
-  Uint8List? _avatarBytes;
-  Uint8List? _coverBytes;
-  Set<String> _selectedInterests = {};
+  Set<String> _editInterests = {}; // working copy while editing
 
   late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
@@ -50,8 +49,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     super.initState();
     _usernameController = TextEditingController();
     _bioController = TextEditingController();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
   @override
@@ -61,111 +58,166 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     super.dispose();
   }
 
-  void _loadData() {
-    final uid = context.read<AppAuthProvider>().user?.uid;
-    print("Loading profile for user ID: $uid");
-    if (uid == null) return;
-    final pp = context.read<ProfileProvider>();
-    pp.loadProfile(uid);
-    pp.loadReviews(uid);
-  }
-
+  /// Pick avatar and persist immediately via provider (no Save required).
   Future<void> _pickAvatar() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
-    setState(() => _avatarBytes = bytes);
+    if (mounted) context.read<ProfileProvider>().updateAvatar(bytes);
   }
 
+  /// Pick cover photo and persist immediately via provider (no Save required).
   Future<void> _pickCover() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
-    setState(() => _coverBytes = bytes);
+    if (mounted) context.read<ProfileProvider>().updateCover(bytes);
   }
 
   void _enterEditMode() {
-    final profile = context.read<ProfileProvider>().profile;
-    _usernameController.text = profile?.displayName ?? '';
-    _bioController.text = profile?.bio ?? '';
+    final profile = context.read<ProfileProvider>();
+    _usernameController.text = profile.username;
+    _bioController.text = profile.bio;
     setState(() {
-      _selectedInterests = Set<String>.from(profile?.interests ?? []);
+      _editInterests = Set.from(profile.selectedInterests);
       _isEditing = true;
     });
   }
 
   void _saveProfile() {
-    final uid = context.read<AppAuthProvider>().user?.uid;
-    if (uid == null) return;
-    context.read<ProfileProvider>().updateProfile(uid, {
-      'displayName': _usernameController.text.trim(),
-      'bio': _bioController.text.trim(),
-      'interests': _selectedInterests.toList(),
-    });
+    final newName = _usernameController.text.trim();
+    context.read<ProfileProvider>().saveProfile(
+      username: newName.isEmpty ? 'Username' : newName,
+      bio: _bioController.text.trim(),
+      interests: _editInterests,
+    );
     setState(() => _isEditing = false);
   }
 
-  void _showViewAllModal(BuildContext context, List<ReviewModel> reviews) {
-    final name = context.read<ProfileProvider>().profile?.displayName ?? '';
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _LogoutDialog(
+        onNo: () => Navigator.of(ctx).pop(),
+        onYes: () {
+          Navigator.of(ctx).pop();
+          context.read<ProfileProvider>().logout();
+          context.go('/');
+        },
+      ),
+    );
+  }
+
+  void _showViewAllModal(BuildContext context, List<RatingModel> ratings) {
+    final username = context.read<ProfileProvider>().username;
     showDialog(
       context: context,
       barrierColor: Colors.black45,
-      builder: (_) => ViewAllReviewsModal(username: name, reviews: reviews),
+      builder: (_) => ViewAllReviewsModal(
+        username: username,
+        ratings: ratings,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final pp = context.watch<ProfileProvider>();
-    final profile = pp.profile;
-    final reviews = pp.reviewsResult?.reviews ?? [];
-    final avgRating = pp.reviewsResult?.averageScore ?? AppSizes.defaultRating;
-    final displayName = profile?.displayName ?? 'Username';
-    print(profile);
-    if (pp.isLoading && profile == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    final profile = context.watch<ProfileProvider>();
+    final ratings = context
+        .watch<RatingProvider>()
+        .ratings
+        .where((r) => r.ratedUsername == profile.username)
+        .toList();
+
+    final avgRating = ratings.isEmpty
+        ? AppSizes.defaultRating
+        : ratings.map((r) => r.stars).reduce((a, b) => a + b) / ratings.length;
 
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
-          _ProfileAppBar(title: displayName),
+          _ProfileAppBar(
+            title: profile.username,
+            onLogoutTap: _showLogoutDialog,
+          ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
+                // Gradient/cover header — edit mode adds camera overlays
                 if (_isEditing)
                   EditProfileHeader(
-                    avatarBytes: _avatarBytes,
+                    avatarBytes: profile.avatarBytes,
                     onAvatarTap: _pickAvatar,
-                    coverBytes: _coverBytes,
+                    coverBytes: profile.coverBytes,
                     onCoverTap: _pickCover,
                   )
                 else
                   _ProfileHeader(
-                    avatarBytes: _avatarBytes,
-                    coverBytes: _coverBytes,
-                    photoURL: profile?.photoURL,
+                    avatarBytes: profile.avatarBytes,
+                    coverBytes: profile.coverBytes,
                   ),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.paddingL,
-                  ),
+                      horizontal: AppSizes.paddingL),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Edit mode: Save button aligned to the far right
+                      if (_isEditing) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            GestureDetector(
+                              onTap: _saveProfile,
+                              child: Container(
+                                width: AppSizes.saveButtonWidth,
+                                height: AppSizes.saveButtonHeight,
+                                decoration: BoxDecoration(
+                                  color: AppColors.saveButtonColor,
+                                  borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  AppStrings.profileSaveButton,
+                                  style: AppTextStyles.body(
+                                    fontSize: 12,
+                                    color: AppColors.cardWhite,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSizes.paddingXS),
+                        // "Name" label above the username text field
+                        Text(
+                          AppStrings.profileNameLabel,
+                          style: AppTextStyles.body(
+                            fontSize: AppSizes.fontML,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ],
+
                       _UserInfoRow(
-                        username: displayName,
+                        username: profile.username,
                         avgRating: avgRating,
                         isEditing: _isEditing,
                         usernameController: _usernameController,
                         onEditTap: _enterEditMode,
-                        onSaveTap: _saveProfile,
                       ),
+
+                      // Divider between Username and About me (edit mode only)
+                      if (_isEditing) ...[
+                        const SizedBox(height: AppSizes.paddingS),
+                        Container(height: 1, color: AppColors.fieldPlaceholder),
+                      ],
                       const SizedBox(height: AppSizes.paddingL),
 
                       const _SectionLabel(AppStrings.profileAbout),
@@ -174,39 +226,42 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                         _BioField(controller: _bioController)
                       else
                         Text(
-                          profile?.bio ?? '',
+                          profile.bio,
                           style: AppTextStyles.poppins(
                             fontSize: AppSizes.fontSM,
                             fontWeight: FontWeight.w300,
                             color: AppColors.commentBody,
                           ),
                         ),
+
+                      // Divider between About me and Interests (edit mode only)
+                      if (_isEditing) ...[
+                        const SizedBox(height: AppSizes.paddingS),
+                        Container(height: 1, color: AppColors.fieldPlaceholder),
+                      ],
                       const SizedBox(height: AppSizes.paddingL),
 
                       const _SectionLabel(AppStrings.profileInterests),
                       const SizedBox(height: AppSizes.paddingS),
                       if (_isEditing)
                         _InterestsGrid(
-                          selectedInterests: _selectedInterests,
+                          selectedInterests: _editInterests,
                           onToggle: (interest) => setState(() {
-                            if (_selectedInterests.contains(interest)) {
-                              _selectedInterests.remove(interest);
+                            if (_editInterests.contains(interest)) {
+                              _editInterests.remove(interest);
                             } else {
-                              _selectedInterests.add(interest);
+                              _editInterests.add(interest);
                             }
                           }),
                         )
                       else
                         _SelectedInterestsView(
-                          selectedInterests: Set<String>.from(
-                            profile?.interests ?? [],
-                          ),
-                        ),
+                            selectedInterests: profile.selectedInterests),
                       const SizedBox(height: AppSizes.paddingL),
 
                       _CommentsSection(
-                        reviews: reviews,
-                        onViewAll: () => _showViewAllModal(context, reviews),
+                        ratings: ratings,
+                        onViewAll: () => _showViewAllModal(context, ratings),
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
@@ -223,10 +278,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
+/// Coral app bar — back arrow shown only when there is navigation history.
+/// Logout button always shown in the top-right corner.
 class _ProfileAppBar extends StatelessWidget {
   final String title;
+  final VoidCallback onLogoutTap;
 
-  const _ProfileAppBar({required this.title});
+  const _ProfileAppBar({
+    required this.title,
+    required this.onLogoutTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +304,8 @@ class _ProfileAppBar extends StatelessWidget {
             if (canGoBack)
               GestureDetector(
                 onTap: () => context.pop(),
-                child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+                child:
+                    const Icon(Icons.arrow_back, color: AppColors.cardWhite),
               )
             else
               const SizedBox(width: AppSizes.iconSize),
@@ -261,7 +323,11 @@ class _ProfileAppBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: AppSizes.iconSize + AppSizes.paddingM),
+            GestureDetector(
+              onTap: onLogoutTap,
+              child: const Icon(Icons.logout, color: AppColors.cardWhite, size: 26),
+            ),
+            const SizedBox(width: AppSizes.paddingM),
           ],
         ),
       ),
@@ -269,28 +335,24 @@ class _ProfileAppBar extends StatelessWidget {
   }
 }
 
-/// Gradient header (or cover photo) with avatar. View mode only.
-/// Shows [photoURL] as a network image when no local bytes are selected.
+/// Salmon-to-peach gradient band (or cover photo) with avatar circle.
+/// View mode only — no camera overlays.
 class _ProfileHeader extends StatelessWidget {
   final Uint8List? avatarBytes;
   final Uint8List? coverBytes;
-  final String? photoURL;
 
   const _ProfileHeader({
     required this.avatarBytes,
     required this.coverBytes,
-    this.photoURL,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasAvatar =
-        avatarBytes != null || (photoURL != null && photoURL!.isNotEmpty);
-
     return SizedBox(
       height: AppSizes.profileHeaderHeight + AppSizes.avatarLarge / 2,
       child: Stack(
         children: [
+          // Cover area — photo if selected, gradient otherwise
           Positioned(
             top: 0,
             left: 0,
@@ -320,6 +382,7 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ),
 
+          // Avatar circle
           Positioned(
             left: AppSizes.paddingL,
             bottom: 0,
@@ -331,11 +394,9 @@ class _ProfileHeader extends StatelessWidget {
                 color: AppColors.avatarSalmon,
                 border: Border.all(color: AppColors.cardWhite, width: 3),
               ),
-              clipBehavior: hasAvatar ? Clip.antiAlias : Clip.none,
+              clipBehavior: avatarBytes != null ? Clip.antiAlias : Clip.none,
               child: avatarBytes != null
                   ? Image.memory(avatarBytes!, fit: BoxFit.cover)
-                  : (photoURL != null && photoURL!.isNotEmpty)
-                  ? Image.network(photoURL!, fit: BoxFit.cover)
                   : null,
             ),
           ),
@@ -345,13 +406,14 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
+/// Username + star rating + Edit Profile button (view mode) or just username field (edit mode).
+/// Save button is rendered above this row in edit mode.
 class _UserInfoRow extends StatelessWidget {
   final String username;
   final double avgRating;
   final bool isEditing;
   final TextEditingController usernameController;
   final VoidCallback onEditTap;
-  final VoidCallback onSaveTap;
 
   const _UserInfoRow({
     required this.username,
@@ -359,11 +421,13 @@ class _UserInfoRow extends StatelessWidget {
     required this.isEditing,
     required this.usernameController,
     required this.onEditTap,
-    required this.onSaveTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Flat Row: username · star · rating · [8px] · button, all left-aligned.
+    // Flexible on username truncates long names without pushing the button off screen.
+    // In edit mode, Expanded on the TextField bounds it to the remaining row width.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -376,20 +440,12 @@ class _UserInfoRow extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingS,
-                  vertical: AppSizes.paddingXS,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.inputBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.primary),
-                ),
+                contentPadding: EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
               ),
             ),
           )
@@ -407,45 +463,22 @@ class _UserInfoRow extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(width: AppSizes.paddingXS),
-        const Icon(
-          Icons.star,
-          color: AppColors.starColor,
-          size: AppSizes.starIconSize,
-        ),
-        const SizedBox(width: 2),
-        Text(
-          avgRating.toStringAsFixed(1),
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontTitle,
-            fontWeight: FontWeight.normal,
-            color: AppColors.textDark,
-          ),
-        ),
-
-        const SizedBox(width: AppSizes.paddingS),
-
-        if (isEditing)
-          GestureDetector(
-            onTap: onSaveTap,
-            child: Container(
-              width: AppSizes.saveButtonWidth,
-              height: AppSizes.saveButtonHeight,
-              decoration: BoxDecoration(
-                color: AppColors.saveButtonColor,
-                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                AppStrings.profileSaveButton,
-                style: AppTextStyles.body(
-                  fontSize: 12,
-                  color: AppColors.cardWhite,
-                ),
-              ),
+        if (!isEditing) ...[
+          const SizedBox(width: AppSizes.paddingXS),
+          const Icon(Icons.star, color: AppColors.starColor, size: AppSizes.starIconSize),
+          const SizedBox(width: 2),
+          Text(
+            avgRating.toStringAsFixed(1),
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontTitle,
+              fontWeight: FontWeight.normal,
+              color: AppColors.textDark,
             ),
-          )
-        else
+          ),
+          const SizedBox(width: AppSizes.paddingS),
+        ],
+
+        if (!isEditing)
           GestureDetector(
             onTap: onEditTap,
             child: Container(
@@ -478,6 +511,7 @@ class _UserInfoRow extends StatelessWidget {
   }
 }
 
+/// Section header label — Inter Light 16.
 class _SectionLabel extends StatelessWidget {
   final String text;
 
@@ -496,6 +530,7 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+/// Multi-line bio text field shown in edit mode.
 class _BioField extends StatelessWidget {
   final TextEditingController controller;
 
@@ -511,22 +546,18 @@ class _BioField extends StatelessWidget {
         fontWeight: FontWeight.w300,
         color: AppColors.textDark,
       ),
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.all(AppSizes.paddingS),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.inputBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.primary),
-        ),
+        contentPadding: EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
       ),
     );
   }
 }
 
+/// Wrap of all 30 interest chips shown in edit mode.
 class _InterestsGrid extends StatelessWidget {
   final Set<String> selectedInterests;
   final void Function(String) onToggle;
@@ -552,6 +583,8 @@ class _InterestsGrid extends StatelessWidget {
   }
 }
 
+/// View mode interests: shows selected chips as outlined pills.
+/// Falls back to placeholder chips when nothing is selected yet.
 class _SelectedInterestsView extends StatelessWidget {
   final Set<String> selectedInterests;
 
@@ -570,7 +603,8 @@ class _SelectedInterestsView extends StatelessWidget {
             width: AppSizes.interestChipHeight,
             height: AppSizes.interestChipHeight,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+              borderRadius:
+                  BorderRadius.circular(AppSizes.interestChipRadius),
               border: Border.all(color: AppColors.inputBorder),
             ),
             child: const Icon(Icons.add, size: 16, color: AppColors.textDark),
@@ -589,7 +623,8 @@ class _SelectedInterestsView extends StatelessWidget {
             vertical: AppSizes.paddingXS,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+            borderRadius:
+                BorderRadius.circular(AppSizes.interestChipRadius),
             border: Border.all(color: AppColors.inputBorder),
           ),
           child: Text(
@@ -606,6 +641,7 @@ class _SelectedInterestsView extends StatelessWidget {
   }
 }
 
+/// Empty rounded chip placeholder (view mode, no interests selected yet).
 class _PlaceholderChip extends StatelessWidget {
   const _PlaceholderChip();
 
@@ -622,17 +658,20 @@ class _PlaceholderChip extends StatelessWidget {
   }
 }
 
-/// Comments section — populated from [ProfileProvider], empty until rated.
+/// Comments section — populated from [RatingProvider], empty until rated.
 /// Shows up to 5 entries; tapping "view all (N)" opens [ViewAllReviewsModal].
 class _CommentsSection extends StatelessWidget {
-  final List<ReviewModel> reviews;
+  final List<RatingModel> ratings;
   final VoidCallback onViewAll;
 
-  const _CommentsSection({required this.reviews, required this.onViewAll});
+  const _CommentsSection({
+    required this.ratings,
+    required this.onViewAll,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final preview = reviews.take(5).toList();
+    final preview = ratings.take(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -648,11 +687,11 @@ class _CommentsSection extends StatelessWidget {
                 color: AppColors.textDark,
               ),
             ),
-            if (reviews.isNotEmpty)
+            if (ratings.isNotEmpty)
               GestureDetector(
                 onTap: onViewAll,
                 child: Text(
-                  '${AppStrings.profileViewAll} (${reviews.length})',
+                  '${AppStrings.profileViewAll} (${ratings.length})',
                   style: AppTextStyles.body(
                     fontSize: AppSizes.fontXXS,
                     fontWeight: FontWeight.w300,
@@ -664,7 +703,7 @@ class _CommentsSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSizes.paddingS),
 
-        if (reviews.isEmpty)
+        if (ratings.isEmpty)
           Text(
             AppStrings.rateNoComments,
             style: AppTextStyles.body(
@@ -673,16 +712,17 @@ class _CommentsSection extends StatelessWidget {
             ),
           )
         else
-          ...preview.map((r) => _CommentRow(review: r)),
+          ...preview.map((r) => _CommentRow(rating: r)),
       ],
     );
   }
 }
 
+/// One comment row built from a [RatingModel].
 class _CommentRow extends StatelessWidget {
-  final ReviewModel review;
+  final RatingModel rating;
 
-  const _CommentRow({required this.review});
+  const _CommentRow({required this.rating});
 
   @override
   Widget build(BuildContext context) {
@@ -701,7 +741,7 @@ class _CommentRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_relativeTime(review.createdAt.toDate())} · from ${review.communityId}',
+            '${_relativeTime(rating.submittedAt)} · from ${rating.communityName}',
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               fontWeight: FontWeight.w300,
@@ -709,7 +749,7 @@ class _CommentRow extends StatelessWidget {
             ),
           ),
           Text(
-            _reviewBody(review),
+            _ratingBody(rating),
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               color: AppColors.commentBody,
@@ -720,3 +760,113 @@ class _CommentRow extends StatelessWidget {
     );
   }
 }
+
+// ── Logout dialog ─────────────────────────────────────────────────────────────
+
+/// Compact logout-confirmation dialog matching the leave-community dialog style.
+class _LogoutDialog extends StatelessWidget {
+  final VoidCallback onNo;
+  final VoidCallback onYes;
+
+  const _LogoutDialog({required this.onNo, required this.onYes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 60, vertical: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingM,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppStrings.logoutTitle,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: AppSizes.paddingM),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _DialogButton(
+                  label: AppStrings.chatLeaveNo,
+                  color: AppColors.commentBody,
+                  onTap: onNo,
+                ),
+                _DialogButton(
+                  label: AppStrings.chatLeaveYes,
+                  color: AppColors.primary,
+                  onTap: onYes,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared button for confirmation dialogs: text with an InkWell orange-circle
+/// highlight on tap (used in both logout and leave-community dialogs).
+class _DialogButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DialogButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.dialogHighlight,
+        highlightColor: AppColors.dialogHighlight,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingM,
+            vertical: AppSizes.paddingS,
+          ),
+          child: Text(
+            label,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

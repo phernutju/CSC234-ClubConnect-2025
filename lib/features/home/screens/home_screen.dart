@@ -5,14 +5,15 @@ import '../../../constants/app_constants.dart';
 import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
 import '../../../providers/community_provider.dart';
-import '../widgets/home_tab_bar.dart';
 import '../widgets/club_card.dart';
-import '../widgets/category_tag.dart';
+import '../widgets/community_info_modal.dart';
+import '../widgets/community_rules_modal.dart';
+import '../widgets/home_tab_bar.dart';
 
-/// Main home screen with "Welcome, [Username]", a search bar,
-/// and three tabs: Discover / My club / Trending.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String? displayName;
+
+  const HomeScreen({super.key, this.displayName});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,59 +22,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
 
-  static const List<Map<String, String>> _discoverClubs = [
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '10 members',
-      'count': '10',
-    },
-  ];
-
-  static const List<Map<String, String>> _trendingClubs = [
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-    {
-      'name': 'Badminton Thonburi',
-      'desc': 'Welcome everyone who love to play badminton come and join our ....',
-      'members': '500 members',
-      'count': '500',
-    },
-  ];
+  String get _welcomeText {
+    final name = widget.displayName;
+    if (name != null && name.isNotEmpty) {
+      return '${AppStrings.homeWelcome}$name';
+    }
+    return 'Welcome!';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,15 +44,19 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const SizedBox(height: AppSizes.paddingL),
 
-              // "Welcome, [Username]" serif heading
-              _WelcomeHeading(),
+              Text(
+                _welcomeText,
+                style: AppTextStyles.title(
+                  fontSize: 32.0,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textDark,
+                ),
+              ),
               const SizedBox(height: AppSizes.paddingM),
 
-              // Search bar row + "+" create-community button
               _SearchRow(onCreateTap: () => context.push('/create-community')),
               const SizedBox(height: AppSizes.paddingM),
 
-              // Discover / My club / Trending tab row
               HomeTabBar(
                 selectedIndex: _selectedTab,
                 onTabChanged: (i) => setState(() => _selectedTab = i),
@@ -105,30 +64,16 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: AppSizes.paddingM),
 
               Expanded(
-                child: _TabContent(
-                  selectedTab: _selectedTab,
-                  discoverClubs: _discoverClubs,
-                  trendingClubs: _trendingClubs,
-                  myCommunities: myCommunities,
-                  onClubTap: (args) => context.push('/chat', extra: args),
-                ),
+                child: _selectedTab == 0
+                    ? const _DiscoverTab()
+                    : _selectedTab == 1
+                        ? _MyClubTab(communities: myCommunities)
+                        : const _EmptyTabContent(),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-class _WelcomeHeading extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      AppStrings.homeWelcome + AppStrings.homeUsername,
-      style: AppTextStyles.title(color: AppColors.textDark),
     );
   }
 }
@@ -142,23 +87,33 @@ class _SearchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        // Search bar — transparent fill, warm-stroke border, pill shape
         Expanded(
           child: Container(
             height: 42,
             decoration: BoxDecoration(
-              color: AppColors.inputFill,
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+              border: Border.all(
+                color: AppColors.rateCardBorder,
+                width: AppSizes.fieldBorderWidth,
+              ),
             ),
             child: Row(
               children: [
                 const SizedBox(width: AppSizes.paddingM),
-                const Icon(Icons.search, color: AppColors.textGray, size: 18),
+                const Icon(
+                  Icons.search,
+                  color: AppColors.rateCardBorder,
+                  size: 18,
+                ),
                 const SizedBox(width: AppSizes.paddingS),
                 Text(
                   AppStrings.homeSearchHint,
-                  style: AppTextStyles.body(
-                    color: AppColors.textGray,
-                    fontSize: AppSizes.fontM,
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontSM,
+                    fontWeight: FontWeight.w300,
+                    color: AppColors.fieldPlaceholder,
                   ),
                 ),
               ],
@@ -168,6 +123,7 @@ class _SearchRow extends StatelessWidget {
 
         const SizedBox(width: AppSizes.paddingS),
 
+        // Create community button — coral square pill
         GestureDetector(
           onTap: onCreateTap,
           child: Container(
@@ -189,39 +145,11 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
-class _TabContent extends StatelessWidget {
-  final int selectedTab;
-  final List<Map<String, String>> discoverClubs;
-  final List<Map<String, String>> trendingClubs;
-  final List<CommunityModel> myCommunities;
-  final void Function(ChatArgs) onClubTap;
-
-  const _TabContent({
-    required this.selectedTab,
-    required this.discoverClubs,
-    required this.trendingClubs,
-    required this.myCommunities,
-    required this.onClubTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    switch (selectedTab) {
-      case 1:
-        return _MyClubList(communities: myCommunities, onTap: onClubTap);
-      case 2:
-        return _ClubList(clubs: trendingClubs, onTap: onClubTap);
-      default:
-        return _DiscoverTab(clubs: discoverClubs, onTap: onClubTap);
-    }
-  }
-}
-
-class _MyClubList extends StatelessWidget {
+/// My Club tab — shows created communities or an empty-state prompt.
+class _MyClubTab extends StatelessWidget {
   final List<CommunityModel> communities;
-  final void Function(ChatArgs) onTap;
 
-  const _MyClubList({required this.communities, required this.onTap});
+  const _MyClubTab({required this.communities});
 
   @override
   Widget build(BuildContext context) {
@@ -230,79 +158,155 @@ class _MyClubList extends StatelessWidget {
         child: Text(
           AppStrings.myClubEmpty,
           textAlign: TextAlign.center,
-          style: AppTextStyles.body(color: AppColors.textGray),
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontSM,
+            color: AppColors.textGray,
+          ),
         ),
       );
     }
-    return ListView(
-      children: communities
-          .map((c) => ClubCard(
-                name: c.communityName,
-                description: c.description.isEmpty
-                    ? c.category.join(', ')
-                    : c.description,
-                memberCount: AppStrings.communityMemberDefault,
-                coverImage: null,
-                onTap: () => onTap(ChatArgs(
-                  communityName: c.communityName,
-                  memberCount: c.memberCount.toString(),
-                )),
-              ))
-          .toList(),
+
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: communities.length,
+      itemBuilder: (context, index) {
+        final c = communities[index];
+        final memberLabel =
+            '${c.memberCount} ${AppStrings.communityMembersLabel}';
+        return ClubCard(
+          name: c.name,
+          description: c.description,
+          memberCount: memberLabel,
+          coverImage: c.coverImage,
+          onTap: () => context.push(
+            '/chat',
+            extra: ChatArgs(
+              communityName: c.name,
+              memberCount: memberLabel,
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-class _DiscoverTab extends StatelessWidget {
-  final List<Map<String, String>> clubs;
-  final void Function(ChatArgs) onTap;
-
-  const _DiscoverTab({required this.clubs, required this.onTap});
+class _EmptyTabContent extends StatelessWidget {
+  const _EmptyTabContent();
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            CategoryTag(label: 'Badminton', color: AppColors.categoryGreen),
-            CategoryTag(label: 'Coding',    color: AppColors.categoryBlue),
-            CategoryTag(label: 'Games',     color: AppColors.categoryPurple),
-          ],
+    return Center(
+      child: Text(
+        'No clubs yet',
+        style: AppTextStyles.body(
+          fontSize: 14.0,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textGray,
         ),
-        const SizedBox(height: AppSizes.paddingM),
-        ..._buildClubCards(clubs, onTap),
+      ),
+    );
+  }
+}
+
+// ── Discover tab ───────────────────────────────────────────────────────────────
+
+/// Shows category filter chips and a live-filtered list of discoverable
+/// communities. Tapping a card opens [CommunityInfoModal] → [CommunityRulesModal].
+class _DiscoverTab extends StatefulWidget {
+  const _DiscoverTab();
+
+  @override
+  State<_DiscoverTab> createState() => _DiscoverTabState();
+}
+
+class _DiscoverTabState extends State<_DiscoverTab> {
+  String _selectedCategory = AppStrings.discoverFilterAll;
+
+  void _onCardTap(CommunityModel community) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black45,
+      barrierDismissible: true,
+      builder: (_) => CommunityInfoModal(
+        community: community,
+        onNext: () => _openRulesModal(community),
+      ),
+    );
+  }
+
+  void _openRulesModal(CommunityModel community) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black45,
+      barrierDismissible: true,
+      builder: (_) => CommunityRulesModal(
+        community: community,
+        onJoined: () {
+          context.push(
+            '/chat',
+            extra: ChatArgs(
+              communityName: community.name,
+              memberCount:
+                  '${community.memberCount + 1} ${AppStrings.communityMembersLabel}',
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = context.watch<CommunityProvider>().discoverCommunities;
+    final filtered = _selectedCategory == AppStrings.discoverFilterAll
+        ? all
+        : all.where((c) => c.category == _selectedCategory).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // TESTING ONLY - filter UI hidden until design is finalized
+        // SingleChildScrollView(
+        //   scrollDirection: Axis.horizontal,
+        //   child: Row(
+        //     children: AppStrings.discoverCategories.map((cat) { ... }).toList(),
+        //   ),
+        // ),
+        // const SizedBox(height: AppSizes.paddingM),
+
+        // ── Community card list ────────────────────────────────────────
+        if (filtered.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                'No communities found',
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontSM,
+                  color: AppColors.textGray,
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: filtered.length,
+              itemBuilder: (_, index) {
+                final c = filtered[index];
+                return ClubCard(
+                  name: c.name,
+                  description: c.description,
+                  memberCount:
+                      '${c.memberCount} ${AppStrings.communityMembersLabel}',
+                  coverImage: c.coverImage,
+                  onTap: () => _onCardTap(c),
+                );
+              },
+            ),
+          ),
       ],
     );
   }
-}
-
-class _ClubList extends StatelessWidget {
-  final List<Map<String, String>> clubs;
-  final void Function(ChatArgs) onTap;
-
-  const _ClubList({required this.clubs, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(children: _buildClubCards(clubs, onTap));
-  }
-}
-
-List<Widget> _buildClubCards(
-  List<Map<String, String>> clubs,
-  void Function(ChatArgs) onTap,
-) {
-  return clubs
-      .map((c) => ClubCard(
-            name: c['name']!,
-            description: c['desc']!,
-            memberCount: c['members']!,
-            onTap: () => onTap(ChatArgs(
-              communityName: c['name']!,
-              memberCount: c['count']!,
-            )),
-          ))
-      .toList();
 }

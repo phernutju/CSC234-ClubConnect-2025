@@ -1,16 +1,17 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../constants/app_constants.dart';
-import '../widgets/step_progress_bar.dart';
-import '../widgets/auth_text_field.dart';
-import '../widgets/primary_button.dart';
-import '../../../providers/auth_provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../../constants/app_constants.dart';
+import '../../../providers/profile_provider.dart';
+import '../widgets/step_progress_bar.dart';
 
-/// Step 3 of 4: user sets a display name and an optional bio.
-/// A tappable avatar circle lets them upload a profile photo.
 class SetProfileScreen extends StatefulWidget {
-  const SetProfileScreen({super.key});
+  final String? googleDisplayName;
+
+  const SetProfileScreen({super.key, this.googleDisplayName});
 
   @override
   State<SetProfileScreen> createState() => _SetProfileScreenState();
@@ -19,6 +20,47 @@ class SetProfileScreen extends StatefulWidget {
 class _SetProfileScreenState extends State<SetProfileScreen> {
   final _displayNameController = TextEditingController();
   final _aboutMeController     = TextEditingController();
+  final _picker = ImagePicker();
+  File? _imageFile;
+  Uint8List? _webImageBytes;
+  String? _displayNameError;
+
+  static const InputDecoration _fieldDecoration = InputDecoration(
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: EdgeInsets.symmetric(
+      horizontal: AppSizes.paddingM,
+      vertical: AppSizes.paddingM,
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(30)),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(30)),
+      borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(30)),
+      borderSide: BorderSide(color: Color(0xFFFF6B4A), width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(30)),
+      borderSide: BorderSide(color: Colors.red),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(30)),
+      borderSide: BorderSide(color: Colors.red),
+    ),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.googleDisplayName != null) {
+      _displayNameController.text = widget.googleDisplayName!;
+    }
+  }
 
   @override
   void dispose() {
@@ -27,14 +69,62 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
     super.dispose();
   }
 
-  void _onNext() {
-    final photo = '';
-    final displayName = _displayNameController.text;
-    final bio = _aboutMeController.text;
-    context.read<AppAuthProvider>().setExtraInfo(
-     photo,displayName,bio
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      if (kIsWeb) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _webImageBytes = bytes;
+          _imageFile = null;
+        });
+      } else {
+        setState(() {
+          _imageFile = File(picked.path);
+          _webImageBytes = null;
+        });
+      }
+    }
+  }
+
+  bool _validate() {
+    final name = _displayNameController.text.trim();
+    String? error;
+    if (name.isEmpty) {
+      error = 'Display name is required';
+    } else if (name.length < 3) {
+      error = 'Minimum 3 characters';
+    } else if (name.length > 30) {
+      error = 'Must be 30 characters or less';
+    } else if (!RegExp(r'^[\w ]+$').hasMatch(name)) {
+      error = 'Only letters, numbers, underscore and space allowed';
+    }
+    setState(() => _displayNameError = error);
+    return error == null;
+  }
+
+  Future<void> _onNext() async {
+    if (!_validate()) return;
+
+    // Resolve avatar to bytes regardless of platform
+    Uint8List? avatarBytes = _webImageBytes;
+    if (avatarBytes == null && _imageFile != null) {
+      avatarBytes = await _imageFile!.readAsBytes();
+    }
+
+    if (!mounted) return;
+
+    final profile = context.read<ProfileProvider>();
+    profile.saveProfile(
+      username: _displayNameController.text.trim(),
+      bio: _aboutMeController.text.trim(),
     );
-    context.push('/category');
+    if (avatarBytes != null) profile.updateAvatar(avatarBytes);
+
+    context.push(
+      '/category',
+      extra: {'displayName': _displayNameController.text.trim()},
+    );
   }
 
   @override
@@ -42,48 +132,129 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
+        minimum: const EdgeInsets.only(top: 16),
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppSizes.paddingM),
-
-              // Step 3 of 4
+              const SizedBox(height: 48),
               const StepProgressBar(currentStep: 3),
               const SizedBox(height: AppSizes.paddingL),
 
-              // Back arrow
-              _BackButton(),
-              const SizedBox(height: AppSizes.paddingM),
-
-              // "Complete " (black) + "Profile !" (italic coral)
-              _ProfileHeading(),
-              const SizedBox(height: AppSizes.paddingXL),
-
-              // Avatar picker
-              Center(child: _AvatarPicker()),
-              const SizedBox(height: AppSizes.paddingXL),
-
-              // Display name field
-              AuthTextField(
-                label: AppStrings.setProfileDisplayName,
-                controller: _displayNameController,
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: const Icon(Icons.arrow_back, color: AppColors.textDark),
               ),
               const SizedBox(height: AppSizes.paddingM),
 
-              // Bio field (optional)
-              AuthTextField(
-                label: AppStrings.setProfileAboutMe,
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: AppStrings.setProfileHeading,
+                      style: AppTextStyles.title(
+                        fontSize: 36.0,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF000000),
+                      ),
+                    ),
+                    TextSpan(
+                      text: AppStrings.setProfileHeadingAccent,
+                      style: AppTextStyles.title(
+                        fontSize: 36.0,
+                        fontWeight: FontWeight.w400,
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSizes.paddingXL),
+
+              Center(
+                child: _AvatarPicker(
+                  imageFile: _imageFile,
+                  imageBytes: _webImageBytes,
+                  onTap: _pickImage,
+                ),
+              ),
+              const SizedBox(height: AppSizes.paddingXL),
+
+              Text(
+                AppStrings.setProfileDisplayName,
+                style: AppTextStyles.body(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w300,
+                  color: const Color(0xFF000000),
+                ),
+              ),
+              const SizedBox(height: AppSizes.paddingS),
+              SizedBox(
+                height: AppSizes.inputHeight,
+                child: TextFormField(
+                  controller: _displayNameController,
+                  style: AppTextStyles.body(
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textDark,
+                  ),
+                  decoration: _fieldDecoration,
+                ),
+              ),
+              if (_displayNameError != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _displayNameError!,
+                  style: AppTextStyles.body(
+                    fontSize: AppSizes.fontXS,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSizes.paddingM),
+
+              Text(
+                AppStrings.setProfileAboutMe,
+                style: AppTextStyles.body(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w300,
+                  color: const Color(0xFF000000),
+                ),
+              ),
+              const SizedBox(height: AppSizes.paddingS),
+              TextFormField(
                 controller: _aboutMeController,
+                minLines: 1,
+                maxLines: 3,
+                style: AppTextStyles.body(
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textDark,
+                ),
+                decoration: _fieldDecoration,
               ),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.10),
 
-              const Spacer(),
-
-              // Next button
-              PrimaryButton(
-                label: AppStrings.setProfileNext,
-                onPressed: _onNext,
+              SizedBox(
+                height: AppSizes.buttonHeight,
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _onNext,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.cardWhite,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                    ),
+                  ),
+                  child: Text(
+                    AppStrings.setProfileNext,
+                    style: AppTextStyles.button(color: AppColors.cardWhite),
+                  ),
+                ),
               ),
               const SizedBox(height: AppSizes.paddingXL),
             ],
@@ -94,78 +265,56 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
   }
 }
 
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
+class _AvatarPicker extends StatelessWidget {
+  final File? imageFile;
+  final Uint8List? imageBytes;
+  final VoidCallback onTap;
 
-class _BackButton extends StatelessWidget {
+  const _AvatarPicker({
+    this.imageFile,
+    this.imageBytes,
+    required this.onTap,
+  });
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.pop(),
-      child: const Icon(Icons.arrow_back, color: AppColors.textDark),
-    );
-  }
-}
-
-/// "Complete " (black bold) + "Profile !" (italic coral Instrument Serif).
-class _ProfileHeading extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: AppStrings.setProfileHeading,
-            style: AppTextStyles.title(color: AppColors.textDark),
-          ),
-          TextSpan(
-            text: AppStrings.setProfileHeadingAccent,
-            style: AppTextStyles.title(
-              fontStyle: FontStyle.italic,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Salmon-colored circle placeholder with a camera-badge overlay.
-class _AvatarPicker extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: AppSizes.avatarLarge,
-      height: AppSizes.avatarLarge,
-      child: Stack(
-        children: [
-          Container(
-            width: AppSizes.avatarLarge,
-            height: AppSizes.avatarLarge,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.avatarSalmon,
-            ),
-            child: const SizedBox(),
-          ),
-
-          Positioned(
-            bottom: 2,
-            right: 2,
-            child: Container(
-              padding: const EdgeInsets.all(AppSizes.paddingXS + 2),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.textDark,
-              ),
-              child: const Icon(
-                Icons.camera_alt,
-                size: 16,
-                color: AppColors.cardWhite,
+      onTap: onTap,
+      child: SizedBox(
+        width: 160,
+        height: 160,
+        child: Stack(
+          children: [
+            ClipOval(
+              child: SizedBox(
+                width: 160,
+                height: 160,
+                child: imageBytes != null
+                    ? Image.memory(imageBytes!, fit: BoxFit.cover)
+                    : imageFile != null
+                        ? Image.file(imageFile!, fit: BoxFit.cover)
+                        : Container(color: AppColors.avatarSalmon),
               ),
             ),
-          ),
-        ],
+
+            Positioned(
+              bottom: 2,
+              right: 2,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.textDark,
+                ),
+                child: const Icon(
+                  Icons.camera_alt,
+                  size: 16,
+                  color: AppColors.cardWhite,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

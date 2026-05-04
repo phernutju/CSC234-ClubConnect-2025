@@ -1,59 +1,47 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:typed_data';
+import 'rule_model.dart';
 
+/// In-memory representation of a community.
+/// No persistence — data resets on app restart (no DB yet).
 class CommunityModel {
-  final String id;
-
-  final String communityId;
-  final String communityName;
-  final List<String> category;
+  final String name;
   final String description;
-  final String coverImageURL;
-  final String rule;
+  final String category;
+  final Uint8List? coverImage;
+  final List<RuleModel> rules;
   final int memberCount;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String hostName;
+  final double hostRating;
 
-  CommunityModel({
-    required this.id,
-    required this.communityId,
-    required this.communityName,
-    required this.category,
+  const CommunityModel({
+    required this.name,
     required this.description,
-    required this.coverImageURL,
-    required this.rule,
-    required this.memberCount,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.category,
+    this.coverImage,
+    this.rules = const [],
+    this.memberCount = 1,
+    this.hostName = '',
+    this.hostRating = 5.0,
   });
 
-  /// 🔁 Firestore → Dart
-  factory CommunityModel.fromJson(Map<String, dynamic> json, String id) {
-    return CommunityModel(
-      id: id,
-      communityId: json['communityId'] ?? '',
-      communityName: json['communityName'] ?? '',
-      category: List<String>.from(json['category'] ?? []),
-      description: json['description'] ?? '',
-      coverImageURL: json['coverImageURL'] ?? '',
-      rule: json['rule'] ?? '',
-      memberCount: json['memberCount'] ?? 0,
-      createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (json['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
-  }
-
-  /// 🔁 Dart → Firestore
-  Map<String, dynamic> toJson() {
-    return {
-      'communityId': communityId,
-      'communityName': communityName,
-      'category': category,
-      'description': description,
-      'coverImageURL': coverImageURL,
-      'rule': rule,
-      'memberCount': memberCount,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
-    };
-  }
+  CommunityModel copyWith({
+    String? name,
+    String? description,
+    String? category,
+    Uint8List? coverImage,
+    List<RuleModel>? rules,
+    int? memberCount,
+    String? hostName,
+    double? hostRating,
+  }) =>
+      CommunityModel(
+        name: name ?? this.name,
+        description: description ?? this.description,
+        category: category ?? this.category,
+        coverImage: coverImage ?? this.coverImage,
+        rules: rules ?? this.rules,
+        memberCount: memberCount ?? this.memberCount,
+        hostName: hostName ?? this.hostName,
+        hostRating: hostRating ?? this.hostRating,
+      );
 }

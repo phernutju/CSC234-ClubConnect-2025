@@ -1,89 +1,65 @@
 import 'package:flutter/foundation.dart';
-import '../models/review_model.dart';
-import '../models/user_model.dart';
-import '../services/profile_service.dart';
+import '../constants/app_constants.dart';
 
+/// Holds the current user's editable profile data for the session.
+/// Shared via MultiProvider so all screens see the same instance.
 class ProfileProvider extends ChangeNotifier {
-  final ProfileService _service;
+  String _username = 'Username';
+  String _bio = AppStrings.profileBio;
+  Uint8List? _avatarBytes;
+  Uint8List? _coverBytes;
+  final Set<String> _selectedInterests = {};
 
-  UserModel? profile;
-  ReviewsResult? reviewsResult;
-  bool isLoading = false;
-  String? error;
+  String get username => _username;
+  String get bio => _bio;
+  Uint8List? get avatarBytes => _avatarBytes;
+  Uint8List? get coverBytes => _coverBytes;
+  Set<String> get selectedInterests => Set.unmodifiable(_selectedInterests);
 
-  ProfileProvider({ProfileService? service})
-      : _service = service ?? ProfileService();
-
-  // ── Profile ───────────────────────────────────────────────────────────────
-
-  Future<void> loadProfile(String userId) => _run(() async {
-        profile = await _service.getUserProfile(userId);
-      });
-
-  Future<void> updateProfile(String userId, Map<String, dynamic> data) =>
-      _run(() async {
-        await _service.updateUserProfile(userId, data);
-        profile = await _service.getUserProfile(userId);
-      });
-
-  Future<void> deleteProfile(String userId) => _run(() async {
-        await _service.deleteUserProfile(userId);
-        profile = null;
-      });
-
-  // ── Reviews ───────────────────────────────────────────────────────────────
-
-  Future<void> loadReviews(String targetUserId) => _run(() async {
-        reviewsResult = await _service.getReviews(targetUserId);
-      });
-
-  Future<void> createReview(
-    String targetUserId, {
-    required String communityId,
-    required String score,
-    required String comment,
-  }) =>
-      _run(() async {
-        await _service.createReview(
-          targetUserId,
-          communityId: communityId,
-          score: score,
-          comment: comment,
-        );
-        reviewsResult = await _service.getReviews(targetUserId);
-      });
-
-  Future<void> updateReview(
-    String targetUserId,
-    String reviewId,
-    Map<String, dynamic> data,
-  ) =>
-      _run(() async {
-        await _service.updateReview(targetUserId, reviewId, data);
-        reviewsResult = await _service.getReviews(targetUserId);
-      });
-
-  Future<void> deleteReview(String targetUserId, String reviewId) =>
-      _run(() async {
-        await _service.deleteReview(targetUserId, reviewId);
-        reviewsResult = await _service.getReviews(targetUserId);
-      });
-
-  // ── Helper ────────────────────────────────────────────────────────────────
-
-  Future<void> _run(Future<void> Function() fn) async {
-  isLoading = true;
-  notifyListeners();
-
-  try {
-    await fn();
-  } catch (e, stack) {
-    print('❌ ERROR in _run: $e');
-    print(stack);
-    rethrow; // 🔥 important for debugging
-  } finally {
-    isLoading = false;
+  /// Persist username and bio. Pass [interests] to also update the interest set,
+  /// or omit it to leave interests unchanged (e.g., when saving from set-profile screen).
+  void saveProfile({
+    required String username,
+    required String bio,
+    Set<String>? interests,
+  }) {
+    _username = username.isEmpty ? 'Username' : username;
+    _bio = bio.isEmpty ? _bio : bio;
+    if (interests != null) {
+      _selectedInterests
+        ..clear()
+        ..addAll(interests);
+    }
     notifyListeners();
   }
-}
+
+  /// Persist selected interests (called from category screen on completion).
+  void saveInterests(Set<String> interests) {
+    _selectedInterests
+      ..clear()
+      ..addAll(interests);
+    notifyListeners();
+  }
+
+  /// Persist avatar immediately when picked (does not require pressing Save).
+  void updateAvatar(Uint8List bytes) {
+    _avatarBytes = bytes;
+    notifyListeners();
+  }
+
+  /// Persist cover photo immediately when picked (does not require pressing Save).
+  void updateCover(Uint8List bytes) {
+    _coverBytes = bytes;
+    notifyListeners();
+  }
+
+  /// Resets all profile data back to defaults (called on logout).
+  void logout() {
+    _username = 'Username';
+    _bio = AppStrings.profileBio;
+    _avatarBytes = null;
+    _coverBytes = null;
+    _selectedInterests.clear();
+    notifyListeners();
+  }
 }

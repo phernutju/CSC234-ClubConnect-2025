@@ -1,158 +1,156 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/community_model.dart';
-import '../models/member_model.dart';
-import '../models/message_model.dart';
-import '../services/community_service.dart';
+import '../models/rule_model.dart';
 
+/// Manages all community data for the current session.
+/// Notifies listeners whenever the community lists change.
 class CommunityProvider extends ChangeNotifier {
-  final CommunityService _service;
+  // TESTING ONLY - remove when backend connected
+  static const List<CommunityModel> _dummyCommunities = [
+    CommunityModel(
+      name: 'Badminton Thonburi',
+      description:
+          'Weekly badminton. Sunday meetups in Thonburi. Beginners welcome. Like Family',
+      memberCount: 10,
+      category: 'Sports',
+      hostName: 'Host name',
+      hostRating: 4.9,
+      rules: [
+        RuleModel(
+          title: 'Be Respectful & Kind',
+          description:
+              'Treat everyone with respect. Bullying, harassment, and hate speech are strictly prohibited.',
+        ),
+        RuleModel(
+          title: 'No Spam or Promos',
+          description:
+              'Please do not post spam, self-promotion, or irrelevant links.',
+        ),
+        RuleModel(
+          title: 'Stay on Topic',
+          description:
+              "Ensure your posts and discussions are relevant to the group's main theme.",
+        ),
+      ],
+    ),
+    CommunityModel(
+      name: 'Coding KMUTT',
+      description: 'A place for coders to share knowledge and grow together',
+      memberCount: 8,
+      category: 'Coding',
+      hostName: 'CodeMaster',
+      hostRating: 4.7,
+      rules: [
+        RuleModel(
+          title: 'Share Knowledge',
+          description: 'Help each other learn and grow.',
+        ),
+        RuleModel(
+          title: 'No Copy Paste',
+          description: 'Always credit original sources.',
+        ),
+      ],
+    ),
+    CommunityModel(
+      name: 'Valorant Thailand',
+      description: 'Join us for weekly gaming sessions and tournaments',
+      memberCount: 25,
+      category: 'Gaming',
+      hostName: 'GamerPro',
+      hostRating: 4.5,
+      rules: [
+        RuleModel(
+          title: 'No Toxic Behavior',
+          description: 'Keep the environment friendly and fun.',
+        ),
+        RuleModel(
+          title: 'Fair Play Only',
+          description: 'No cheating or exploiting bugs.',
+        ),
+      ],
+    ),
+    CommunityModel(
+      name: 'Cafe Gurllll',
+      description: 'Coffee lovers unite! Share your favorite spots',
+      memberCount: 15,
+      category: 'Food',
+      hostName: 'CafeHost',
+      hostRating: 4.8,
+      rules: [
+        RuleModel(
+          title: 'Be Kind',
+          description: 'Respect all members and their opinions.',
+        ),
+      ],
+    ),
+  ];
 
-  List<CommunityModel> communities = [];
-  CommunityModel? activeCommunity;
-  List<MessageModel> messages = [];
-  List<MemberModel> members = [];
-  bool isLoading = false;
-  String? error;
+  final List<CommunityModel> _created = [];
+  final List<CommunityModel> _joined  = [];
 
-  StreamSubscription<List<CommunityModel>>? _communitiesSub;
-  StreamSubscription<List<MessageModel>>? _messagesSub;
-  StreamSubscription<List<MemberModel>>? _membersSub;
+  /// Names of communities whose notifications are muted by the user.
+  final Set<String> _mutedCommunities = {};
 
-  CommunityProvider({CommunityService? service})
-      : _service = service ?? CommunityService() {
-    _communitiesSub = _service.getCommunities().listen(
-      (list) {
-        communities = list;
-        notifyListeners();
-      },
-      onError: (e) {
-        error = e.toString();
-        notifyListeners();
-      },
-    );
-  }
+  bool isMuted(String communityName) => _mutedCommunities.contains(communityName);
 
-  // ── Active community ───────────────────────────────────────────────────────
+  /// Read-only view of all muted community names (used by NotificationScreen).
+  Set<String> get mutedCommunityNames => Set.unmodifiable(_mutedCommunities);
 
-  void setActiveCommunity(CommunityModel community) {
-    activeCommunity = community;
-
-    _messagesSub?.cancel();
-    _membersSub?.cancel();
-
-    _messagesSub = _service.getMessages(community.id).listen(
-      (list) {
-        messages = list;
-        notifyListeners();
-      },
-      onError: (e) {
-        error = e.toString();
-        notifyListeners();
-      },
-    );
-
-    _membersSub = _service.getMembers(community.id).listen(
-      (list) {
-        members = list;
-        notifyListeners();
-      },
-      onError: (e) {
-        error = e.toString();
-        notifyListeners();
-      },
-    );
-
+  void toggleMute(String communityName) {
+    if (_mutedCommunities.contains(communityName)) {
+      _mutedCommunities.remove(communityName);
+    } else {
+      _mutedCommunities.add(communityName);
+    }
     notifyListeners();
   }
 
-  void clearActiveCommunity() {
-    activeCommunity = null;
-    messages = [];
-    members = [];
-    _messagesSub?.cancel();
-    _membersSub?.cancel();
+  /// Communities the user belongs to (created or joined) — My Club tab.
+  List<CommunityModel> get communities => [..._created, ..._joined];
+
+  /// Communities available to join — Discover tab.
+  /// Excludes anything the user already created or joined.
+  List<CommunityModel> get discoverCommunities {
+    final myNames = {
+      ..._created.map((c) => c.name),
+      ..._joined.map((c) => c.name),
+    };
+    return _dummyCommunities
+        .where((c) => !myNames.contains(c.name))
+        .toList();
+  }
+
+  /// Adds a user-created community directly to My Club.
+  void addCommunity(CommunityModel community) {
+    _created.add(community);
     notifyListeners();
   }
 
-  // ── Community actions ──────────────────────────────────────────────────────
-
-  Future<void> editCommunity(
-    String communityId,
-    Map<String, dynamic> data,
-  ) =>
-      _run(() => _service.editCommunity(communityId, data));
-
-  Future<void> joinCommunity(String communityId) =>
-      _run(() => _service.joinCommunity(communityId));
-
-  Future<void> leaveCommunity(String communityId) =>
-      _run(() async {
-        await _service.leaveCommunity(communityId);
-        if (activeCommunity?.id == communityId) clearActiveCommunity();
-      });
-
-  Future<void> addCommunity({
-    required String communityName,
-    required List<String> category,
-    required String description,
-    required String coverImageURL,
-    required String rule,
-  }) =>
-      _run(() => _service.createCommunity(
-            communityName: communityName,
-            category: category,
-            description: description,
-            coverImageURL: coverImageURL,
-            rule: rule,
-          ));
-
-  // ── Member actions ─────────────────────────────────────────────────────────
-
-  Future<void> editMember(
-    String communityId,
-    String userId,
-    String newRole,
-  ) =>
-      _run(() => _service.editMember(communityId, userId, newRole));
-
-  // ── Message actions ────────────────────────────────────────────────────────
-
-  Future<void> sendMessage(
-    String communityId, {
-    required String text,
-    String imageURL = '',
-  }) =>
-      _run(() => _service.sendMessage(
-            communityId,
-            text: text,
-            imageURL: imageURL,
-          ));
-
-  Future<void> markMessageSeen(String communityId, String messageId) =>
-      _run(() => _service.markMessageSeen(communityId, messageId));
-
-  // ── Helper ─────────────────────────────────────────────────────────────────
-
-  Future<void> _run(Future<void> Function() action) async {
-    isLoading = true;
-    error = null;
+  /// Joins a Discover community, incrementing its member count by 1.
+  void joinCommunity(CommunityModel community) {
+    _joined.add(community.copyWith(memberCount: community.memberCount + 1));
     notifyListeners();
-    try {
-      await action();
-    } catch (e) {
-      error = e.toString();
-    } finally {
-      isLoading = false;
+  }
+
+  /// Removes a community from My Club (works for both created and joined).
+  void leaveCommunity(String communityName) {
+    _created.removeWhere((c) => c.name == communityName);
+    _joined.removeWhere((c) => c.name == communityName);
+    notifyListeners();
+  }
+
+  /// Updates an existing community matched by [currentName].
+  void updateCommunity(String currentName, CommunityModel updated) {
+    final ci = _created.indexWhere((c) => c.name == currentName);
+    if (ci != -1) {
+      _created[ci] = updated;
+      notifyListeners();
+      return;
+    }
+    final ji = _joined.indexWhere((c) => c.name == currentName);
+    if (ji != -1) {
+      _joined[ji] = updated;
       notifyListeners();
     }
-  }
-
-  @override
-  void dispose() {
-    _communitiesSub?.cancel();
-    _messagesSub?.cancel();
-    _membersSub?.cancel();
-    super.dispose();
   }
 }

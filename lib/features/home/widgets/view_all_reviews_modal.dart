@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
-import '../../../models/review_model.dart';
+import '../../../models/rating_model.dart';
 
 // ── File-scoped helpers ────────────────────────────────────────────────────────
 
+/// Returns "just now", "N min ago", or "N hr ago" relative to [time].
 String _relativeTime(DateTime time) {
   final diff = DateTime.now().difference(time);
   if (diff.inMinutes < 1) return AppStrings.rateJustNow;
@@ -12,6 +13,7 @@ String _relativeTime(DateTime time) {
   return '${diff.inHours}${AppStrings.rateHrAgo}';
 }
 
+/// Renders a row of 5 stars based on the [starCount] (W11 H11).
 Widget _buildSmallStars(int starCount) {
   return Row(
     mainAxisSize: MainAxisSize.min,
@@ -29,12 +31,12 @@ Widget _buildSmallStars(int starCount) {
 
 class ViewAllReviewsModal extends StatelessWidget {
   final String username;
-  final List<ReviewModel> reviews;
+  final List<RatingModel> ratings;
 
   const ViewAllReviewsModal({
     super.key,
     required this.username,
-    required this.reviews,
+    required this.ratings,
   });
 
   @override
@@ -44,8 +46,8 @@ class ViewAllReviewsModal extends StatelessWidget {
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
       child: Container(
-        width: AppSizes.rateModalWidth,
-        height: AppSizes.reviewModalHeight,
+        width: AppSizes.rateModalWidth, // 296
+        height: AppSizes.reviewModalHeight, // 575
         decoration: BoxDecoration(
           color: AppColors.cardWhite,
           borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
@@ -57,21 +59,24 @@ class ViewAllReviewsModal extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Title
                   Text(
                     username,
                     style: AppTextStyles.body(
-                      fontSize: AppSizes.fontTitle,
+                      fontSize: AppSizes.fontTitle, // 24
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
                     ),
                   ),
                   const SizedBox(height: AppSizes.paddingL),
 
-                  _RatingSummaryCard(reviews: reviews),
+                  // Rating Summary Card
+                  _RatingSummaryCard(ratings: ratings),
                   const SizedBox(height: AppSizes.paddingL),
 
+                  // Review List
                   Expanded(
-                    child: reviews.isEmpty
+                    child: ratings.isEmpty
                         ? Center(
                             child: Text(
                               AppStrings.reviewNoReviews,
@@ -83,11 +88,11 @@ class ViewAllReviewsModal extends StatelessWidget {
                           )
                         : ListView.separated(
                             padding: EdgeInsets.zero,
-                            itemCount: reviews.length,
+                            itemCount: ratings.length,
                             separatorBuilder: (context, index) =>
                                 const SizedBox(height: AppSizes.reviewItemSpacing),
                             itemBuilder: (context, index) {
-                              return _ReviewItem(review: reviews[index]);
+                              return _ReviewItem(rating: ratings[index]);
                             },
                           ),
                   ),
@@ -95,6 +100,7 @@ class ViewAllReviewsModal extends StatelessWidget {
               ),
             ),
 
+            // Close Button (Coral circle top-right)
             Positioned(
               top: AppSizes.paddingM,
               right: AppSizes.paddingM,
@@ -125,29 +131,29 @@ class ViewAllReviewsModal extends StatelessWidget {
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
 class _RatingSummaryCard extends StatelessWidget {
-  final List<ReviewModel> reviews;
+  final List<RatingModel> ratings;
 
-  const _RatingSummaryCard({required this.reviews});
+  const _RatingSummaryCard({required this.ratings});
 
   @override
   Widget build(BuildContext context) {
-    final total = reviews.length;
+    final total = ratings.length;
     final avgRating = total == 0
         ? 0.0
-        : reviews.map((r) => r.score).reduce((a, b) => a + b) /
-            total;
+        : ratings.map((r) => r.stars).reduce((a, b) => a + b) / total;
 
     return Container(
-      width: AppSizes.rateUserCardWidth,
-      height: AppSizes.reviewSummaryHeight,
+      width: AppSizes.rateUserCardWidth, // 266
+      height: AppSizes.reviewSummaryHeight, // 125
       padding: const EdgeInsets.all(AppSizes.paddingM),
       decoration: BoxDecoration(
-        color: AppColors.rateStarFill,
-        border: Border.all(color: AppColors.rateCardBorder, width: 1),
+        color: AppColors.rateStarFill, // #FFF6EE
+        border: Border.all(color: AppColors.rateCardBorder, width: 1), // #E8DFD8
         borderRadius: BorderRadius.circular(AppSizes.radiusS),
       ),
       child: Row(
         children: [
+          // Left Side: Rating Avg & Count
           Expanded(
             flex: 2,
             child: Column(
@@ -158,22 +164,22 @@ class _RatingSummaryCard extends StatelessWidget {
                   AppStrings.reviewRatingLabel,
                   style: AppTextStyles.body(
                     fontSize: 12,
-                    fontWeight: FontWeight.w300,
+                    fontWeight: FontWeight.w300, // Inter Light
                     color: AppColors.textDark,
                   ),
                 ),
                 Text(
                   avgRating.toStringAsFixed(1),
                   style: AppTextStyles.body(
-                    fontSize: AppSizes.ratingStarSize,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
+                    fontSize: AppSizes.ratingStarSize, // 32
+                    fontWeight: FontWeight.w800, // Inter ExtraBold
+                    color: AppColors.primary, // #FF6B4A
                   ),
                 ),
                 Text(
                   '$total ${AppStrings.rateReviews}',
                   style: AppTextStyles.poppins(
-                    fontSize: AppSizes.fontXXS,
+                    fontSize: AppSizes.fontXXS, // 10
                     fontWeight: FontWeight.normal,
                     color: AppColors.textDark,
                   ),
@@ -181,16 +187,15 @@ class _RatingSummaryCard extends StatelessWidget {
               ],
             ),
           ),
-
+          
+          // Right Side: 5 Progress Bars
           Expanded(
             flex: 3,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
                 final starLevel = 5 - index;
-                final count = reviews
-                    .where((r) => r.score == starLevel)
-                    .length;
+                final count = ratings.where((r) => r.stars == starLevel).length;
                 final fraction = total == 0 ? 0.0 : count / total;
 
                 return Padding(
@@ -204,10 +209,10 @@ class _RatingSummaryCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(2),
                           child: LinearProgressIndicator(
                             value: fraction,
-                            minHeight: AppSizes.reviewBarHeight,
-                            backgroundColor: AppColors.rateCardBorder,
+                            minHeight: AppSizes.reviewBarHeight, // 4
+                            backgroundColor: AppColors.rateCardBorder, // #E8DFD8
                             valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppColors.reviewBarFilled,
+                              AppColors.reviewBarFilled, // #8CD9A7
                             ),
                           ),
                         ),
@@ -225,38 +230,37 @@ class _RatingSummaryCard extends StatelessWidget {
 }
 
 class _ReviewItem extends StatelessWidget {
-  final ReviewModel review;
+  final RatingModel rating;
 
-  const _ReviewItem({required this.review});
+  const _ReviewItem({required this.rating});
 
   @override
   Widget build(BuildContext context) {
-    final stars = review.score;
-
     return Container(
       padding: const EdgeInsets.only(left: AppSizes.paddingS),
       decoration: const BoxDecoration(
         border: Border(
           left: BorderSide(
-            color: AppColors.primary,
-            width: AppSizes.commentBorderWidth,
+            color: AppColors.primary, // #FF6B4A
+            width: AppSizes.commentBorderWidth, // 3
           ),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top Line: Stars + Meta info
           Row(
             children: [
-              _buildSmallStars(stars),
+              _buildSmallStars(rating.stars),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '· ${_relativeTime(review.createdAt.toDate())} · from ${review.communityId}',
+                  '· ${_relativeTime(rating.submittedAt)} · from ${rating.communityName}',
                   style: AppTextStyles.body(
-                    fontSize: AppSizes.fontXXS,
-                    fontWeight: FontWeight.w300,
-                    color: AppColors.commentMeta,
+                    fontSize: AppSizes.fontXXS, // 10
+                    fontWeight: FontWeight.w300, // Inter Light
+                    color: AppColors.commentMeta, // #BABABA
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -264,14 +268,16 @@ class _ReviewItem extends StatelessWidget {
               ),
             ],
           ),
-          if (review.comment.isNotEmpty) ...[
+          
+          // Comment Text (Only show if not empty)
+          if (rating.comment.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              review.comment,
+              rating.comment,
               style: AppTextStyles.body(
-                fontSize: AppSizes.fontXXS,
-                fontWeight: FontWeight.normal,
-                color: AppColors.commentBody,
+                fontSize: AppSizes.fontXXS, // 10
+                fontWeight: FontWeight.normal, // Inter Regular
+                color: AppColors.commentBody, // #837A7A
               ),
             ),
           ],

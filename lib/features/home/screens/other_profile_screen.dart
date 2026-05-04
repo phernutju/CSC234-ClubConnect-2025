@@ -1,10 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:csc234_clubconnect/providers/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../models/review_model.dart';
+import '../../../models/rating_model.dart';
+import '../../../providers/rating_provider.dart';
 import '../widgets/rate_user_modal.dart';
 import '../widgets/view_all_reviews_modal.dart';
 import '../widgets/report_user_modal.dart';
@@ -20,17 +19,16 @@ String _relativeTime(DateTime time) {
 }
 
 /// Comment body: the typed comment if non-empty, otherwise a filled/empty star string.
-String _reviewBody(ReviewModel r) {
+String _ratingBody(RatingModel r) {
   if (r.comment.isNotEmpty) return r.comment;
-  final stars = r.score.clamp(0, 5);
-  return '${'★' * stars}${'☆' * (5 - stars)}';
+  return '${'★' * r.stars}${'☆' * (5 - r.stars)}';
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 /// Profile screen shown when viewing another user — shows "Rate this user" button.
 /// Receives [username] and [communityName] from [ProfileArgs] via GoRouter extra.
-class OtherProfileScreen extends StatefulWidget {
+class OtherProfileScreen extends StatelessWidget {
   final String username;
   final String communityName;
 
@@ -40,49 +38,24 @@ class OtherProfileScreen extends StatefulWidget {
     required this.communityName,
   });
 
-  @override
-  State<OtherProfileScreen> createState() => _OtherProfileScreenState();
-}
-
-class _OtherProfileScreenState extends State<OtherProfileScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
-  }
-
-  void _loadData() {
-    context.read<ProfileProvider>().loadReviews(widget.username);
-  }
-
   void _showRateModal(BuildContext context) {
     showDialog(
       context: context,
       barrierColor: Colors.black45,
       builder: (_) => RateUserModal(
-        username: widget.username,
-        communityName: widget.communityName,
+        username: username,
+        communityName: communityName,
       ),
     );
   }
 
-  void _showViewAllModal(BuildContext context, List<ReviewModel> ratings) {
-    final reviews = ratings
-        .map((r) => ReviewModel(
-              id: '',
-              raterId: r.raterId,
-              communityId: r.communityId,
-              score: r.score,
-              comment: r.comment,
-              createdAt: r.createdAt
-            ))
-        .toList();
+  void _showViewAllModal(BuildContext context, List<RatingModel> ratings) {
     showDialog(
       context: context,
       barrierColor: Colors.black45,
       builder: (_) => ViewAllReviewsModal(
-        username: widget.username,
-        reviews: reviews,
+        username: username,
+        ratings: ratings,
       ),
     );
   }
@@ -90,16 +63,23 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
   @override
   Widget build(BuildContext context) {
     // Watch provider so the screen rebuilds when a new rating is submitted
-    final pp = context.watch<ProfileProvider>();
-    final ratings = pp.reviewsResult?.reviews ?? [];
-    final avgRating = pp.reviewsResult?.averageScore ?? AppSizes.defaultRating;
+    final ratings = context
+        .watch<RatingProvider>()
+        .ratings
+        .where((r) => r.ratedUsername == username)
+        .toList();
+
+    final avgRating = ratings.isEmpty
+        ? AppSizes.defaultRating
+        : ratings.map((r) => r.stars).reduce((a, b) => a + b) /
+            ratings.length;
 
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
           // ── Coral app bar with back arrow ────────────────────────────────
-          _ProfileAppBar(title: widget.username),
+          _ProfileAppBar(title: username),
 
           // ── Scrollable profile content ───────────────────────────────────
           Expanded(
@@ -108,8 +88,8 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
               children: [
                 // Gradient header band with avatar + three-dot menu
                 _ProfileHeader(
-                  username: widget.username,
-                  communityName: widget.communityName,
+                  username: username,
+                  communityName: communityName,
                 ),
 
                 Padding(
@@ -120,7 +100,7 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
                     children: [
                       // Username + optional star rating + "Rate this user" button
                       _UserInfoRow(
-                        username: widget.username,
+                        username: username,
                         avgRating: avgRating,
                         onRateTap: () => _showRateModal(context),
                       ),
@@ -482,7 +462,7 @@ class _InterestChip extends StatelessWidget {
 /// Comments section — populated from [RatingProvider], empty until first rating.
 /// Shows up to 5 entries; tapping "view all (N)" opens [_ViewAllSheet].
 class _CommentsSection extends StatelessWidget {
-  final List<ReviewModel> ratings;
+  final List<RatingModel> ratings;
   final VoidCallback onViewAll;
 
   const _CommentsSection({
@@ -545,7 +525,7 @@ class _CommentsSection extends StatelessWidget {
 /// Meta line: "N min ago · from [Community]"
 /// Body line: comment text, or filled/empty star string if no comment.
 class _CommentRow extends StatelessWidget {
-  final ReviewModel rating;
+  final RatingModel rating;
 
   const _CommentRow({required this.rating});
 
@@ -566,7 +546,7 @@ class _CommentRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_relativeTime(rating.createdAt.toDate())} · from ${rating.communityId}',
+            '${_relativeTime(rating.submittedAt)} · from ${rating.communityName}',
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               fontWeight: FontWeight.w300,
@@ -574,7 +554,7 @@ class _CommentRow extends StatelessWidget {
             ),
           ),
           Text(
-            _reviewBody(rating),
+            _ratingBody(rating),
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               color: AppColors.commentBody,

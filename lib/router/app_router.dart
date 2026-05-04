@@ -15,6 +15,7 @@ import '../features/home/screens/other_profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
 import '../models/chat_args.dart';
+import '../models/community_model.dart';
 import '../models/profile_args.dart';
 import '../constants/app_constants.dart';
 
@@ -49,11 +50,21 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/set-profile',
-      builder: (context, state) => const SetProfileScreen(),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return SetProfileScreen(
+          googleDisplayName: extra?['googleDisplayName'] as String?,
+        );
+      },
     ),
     GoRoute(
       path: '/category',
-      builder: (context, state) => const CategoryScreen(),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return CategoryScreen(
+          displayName: extra?['displayName'] as String?,
+        );
+      },
     ),
 
     // ── Main-app shell (bottom nav shared across these three routes) ─────────
@@ -62,7 +73,12 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/home',
-          builder: (context, state) => const HomeScreen(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return HomeScreen(
+              displayName: extra?['displayName'] as String?,
+            );
+          },
         ),
         GoRoute(
           path: '/notification',
@@ -89,6 +105,16 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/create-community',
       builder: (context, state) => const CreateCommunityScreen(),
+    ),
+    GoRoute(
+      path: '/edit-community',
+      builder: (context, state) {
+        final community = state.extra as CommunityModel?;
+        return CreateCommunityScreen(
+          isEditMode: true,
+          existingCommunity: community,
+        );
+      },
     ),
     GoRoute(
       path: '/other-profile',

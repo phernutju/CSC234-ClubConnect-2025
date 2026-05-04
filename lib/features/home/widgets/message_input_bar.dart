@@ -7,14 +7,13 @@ import '../../../constants/app_constants.dart';
 ///
 /// When [replyToName] is non-null, a reply preview strip is shown above the
 /// coral bar so the user knows what message they are replying to.
-class MessageInputBar extends StatelessWidget {
+class MessageInputBar extends StatefulWidget {
   final TextEditingController controller;
 
   /// Called when the user taps the send button with non-empty text.
   final VoidCallback onSend;
 
   /// Called with the raw bytes after the user picks an image.
-  /// Using Uint8List (not a file path) so this works on Flutter Web.
   final void Function(Uint8List bytes) onImagePicked;
 
   /// Set when the user is replying to a message; shows the preview strip.
@@ -24,6 +23,9 @@ class MessageInputBar extends StatelessWidget {
   /// Called when the user taps the ✕ on the reply preview strip.
   final VoidCallback? onCancelReply;
 
+  /// When false, the text field and action buttons are disabled (e.g., user is banned).
+  final bool enabled;
+
   const MessageInputBar({
     super.key,
     required this.controller,
@@ -32,29 +34,51 @@ class MessageInputBar extends StatelessWidget {
     this.replyToName,
     this.replyToText,
     this.onCancelReply,
+    this.enabled = true,
   });
+
+  @override
+  State<MessageInputBar> createState() => _MessageInputBarState();
+}
+
+class _MessageInputBarState extends State<MessageInputBar> {
+  final _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      // readAsBytes() works on both mobile and Flutter Web
       final bytes = await picked.readAsBytes();
-      onImagePicked(bytes);
+      widget.onImagePicked(bytes);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Only show placeholder when field is empty and not focused
+    final showHint = !_focusNode.hasFocus && widget.controller.text.isEmpty;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Reply preview strip — only visible when replying
-        if (replyToName != null)
+        if (widget.replyToName != null)
           _ReplyPreviewBar(
-            name: replyToName!,
-            text: replyToText ?? '',
-            onCancel: onCancelReply ?? () {},
+            name: widget.replyToName!,
+            text: widget.replyToText ?? '',
+            onCancel: widget.onCancelReply ?? () {},
           ),
 
         // Main coral input row
@@ -70,10 +94,12 @@ class MessageInputBar extends StatelessWidget {
             children: [
               // "+" opens the system image gallery
               GestureDetector(
-                onTap: _pickImage,
-                child: const Icon(
+                onTap: widget.enabled ? _pickImage : null,
+                child: Icon(
                   Icons.add,
-                  color: AppColors.cardWhite,
+                  color: widget.enabled
+                      ? AppColors.cardWhite
+                      : AppColors.cardWhite.withOpacity(0.4),
                   size: AppSizes.iconSize,
                 ),
               ),
@@ -88,11 +114,17 @@ class MessageInputBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
                   ),
                   child: TextField(
-                    controller: controller,
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    enabled: widget.enabled,
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
-                      hintText: AppStrings.chatInputHint,
-                      hintStyle: AppTextStyles.body(color: AppColors.textGray),
+                      hintText: showHint ? AppStrings.chatInputHint : null,
+                      hintStyle: AppTextStyles.poppins(
+                        fontSize: AppSizes.fontSM,
+                        fontWeight: FontWeight.w300,
+                        color: AppColors.fieldPlaceholder,
+                      ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.paddingM,
@@ -106,10 +138,12 @@ class MessageInputBar extends StatelessWidget {
 
               // Send button
               GestureDetector(
-                onTap: onSend,
-                child: const Icon(
+                onTap: widget.enabled ? widget.onSend : null,
+                child: Icon(
                   Icons.send,
-                  color: AppColors.cardWhite,
+                  color: widget.enabled
+                      ? AppColors.cardWhite
+                      : AppColors.cardWhite.withOpacity(0.4),
                   size: AppSizes.iconSize,
                 ),
               ),
