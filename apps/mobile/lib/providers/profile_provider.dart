@@ -52,4 +52,14 @@ class ProfileProvider extends ChangeNotifier {
     _coverBytes = bytes;
     notifyListeners();
   }
+
+  /// Resets all profile data back to defaults (called on logout).
+  void logout() {
+    _username = 'Username';
+    _bio = AppStrings.profileBio;
+    _avatarBytes = null;
+    _coverBytes = null;
+    _selectedInterests.clear();
+    notifyListeners();
+  }
 }

@@ -96,6 +96,20 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     setState(() => _isEditing = false);
   }
 
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _LogoutDialog(
+        onNo: () => Navigator.of(ctx).pop(),
+        onYes: () {
+          Navigator.of(ctx).pop();
+          context.read<ProfileProvider>().logout();
+          context.go('/');
+        },
+      ),
+    );
+  }
+
   void _showViewAllModal(BuildContext context, List<RatingModel> ratings) {
     final username = context.read<ProfileProvider>().username;
     showDialog(
@@ -125,7 +139,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
-          _ProfileAppBar(title: profile.username),
+          _ProfileAppBar(
+            title: profile.username,
+            onLogoutTap: _showLogoutDialog,
+          ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
@@ -262,10 +279,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
 /// Coral app bar — back arrow shown only when there is navigation history.
+/// Logout button always shown in the top-right corner.
 class _ProfileAppBar extends StatelessWidget {
   final String title;
+  final VoidCallback onLogoutTap;
 
-  const _ProfileAppBar({required this.title});
+  const _ProfileAppBar({
+    required this.title,
+    required this.onLogoutTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +323,11 @@ class _ProfileAppBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: AppSizes.iconSize + AppSizes.paddingM),
+            GestureDetector(
+              onTap: onLogoutTap,
+              child: const Icon(Icons.logout, color: AppColors.cardWhite, size: 26),
+            ),
+            const SizedBox(width: AppSizes.paddingM),
           ],
         ),
       ),
@@ -734,3 +760,113 @@ class _CommentRow extends StatelessWidget {
     );
   }
 }
+
+// ── Logout dialog ─────────────────────────────────────────────────────────────
+
+/// Compact logout-confirmation dialog matching the leave-community dialog style.
+class _LogoutDialog extends StatelessWidget {
+  final VoidCallback onNo;
+  final VoidCallback onYes;
+
+  const _LogoutDialog({required this.onNo, required this.onYes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 60, vertical: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingM,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppStrings.logoutTitle,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: AppSizes.paddingM),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _DialogButton(
+                  label: AppStrings.chatLeaveNo,
+                  color: AppColors.commentBody,
+                  onTap: onNo,
+                ),
+                _DialogButton(
+                  label: AppStrings.chatLeaveYes,
+                  color: AppColors.primary,
+                  onTap: onYes,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared button for confirmation dialogs: text with an InkWell orange-circle
+/// highlight on tap (used in both logout and leave-community dialogs).
+class _DialogButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DialogButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.dialogHighlight,
+        highlightColor: AppColors.dialogHighlight,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingM,
+            vertical: AppSizes.paddingS,
+          ),
+          child: Text(
+            label,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

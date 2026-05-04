@@ -37,6 +37,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _menuOpen = false;
 
+  // TESTING ONLY - remove when backend connected
+  static const bool _testFlaggedMessage = true;
+  static const bool _testIsBanned = false;
+  static final DateTime _testBanUntil = DateTime(2026, 5, 5, 6, 14, 48);
+
   // TESTING ONLY - remove when DB connected
   final List<ChatMessage> _messages = [
     ChatMessage(
@@ -53,6 +58,15 @@ class _ChatScreenState extends State<ChatScreen> {
       senderName: 'JohnDoe',
       time: '10:15',
     ),
+    if (_testFlaggedMessage)
+      ChatMessage(
+        id: 'test_flagged',
+        text: 'Fuck you bitch ass hole ur mom mother fucker',
+        isSent: true,
+        senderName: 'Me',
+        time: '10:16',
+        isFlagged: true,
+      ),
   ];
 
   // When non-null, the user is in reply mode targeting this message
@@ -249,6 +263,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
 
+              // ── Ban banner ─────────────────────────────────────────────
+              if (_testIsBanned)
+                _BanBanner(banUntil: _testBanUntil),
+
               // ── Input bar ──────────────────────────────────────────────
               MessageInputBar(
                 controller: _inputController,
@@ -257,6 +275,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 replyToName: _replyingTo?.senderName,
                 replyToText: _replyingTo?.text,
                 onCancelReply: () => setState(() => _replyingTo = null),
+                enabled: !_testIsBanned,
               ),
             ],
           ),
@@ -484,27 +503,15 @@ class _LeaveDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                GestureDetector(
+                _DialogButton(
+                  label: AppStrings.chatLeaveNo,
+                  color: AppColors.commentBody,
                   onTap: onNo,
-                  child: Text(
-                    AppStrings.chatLeaveNo,
-                    style: AppTextStyles.poppins(
-                      fontSize: AppSizes.fontSM,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.commentBody,
-                    ),
-                  ),
                 ),
-                GestureDetector(
+                _DialogButton(
+                  label: AppStrings.chatLeaveYes,
+                  color: AppColors.primary,
                   onTap: onYes,
-                  child: Text(
-                    AppStrings.chatLeaveYes,
-                    style: AppTextStyles.poppins(
-                      fontSize: AppSizes.fontSM,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -528,6 +535,111 @@ class _DateSeparator extends StatelessWidget {
         style: AppTextStyles.body(
           fontSize: AppSizes.fontXS,
           color: AppColors.textGray,
+        ),
+      ),
+    );
+  }
+}
+
+/// Sticky bar shown above the input bar when the user is temporarily banned.
+/// Displays how long the restriction lasts; disables the input bar.
+class _BanBanner extends StatelessWidget {
+  final DateTime banUntil;
+
+  const _BanBanner({required this.banUntil});
+
+  String get _formattedDate {
+    final d = banUntil;
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final ampm = d.hour < 12 ? 'AM' : 'PM';
+    final mm = d.minute.toString().padLeft(2, '0');
+    final ss = d.second.toString().padLeft(2, '0');
+    return '${months[d.month - 1]} ${d.day}, ${d.year} $hour12:$mm:$ss $ampm';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: AppSizes.banBannerHeight),
+      decoration: BoxDecoration(
+        color: AppColors.banBannerBg,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 6,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingXS,
+      ),
+      child: RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontXXS,
+            fontWeight: FontWeight.w300,
+            color: AppColors.textDark,
+          ),
+          children: [
+            TextSpan(text: AppStrings.banText),
+            TextSpan(
+              text: _formattedDate,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontXXS,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared dialog button: text with InkWell orange-circle highlight on tap.
+class _DialogButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DialogButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.dialogHighlight,
+        highlightColor: AppColors.dialogHighlight,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingM,
+            vertical: AppSizes.paddingS,
+          ),
+          child: Text(
+            label,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ),
       ),
     );

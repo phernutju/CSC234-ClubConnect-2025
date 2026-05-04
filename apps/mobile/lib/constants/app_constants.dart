@@ -69,7 +69,10 @@ class AppColors {
   static const Color glassBorder = Color(0x4DFFFFFF);
 
   /// Sent message bubble background
-  static const Color sentBubble = Color(0xFFF5EBE8);
+  static const Color sentBubble     = Color(0xFFF5EBE8);
+  static const Color flaggedBubble  = Color(0xFFFF6868);
+  static const Color warningBoxBg   = Color(0xFFD9D9D9);
+  static const Color banBannerBg    = Color(0xFFF7F5F2);
 
   /// Report modal accent — coral red for "Report" text, Post button, close button
   static const Color reportAccent = Color(0xFFFF6B4A);
@@ -102,7 +105,8 @@ class AppColors {
   static const Color commentMeta = Color(0xFFBABABA);
 
   /// Comment body text
-  static const Color commentBody = Color(0xFF837A7A);
+  static const Color commentBody      = Color(0xFF837A7A);
+  static const Color dialogHighlight  = Color(0x26FF6B4A); // #FF6B4A @ ~15% opacity
 
   /// Create Community page background — warm off-white
   static const Color createBackground = Color(0xFFFFF6EE);
@@ -190,6 +194,10 @@ class AppSizes {
   static const double iconSize          = 22.0;
   static const double chatMenuHeight    = 105.0;
   static const double chatMenuIconSize  =  24.0;
+  static const double warningBoxWidth   = 329.0;
+  static const double warningBoxHeight  =  57.0;
+  static const double warningBoxRadius  =   5.0;
+  static const double banBannerHeight   =  40.0;
   static const double coverImageHeight  = 200.0;
 
   // Fixed component heights for Create Community screen
@@ -381,6 +389,9 @@ class AppStrings {
   static const String chatReply         = 'Reply';
   static const String chatReport        = 'Report';
   static const String chatImageMessage    = '[Image]'; // fallback text for image-only messages
+  static const String warningText         = 'Message failed to send. This content goes against our community standards. Repeated offenses will result in a ban. ';
+  static const String warningReviewRules  = 'Review rules';
+  static const String banText             = 'You have been restricted from using chat due to your behavior. chat again on ';
   static const String chatMenuInfo        = 'Info';
   static const String chatMenuMute        = 'Mute';
   static const String chatMenuUnmute      = 'Unmute';
@@ -388,6 +399,7 @@ class AppStrings {
   static const String chatLeaveTitle      = 'Leave this community?';
   static const String chatLeaveYes        = 'Yes';
   static const String chatLeaveNo         = 'No';
+  static const String logoutTitle         = 'Log out?';
   static const String chatInfoSnackbar    = 'Community info coming soon';
   static const String chatMutedSnackbar   = 'Notifications muted';
   static const String chatUnmutedSnackbar = 'Notifications unmuted';

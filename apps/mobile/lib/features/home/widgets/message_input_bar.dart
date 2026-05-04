@@ -23,6 +23,9 @@ class MessageInputBar extends StatefulWidget {
   /// Called when the user taps the ✕ on the reply preview strip.
   final VoidCallback? onCancelReply;
 
+  /// When false, the text field and action buttons are disabled (e.g., user is banned).
+  final bool enabled;
+
   const MessageInputBar({
     super.key,
     required this.controller,
@@ -31,6 +34,7 @@ class MessageInputBar extends StatefulWidget {
     this.replyToName,
     this.replyToText,
     this.onCancelReply,
+    this.enabled = true,
   });
 
   @override
@@ -90,10 +94,12 @@ class _MessageInputBarState extends State<MessageInputBar> {
             children: [
               // "+" opens the system image gallery
               GestureDetector(
-                onTap: _pickImage,
-                child: const Icon(
+                onTap: widget.enabled ? _pickImage : null,
+                child: Icon(
                   Icons.add,
-                  color: AppColors.cardWhite,
+                  color: widget.enabled
+                      ? AppColors.cardWhite
+                      : AppColors.cardWhite.withOpacity(0.4),
                   size: AppSizes.iconSize,
                 ),
               ),
@@ -110,6 +116,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                   child: TextField(
                     controller: widget.controller,
                     focusNode: _focusNode,
+                    enabled: widget.enabled,
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
                       hintText: showHint ? AppStrings.chatInputHint : null,
@@ -131,10 +138,12 @@ class _MessageInputBarState extends State<MessageInputBar> {
 
               // Send button
               GestureDetector(
-                onTap: widget.onSend,
-                child: const Icon(
+                onTap: widget.enabled ? widget.onSend : null,
+                child: Icon(
                   Icons.send,
-                  color: AppColors.cardWhite,
+                  color: widget.enabled
+                      ? AppColors.cardWhite
+                      : AppColors.cardWhite.withOpacity(0.4),
                   size: AppSizes.iconSize,
                 ),
               ),
