@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csc234_clubconnect/providers/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import '../../../models/review_model.dart';
 import '../widgets/rate_user_modal.dart';
 import '../widgets/view_all_reviews_modal.dart';
 import '../widgets/report_user_modal.dart';
+import '../widgets/network_image_view.dart';
 
 // ── File-scoped helpers ────────────────────────────────────────────────────────
 
@@ -56,7 +56,9 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
   }
 
   void _loadData() {
-    context.read<ProfileProvider>().loadReviews(widget.userId);
+    final pp = context.read<ProfileProvider>();
+    pp.loadProfile(widget.userId);
+    pp.loadReviews(widget.userId);
   }
 
   void _showRateModal(BuildContext context) {
@@ -73,49 +75,43 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
   }
 
   void _showViewAllModal(BuildContext context, List<ReviewModel> ratings) {
-    final reviews = ratings
-        .map((r) => ReviewModel(
-              id: '',
-              raterId: r.raterId,
-              communityId: r.communityId,
-              score: r.score,
-              comment: r.comment,
-              createdAt: r.createdAt
-            ))
-        .toList();
     showDialog(
       context: context,
       barrierColor: Colors.black45,
       builder: (_) => ViewAllReviewsModal(
         username: widget.username,
-        reviews: reviews,
+        reviews: ratings,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch provider so the screen rebuilds when a new rating is submitted
     final pp = context.watch<ProfileProvider>();
+    final profile = pp.profile;
     final ratings = pp.reviewsResult?.reviews ?? [];
     final avgRating = pp.reviewsResult?.averageScore ?? AppSizes.defaultRating;
+
+    if (pp.isLoading && profile == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
-          // ── Coral app bar with back arrow ────────────────────────────────
           _ProfileAppBar(title: widget.username),
-
-          // ── Scrollable profile content ───────────────────────────────────
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                // Gradient header band with avatar + three-dot menu
                 _ProfileHeader(
                   username: widget.username,
                   communityName: widget.communityName,
+                  userId: widget.userId,
+                  photoURL: profile?.photoURL,
                 ),
 
                 Padding(
@@ -124,7 +120,6 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Username + optional star rating + "Rate this user" button
                       _UserInfoRow(
                         username: widget.username,
                         avgRating: avgRating,
@@ -135,7 +130,7 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
                       const _SectionLabel(AppStrings.profileAbout),
                       const SizedBox(height: AppSizes.paddingXS),
                       Text(
-                        AppStrings.profileBio,
+                        profile?.bio ?? '',
                         style: AppTextStyles.poppins(
                           fontSize: AppSizes.fontSM,
                           fontWeight: FontWeight.w300,
@@ -146,14 +141,13 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
 
                       const _SectionLabel(AppStrings.profileInterests),
                       const SizedBox(height: AppSizes.paddingS),
-                      const _InterestsRow(),
+                      _InterestsView(
+                          interests: profile?.interests ?? []),
                       const SizedBox(height: AppSizes.paddingL),
 
-                      // Comments from RatingProvider — empty until someone rates
                       _CommentsSection(
                         ratings: ratings,
-                        onViewAll: () =>
-                            _showViewAllModal(context, ratings),
+                        onViewAll: () => _showViewAllModal(context, ratings),
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
@@ -216,10 +210,14 @@ class _ProfileAppBar extends StatelessWidget {
 class _ProfileHeader extends StatelessWidget {
   final String username;
   final String communityName;
+  final String userId;
+  final String? photoURL;
 
   const _ProfileHeader({
     required this.username,
     required this.communityName,
+    required this.userId,
+    this.photoURL,
   });
 
   @override
@@ -269,10 +267,11 @@ class _ProfileHeader extends StatelessWidget {
                 if (value == 'report') {
                   showDialog(
                     context: context,
-                    barrierColor: Colors.black45, 
+                    barrierColor: Colors.black45,
                     builder: (_) => ReportUserModal(
-                      username: username, 
+                      username: username,
                       communityName: communityName,
+                      userId: userId,
                     ),
                   );
                 }
@@ -334,6 +333,10 @@ class _ProfileHeader extends StatelessWidget {
                 color: AppColors.avatarSalmon,
                 border: Border.all(color: AppColors.cardWhite, width: 3),
               ),
+              clipBehavior: (photoURL != null && photoURL!.isNotEmpty)
+                  ? Clip.antiAlias
+                  : Clip.none,
+              child: NetworkImageView(url: photoURL),
             ),
           ),
         ],
@@ -442,36 +445,52 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Two empty interest chips + an "add" chip.
-class _InterestsRow extends StatelessWidget {
-  const _InterestsRow();
+/// Displays real interests from the loaded profile as labelled chips.
+/// Falls back to two placeholder chips when interests are empty.
+class _InterestsView extends StatelessWidget {
+  final List<String> interests;
+
+  const _InterestsView({required this.interests});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const _InterestChip(),
-        const SizedBox(width: AppSizes.paddingS),
-        const _InterestChip(),
-        const SizedBox(width: AppSizes.paddingS),
-        Container(
-          width: AppSizes.interestChipHeight,
-          height: AppSizes.interestChipHeight,
+    if (interests.isEmpty) {
+      return Row(
+        children: [
+          _PlaceholderChip(),
+          const SizedBox(width: AppSizes.paddingS),
+          _PlaceholderChip(),
+        ],
+      );
+    }
+    return Wrap(
+      spacing: AppSizes.paddingS,
+      runSpacing: AppSizes.paddingS,
+      children: interests.map((interest) {
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingM,
+            vertical: AppSizes.paddingXS,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
             border: Border.all(color: AppColors.inputBorder),
           ),
-          child: const Icon(Icons.add, size: 16, color: AppColors.textDark),
-        ),
-      ],
+          child: Text(
+            interest,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
 
-/// Empty rounded chip (W108 × H35, radius 64).
-class _InterestChip extends StatelessWidget {
-  const _InterestChip();
-
+class _PlaceholderChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -572,7 +591,7 @@ class _CommentRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_relativeTime(rating.createdAt.toDate())} · from ${rating.communityId}',
+            '${_relativeTime(rating.createdAt.toDate())} · from ${rating.communityName.isNotEmpty ? rating.communityName : rating.communityId}',
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               fontWeight: FontWeight.w300,

@@ -20,9 +20,13 @@ class ProfileProvider extends ChangeNotifier {
         profile = await _service.getUserProfile(userId);
       });
 
-  Future<void> updateProfile(String userId, Map<String, dynamic> data) =>
+  Future<void> updateProfile(
+    String userId,
+    Map<String, dynamic> data, {
+    Uint8List? avatarBytes,
+  }) =>
       _run(() async {
-        await _service.updateUserProfile(userId, data);
+        await _service.updateUserProfile(userId, data, avatarBytes: avatarBytes);
         profile = await _service.getUserProfile(userId);
       });
 
@@ -69,10 +73,31 @@ class ProfileProvider extends ChangeNotifier {
         reviewsResult = await _service.getReviews(targetUserId);
       });
 
+  // ── Reports ───────────────────────────────────────────────────────────────
+
+  Future<void> submitReport({
+    required String targetId,
+    required String reason,
+    required String description,
+  }) =>
+      _run(() => _service.submitReport(
+            targetId: targetId,
+            reason: reason,
+            description: description,
+          ));
+
   // ── Community ──────────────────────────────────────────────────────────────
 
   Future<String?> fetchCommunityName(String communityId) =>
       _service.getCommunityName(communityId);
+
+  /// Fetch any user's profile without mutating shared [profile] state.
+  Future<UserModel> fetchUserById(String userId) =>
+      _service.getUserProfile(userId);
+
+  /// Fetch reviews + average for any user without mutating shared [reviewsResult].
+  Future<ReviewsResult> fetchReviewsForUser(String userId) =>
+      _service.getReviews(userId);
 
   // ── Helper ────────────────────────────────────────────────────────────────
 
@@ -82,10 +107,8 @@ class ProfileProvider extends ChangeNotifier {
 
   try {
     await fn();
-  } catch (e, stack) {
-    print('❌ ERROR in _run: $e');
-    print(stack);
-    rethrow; // 🔥 important for debugging
+  } catch (e, _) {
+    rethrow;
   } finally {
     isLoading = false;
     notifyListeners();

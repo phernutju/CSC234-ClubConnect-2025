@@ -19,6 +19,7 @@ dependencies:
   go_router: ^17.2.3
   google_fonts: ^8.1.0
   image_picker: ^1.2.2
+  firebase_storage: ^12.4.10
 
 dev_dependencies:
   flutter_test:

@@ -13,9 +13,9 @@ class MemberModel {
 
   factory MemberModel.fromJson(Map<String, dynamic> json, String id) {
     return MemberModel(
-      userId: id,
+      userId: (id ?? '').trim(),
       joinedAt: (json['joinedAt'] as Timestamp).toDate(),
-      role: json['role'] ?? 'user',
+      role: (json['role'] as String? ?? 'user').trim(),
     );
   }
 

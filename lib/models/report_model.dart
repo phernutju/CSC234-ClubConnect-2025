@@ -16,10 +16,10 @@ class ReportModel {
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) => ReportModel(
-        reportId: json['reportId'] as String,
-        reporterId: json['reporterId'] as String,
-        targetId: json['targetId'] as String,
-        reason: json['reason'] as String,
+        reportId: (json['reportId'] as String? ?? '').trim(),
+        reporterId: (json['reporterId'] as String? ?? '').trim(),
+        targetId: (json['targetId'] as String? ?? '').trim(),
+        reason: (json['reason'] as String? ?? '').trim(),
         timestamp: (json['timestamp'] as Timestamp).toDate(),
       );
 

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
+import 'network_image_view.dart';
 
 // ── Data model ────────────────────────────────────────────────────────────────
 
@@ -9,10 +10,11 @@ class ChatMessage {
   final String id;
   final String text;
 
-  /// Raw bytes of an image picked from the gallery.
-  /// Non-null means this is an image message.
-  /// Uses Uint8List (not File path) so it works on Flutter Web.
+  /// Raw bytes of a locally-picked image (pre-upload). Non-null for optimistic display.
   final Uint8List? imageBytes;
+
+  /// Download URL of an image stored in Firebase Storage.
+  final String? imageUrl;
 
   final bool isSent;       // true = current user's message (right side)
   final String senderName;
@@ -26,6 +28,7 @@ class ChatMessage {
     required this.id,
     required this.text,
     this.imageBytes,
+    this.imageUrl,
     required this.isSent,
     required this.senderName,
     required this.senderId,
@@ -86,7 +89,7 @@ class _SentBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImage = message.imageBytes != null;
+    final isImage = message.imageBytes != null || message.imageUrl != null;
     return Align(
       alignment: Alignment.centerRight,
       child: Row(
@@ -168,7 +171,7 @@ class _ReceivedBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImage = message.imageBytes != null;
+    final isImage = message.imageBytes != null || message.imageUrl != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -254,11 +257,19 @@ class _BubbleBody extends StatelessWidget {
   final ChatMessage message;
   const _BubbleBody({required this.message});
 
+  bool get _hasImage => message.imageBytes != null || message.imageUrl != null;
+
+  Widget _imageContent(BuildContext context) {
+    if (message.imageBytes != null) {
+      return _ImageContent(bytes: message.imageBytes!, context: context);
+    }
+    return _NetworkImageContent(url: message.imageUrl!, context: context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Image-only (no reply) → image fills the bubble with no padding wrapper
-    if (message.imageBytes != null && message.replyToName == null) {
-      return _ImageContent(bytes: message.imageBytes!, context: context);
+    if (_hasImage && message.replyToName == null) {
+      return _imageContent(context);
     }
 
     return Column(
@@ -272,8 +283,8 @@ class _BubbleBody extends StatelessWidget {
           ),
           const SizedBox(height: 6),
         ],
-        if (message.imageBytes != null)
-          _ImageContent(bytes: message.imageBytes!, context: context)
+        if (_hasImage)
+          _imageContent(context)
         else
           Text(
             message.text,
@@ -306,7 +317,7 @@ class _ImageContent extends StatelessWidget {
         width: targetWidth,
         fit: BoxFit.cover,
         // Show a grey placeholder if the bytes can't be decoded
-        errorBuilder: (_, __, ___) => Container(
+        errorBuilder: (_, _, _) => Container(
           width: targetWidth,
           height: AppSizes.chatImageMaxHeight,
           color: AppColors.inputFill,
@@ -316,6 +327,28 @@ class _ImageContent extends StatelessWidget {
             size: 40,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Network image content ─────────────────────────────────────────────────────
+
+/// Displays an image from Firebase Storage via URL.
+class _NetworkImageContent extends StatelessWidget {
+  final String url;
+  final BuildContext context;
+  const _NetworkImageContent({required this.url, required this.context});
+
+  @override
+  Widget build(BuildContext ctx) {
+    final targetWidth = MediaQuery.sizeOf(ctx).width * 0.6;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: AppSizes.chatImageMaxHeight),
+      child: NetworkImageView(
+        url: url,
+        width: targetWidth,
+        height: AppSizes.chatImageMaxHeight,
       ),
     );
   }

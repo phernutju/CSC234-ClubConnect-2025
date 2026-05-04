@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/profile_provider.dart';
 
 // ── Modal widget ──────────────────────────────────────────────────────────────
 
@@ -7,11 +9,13 @@ import '../../../constants/app_constants.dart';
 class ReportUserModal extends StatefulWidget {
   final String username;
   final String communityName;
+  final String userId;
 
   const ReportUserModal({
     super.key,
     required this.username,
     required this.communityName,
+    required this.userId,
   });
 
   @override
@@ -197,7 +201,15 @@ class _ReportUserModalState extends State<ReportUserModal> {
                       width: double.infinity,
                       height: AppSizes.buttonHeight,
                       child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          if (_selectedReason == null) return;
+                          context.read<ProfileProvider>().submitReport(
+                                targetId: widget.userId,
+                                reason: _selectedReason!,
+                                description: _descController.text,
+                              );
+                          Navigator.of(context).pop();
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.reportAccent,
                           elevation: 0,

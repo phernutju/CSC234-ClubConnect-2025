@@ -65,12 +65,11 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     })
     .where((r) => r.text.isNotEmpty)
     .toList();
-
     await context.read<CommunityProvider>().addCommunity(
           communityName: name,
           description: _aboutController.text.trim(),
           category: _selectedCategory != null ? [_selectedCategory!] : [],
-          coverImageURL: '',
+          coverImageBytes: _coverImageBytes,
           rules: rules,
         );
 
@@ -135,7 +134,12 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
 
-                      _CreateButton(onPressed: _onCreate),
+                      Consumer<CommunityProvider>(
+                        builder: (context, cp, child) => _CreateButton(
+                          onPressed: cp.isLoading ? null : _onCreate,
+                          isLoading: cp.isLoading,
+                        ),
+                      ),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
                   ),
@@ -540,8 +544,9 @@ class _RulesSectionState extends State<_RulesSection> {
 // ── Create button ─────────────────────────────────────────────────────────────
 
 class _CreateButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _CreateButton({required this.onPressed});
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  const _CreateButton({required this.onPressed, this.isLoading = false});
 
   @override
   Widget build(BuildContext context) {
@@ -558,14 +563,23 @@ class _CreateButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppSizes.radiusXL),
             ),
           ),
-          child: Text(
-            AppStrings.createButton,
-            style: AppTextStyles.poppins(
-              fontSize: AppSizes.fontTitle,
-              fontWeight: FontWeight.w600,
-              color: AppColors.cardWhite,
-            ),
-          ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.cardWhite,
+                  ),
+                )
+              : Text(
+                  AppStrings.createButton,
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontTitle,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.cardWhite,
+                  ),
+                ),
         ),
       ),
     );

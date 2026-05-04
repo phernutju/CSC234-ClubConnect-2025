@@ -99,6 +99,7 @@ final GoRouter appRouter = GoRouter(
           userId: args?.userId ?? '',
           username: args?.username ?? AppStrings.rateTestUsername,
           communityName: args?.communityName ?? AppStrings.rateTestCommunity,
+          communityId: args?.communityId ?? AppStrings.rateTestCommunityId,
         );
       },
     ),

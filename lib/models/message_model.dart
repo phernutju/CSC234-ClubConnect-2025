@@ -20,9 +20,9 @@ class MessageModel {
   factory MessageModel.fromJson(Map<String, dynamic> json, String id) {
     return MessageModel(
       id: id,
-      senderId: json['senderId'] ?? '',
-      text: json['text'] ?? '',
-      imageURL: json['imageURL'] ?? '',
+      senderId: (json['senderId'] as String? ?? '').trim(),
+      text: (json['text'] as String? ?? '').trim(),
+      imageURL: (json['imageURL'] as String? ?? '').trim(),
       timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       seenBy: List<String>.from(json['seenBy'] ?? []),
     );

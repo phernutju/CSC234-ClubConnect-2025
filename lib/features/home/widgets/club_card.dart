@@ -1,13 +1,13 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
+import 'network_image_view.dart';
 
 /// Card that represents a single community/club in any of the home tabs.
 class ClubCard extends StatelessWidget {
   final String name;
   final String description;
   final String memberCount;
-  final Uint8List? coverImage;
+  final String? coverImageUrl;
   final VoidCallback? onTap;
 
   const ClubCard({
@@ -15,7 +15,7 @@ class ClubCard extends StatelessWidget {
     required this.name,
     required this.description,
     required this.memberCount,
-    this.coverImage,
+    this.coverImageUrl,
     this.onTap,
   });
 
@@ -39,7 +39,7 @@ class ClubCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _ClubThumbnail(imageBytes: coverImage),
+            _ClubThumbnail(coverImageUrl: coverImageUrl),
 
             const SizedBox(width: AppSizes.paddingM),
 
@@ -64,9 +64,8 @@ class ClubCard extends StatelessWidget {
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
 class _ClubThumbnail extends StatelessWidget {
-  final Uint8List? imageBytes;
-  const _ClubThumbnail({this.imageBytes});
-
+  final String? coverImageUrl;
+  const _ClubThumbnail({this.coverImageUrl});
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -75,9 +74,11 @@ class _ClubThumbnail extends StatelessWidget {
         width: AppSizes.cardThumbnailSize,
         height: AppSizes.cardThumbnailSize,
         color: AppColors.inputFill,
-        child: imageBytes != null
-            ? Image.memory(imageBytes!, fit: BoxFit.cover)
-            : null,
+        child: NetworkImageView(
+          url: coverImageUrl,
+          width: AppSizes.cardThumbnailSize,
+          height: AppSizes.cardThumbnailSize,
+        ),
       ),
     );
   }

@@ -10,6 +10,7 @@ import '../../../providers/profile_provider.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
 import '../widgets/view_all_reviews_modal.dart';
+import '../widgets/network_image_view.dart';
 
 // ── File-scoped helpers ─────────────────────────
 String _relativeTime(DateTime time) {
@@ -63,7 +64,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   void _loadData() {
     final uid = context.read<AppAuthProvider>().user?.uid;
-    print("Loading profile for user ID: $uid");
     if (uid == null) return;
     final pp = context.read<ProfileProvider>();
     pp.loadProfile(uid);
@@ -99,11 +99,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   void _saveProfile() {
     final uid = context.read<AppAuthProvider>().user?.uid;
     if (uid == null) return;
-    context.read<ProfileProvider>().updateProfile(uid, {
-      'displayName': _usernameController.text.trim(),
-      'bio': _bioController.text.trim(),
-      'interests': _selectedInterests.toList(),
-    });
+    context.read<ProfileProvider>().updateProfile(
+      uid,
+      {
+        'displayName': _usernameController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'interests': _selectedInterests.toList(),
+      },
+      avatarBytes: _avatarBytes,
+    );
     setState(() => _isEditing = false);
   }
 
@@ -123,7 +127,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final reviews = pp.reviewsResult?.reviews ?? [];
     final avgRating = pp.reviewsResult?.averageScore ?? AppSizes.defaultRating;
     final displayName = profile?.displayName ?? 'Username';
-    print(profile);
     if (pp.isLoading && profile == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -334,9 +337,7 @@ class _ProfileHeader extends StatelessWidget {
               clipBehavior: hasAvatar ? Clip.antiAlias : Clip.none,
               child: avatarBytes != null
                   ? Image.memory(avatarBytes!, fit: BoxFit.cover)
-                  : (photoURL != null && photoURL!.isNotEmpty)
-                  ? Image.network(photoURL!, fit: BoxFit.cover)
-                  : null,
+                  : NetworkImageView(url: photoURL),
             ),
           ),
         ],

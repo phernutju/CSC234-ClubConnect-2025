@@ -1,9 +1,13 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/community_model.dart';
 import '../../../models/profile_args.dart';
+import '../../../models/user_model.dart';
+import '../../../models/review_model.dart';
+import '../../../providers/profile_provider.dart';
 
 /// First step of the join flow.
 /// Shows community cover, name, member count, host card, and description.
@@ -39,8 +43,8 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageBytes: community.coverImageURL != null
-                    ? Uint8List.fromList(community.coverImageURL!.codeUnits)
+                _CoverArea(imageBytes: community.coverImageURL.isNotEmpty
+                    ? Uint8List.fromList(community.coverImageURL.codeUnits)
                     : null),
                 Positioned(
                   top: AppSizes.paddingS,
@@ -100,20 +104,7 @@ class CommunityInfoModal extends StatelessWidget {
                     const SizedBox(height: AppSizes.communityInfoSectionGap),
 
                     // Host info card
-                    _HostCard(
-                      community: community,
-                      onViewProfile: () {
-                        Navigator.of(context).pop();
-                        context.push(
-                          '/other-profile',
-                          extra: ProfileArgs(
-                            userId: community.createdById,
-                            username: community.createdById,
-                            communityName: community.communityName,
-                          ),
-                        );
-                      },
-                    ),
+                    _HostCard(community: community),
                     const SizedBox(height: AppSizes.communityInfoSectionGap),
 
                     // Description
@@ -183,95 +174,135 @@ class _CoverArea extends StatelessWidget {
   }
 }
 
-/// Host info card: avatar circle, name, star rating, rating score, view profile link.
-class _HostCard extends StatelessWidget {
+/// Host info card: fetches real display name, avatar, and rating from Firestore.
+class _HostCard extends StatefulWidget {
   final CommunityModel community;
-  final VoidCallback onViewProfile;
 
-  const _HostCard({required this.community, required this.onViewProfile});
+  const _HostCard({required this.community});
+
+  @override
+  State<_HostCard> createState() => _HostCardState();
+}
+
+class _HostCardState extends State<_HostCard> {
+  late Future<(UserModel, ReviewsResult)> _hostFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final pp = context.read<ProfileProvider>();
+    _hostFuture = Future.wait([
+      pp.fetchUserById(widget.community.createdById),
+      pp.fetchReviewsForUser(widget.community.createdById),
+    ]).then((results) => (results[0] as UserModel, results[1] as ReviewsResult));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final hostRating = 4.3; // Replace with actual rating from community.hostRating when available
-    final filledStars = hostRating.floor();
-
-    return Container(
-      width: double.infinity,
-      height: AppSizes.hostCardHeight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingM,
-        vertical: AppSizes.paddingS,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.createBackground,
-        borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
-        border: Border.all(color: AppColors.rateCardBorder),
-      ),
-      child: Row(
-        children: [
-          // Avatar placeholder circle
-          Container(
-            width: AppSizes.hostAvatarSize,
-            height: AppSizes.hostAvatarSize,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.profileHeaderStart,
-            ),
+    return FutureBuilder<(UserModel, ReviewsResult)>(
+      future: _hostFuture,
+      builder: (context, snapshot) {
+        final user = snapshot.data?.$1;
+        final rating = snapshot.data?.$2.averageScore ?? 0.0;
+        final filledStars = rating.floor();
+        return Container(
+          width: double.infinity,
+          height: AppSizes.hostCardHeight,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingM,
+            vertical: AppSizes.paddingS,
           ),
-          const SizedBox(width: AppSizes.paddingS),
-
-          // Host name, stars + rating, view profile
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  community.createdById,
-                  style: AppTextStyles.poppins(
-                    fontSize: AppSizes.fontXII,
-                    color: AppColors.textDark,
-                  ),
+          decoration: BoxDecoration(
+            color: AppColors.createBackground,
+            borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
+            border: Border.all(color: AppColors.rateCardBorder),
+          ),
+          child: Row(
+            children: [
+              // Avatar
+              Container(
+                width: AppSizes.hostAvatarSize,
+                height: AppSizes.hostAvatarSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.profileHeaderStart,
+                  image: (user?.photoURL.isNotEmpty ?? false)
+                      ? DecorationImage(
+                          image: NetworkImage(user!.photoURL),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                const SizedBox(height: 2),
-                Row(
+              ),
+              const SizedBox(width: AppSizes.paddingS),
+
+              // Name, stars, view profile
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ...List.generate(
-                      5,
-                      (i) => Icon(
-                        Icons.star,
-                        size: AppSizes.hostStarSize,
-                        color: i < filledStars
-                            ? AppColors.primary
-                            : AppColors.reviewStarEmpty,
+                    Text(
+                      user?.displayName ??
+                          (snapshot.connectionState == ConnectionState.done
+                              ? 'Unknown'
+                              : '...'),
+                      style: AppTextStyles.poppins(
+                        fontSize: AppSizes.fontXII,
+                        color: AppColors.textDark,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      hostRating.toStringAsFixed(1),
-                      style: AppTextStyles.poppins(
-                        fontSize: AppSizes.fontXXS,
-                        color: AppColors.hostRatingColor,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        ...List.generate(
+                          5,
+                          (i) => Icon(
+                            Icons.star,
+                            size: AppSizes.hostStarSize,
+                            color: i < filledStars
+                                ? AppColors.primary
+                                : AppColors.reviewStarEmpty,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          rating > 0 ? rating.toStringAsFixed(1) : '-',
+                          style: AppTextStyles.poppins(
+                            fontSize: AppSizes.fontXXS,
+                            color: AppColors.hostRatingColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        context.push(
+                          '/other-profile',
+                          extra: ProfileArgs(
+                            userId: widget.community.createdById,
+                            username: user?.displayName ?? 'Unknown',
+                            communityId: widget.community.id,
+                          ),
+                        );
+                      },
+                      child: Text(
+                        AppStrings.communityInfoViewProfile,
+                        style: AppTextStyles.poppins(
+                          fontSize: AppSizes.fontXXS,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                GestureDetector(
-                  onTap: onViewProfile,
-                  child: Text(
-                    AppStrings.communityInfoViewProfile,
-                    style: AppTextStyles.poppins(
-                      fontSize: AppSizes.fontXXS,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

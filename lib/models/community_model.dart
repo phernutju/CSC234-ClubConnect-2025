@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/rule_model.dart';
+
 class CommunityModel {
   final String id;
 
@@ -13,7 +14,6 @@ class CommunityModel {
   final int memberCount;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
 
   CommunityModel({
     required this.id,
@@ -33,15 +33,15 @@ class CommunityModel {
   factory CommunityModel.fromJson(Map<String, dynamic> json, String id) {
     return CommunityModel(
       id: id,
-      communityId: json['communityId'] ?? '',
-      communityName: json['communityName'] ?? '',
+      communityId: (json['communityId'] as String? ?? '').trim(),
+      communityName: (json['communityName'] as String? ?? '').trim(),
       category: List<String>.from(json['category'] ?? []),
-      description: json['description'] ?? '',
-      coverImageURL: json['coverImageURL'] ?? '',
-      createdById: json['createdById'] ?? '',
-      rules: (json['rules'] as List<dynamic>)
-    .map((e) => RuleModel.fromJson(e))
-    .toList(),
+      description: (json['description'] as String? ?? '').trim(),
+      coverImageURL: (json['coverImageURL'] as String? ?? '').trim(),
+      createdById: (json['createdById'] as String? ?? '').trim(),
+      rules: ((json['rules'] as List<dynamic>?) ?? [])
+          .map((e) => RuleModel.fromJson(e))
+          .toList(),
       memberCount: json['memberCount'] ?? 0,
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),

@@ -16,6 +16,7 @@ class CommunityProvider extends ChangeNotifier {
   List<MessageModel> messages = [];
   List<MemberModel> members = [];
   bool isLoading = false;
+  bool isUploading = false;
   String? error;
 
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
@@ -108,6 +109,9 @@ class CommunityProvider extends ChangeNotifier {
     _listenToMyCommunities(_service.getMyCommunities());
   }
 
+  Future<bool> checkIsMember(String communityId) =>
+      _service.checkIsMember(communityId);
+
   Future<CommunityModel?> fetchCommunity(String communityId) {
     return _service.getCommunity(communityId);
   }
@@ -175,15 +179,15 @@ class CommunityProvider extends ChangeNotifier {
     required String communityName,
     required List<String> category,
     required String description,
-    required String coverImageURL,
     required List<RuleModel> rules,
+    Uint8List? coverImageBytes,
   }) =>
       _run(() => _service.createCommunity(
             communityName: communityName,
             category: category,
             description: description,
-            coverImageURL: coverImageURL,
             rules: rules,
+            coverImageBytes: coverImageBytes,
           ));
 
   // ── Member actions ─────────────────────────────────────────────────────────
@@ -207,6 +211,20 @@ class CommunityProvider extends ChangeNotifier {
             text: text,
             imageURL: imageURL,
           ));
+
+  Future<void> sendImageMessage(String communityId, Uint8List bytes) async {
+    isUploading = true;
+    error = null;
+    notifyListeners();
+    try {
+      await _service.sendImageMessage(communityId, bytes: bytes);
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isUploading = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> markMessageSeen(String communityId, String messageId) =>
       _run(() => _service.markMessageSeen(communityId, messageId));

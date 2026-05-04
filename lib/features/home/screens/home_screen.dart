@@ -44,7 +44,20 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showJoinFlow(CommunityModel community) {
+  void _showJoinFlow(CommunityModel community) async {
+    final cp = context.read<CommunityProvider>();
+    // Fast path: cached list
+    if (cp.myCommunities.any((c) => c.id == community.id)) {
+      _goToChat(community);
+      return;
+    }
+    // Authoritative check — myCommunities may not have emitted yet
+    final isMember = await cp.checkIsMember(community.id);
+    if (!mounted) return;
+    if (isMember) {
+      _goToChat(community);
+      return;
+    }
     showDialog(
       context: context,
       builder: (_) => CommunityInfoModal(
@@ -81,7 +94,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final cp = context.watch<CommunityProvider>();
-    print(cp);
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
@@ -263,7 +275,8 @@ class _MyClubList extends StatelessWidget {
                     : c.description,
                 memberCount:
                     '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-                coverImage: null,
+                    
+                coverImageUrl: c.coverImageURL.isEmpty ? null : "",
                 onTap: () => onTap(c),
               ))
           .toList(),
@@ -393,7 +406,7 @@ List<Widget> _buildCommunityCards(
                 c.description.isEmpty ? c.category.join(', ') : c.description,
             memberCount:
                 '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-            coverImage: null,
+            coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
             onTap: () => onTap(c),
           ))
       .toList();

@@ -99,6 +99,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return ChatMessage(
       id: m.id,
       text: m.text,
+      imageUrl: m.imageURL.isNotEmpty ? m.imageURL : null,
       isSent: isSent,
       senderName: senderName,
       senderId: m.senderId,
@@ -139,11 +140,26 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // Image upload requires StorageService (not yet implemented).
   void _sendImageMessage(Uint8List bytes) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Image upload coming soon')),
-    );
+    _doSendImage(bytes);
+  }
+
+  Future<void> _doSendImage(Uint8List bytes) async {
+    setState(() => _isSending = true);
+    try {
+      await context.read<CommunityProvider>().sendImageMessage(
+            widget.communityId,
+            bytes,
+          );
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send image: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   void _scrollToBottom() {
@@ -307,6 +323,13 @@ class _ChatScreenState extends State<ChatScreen> {
           if (cp.error != null)
             _ErrorBanner(message: cp.error!),
 
+          // ── Upload progress ───────────────────────────────────────────────
+          if (cp.isUploading || _isSending)
+            const LinearProgressIndicator(
+              color: AppColors.primary,
+              backgroundColor: AppColors.inputFill,
+            ),
+
           // ── Message list ──────────────────────────────────────────────────
           Expanded(
             child: _buildMessageList(uiMessages, cp),
@@ -346,7 +369,7 @@ class _ChatScreenState extends State<ChatScreen> {
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSizes.paddingM),
       itemCount: uiMessages.length + 1, // +1 for the date separator
-      separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) {
         if (index == 0) {
           return const _DateSeparator(label: AppStrings.chatToday);

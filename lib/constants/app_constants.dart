@@ -461,6 +461,7 @@ class AppStrings {
   // Rate User modal — test data (used until real auth is wired)
   static const String rateTestUsername    = 'TestUser';
   static const String rateTestCommunity   = 'Badminton KMUTT';
+  static const String rateTestCommunityId = 'test_community_id_123';
 
   // Rate User modal — display strings
   static const String rateModalTitle1     = 'What in';

@@ -1,13 +1,16 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
 import '../models/rule_model.dart';
+import 'storage_service.dart';
 
 class CommunityService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
+  final StorageService _storage;
 
   static const _allowedCommunityFields = {
     'communityName',
@@ -17,9 +20,10 @@ class CommunityService {
     'rules',
   };
 
-  CommunityService({FirebaseFirestore? db, FirebaseAuth? auth})
+  CommunityService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
     : _db = db ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance;
+      _auth = auth ?? FirebaseAuth.instance,
+      _storage = storage ?? StorageService();
 
   // ── Collection refs ────────────────────────────────────────────────────────
 
@@ -131,6 +135,12 @@ class CommunityService {
         );
   }
 
+  Future<bool> checkIsMember(String communityId) async {
+    final user = _requireAuth();
+    final doc = await _members(communityId).doc(user.uid).get();
+    return doc.exists;
+  }
+
   // Get a specific community by ID
   Future<CommunityModel?> getCommunity(String communityId) async {
     final doc = await _communities.doc(communityId).get();
@@ -142,12 +152,18 @@ class CommunityService {
     required String communityName,
     required List<String> category,
     required String description,
-    required String coverImageURL,
     required List<RuleModel> rules,
+    Uint8List? coverImageBytes,
   }) async {
     final user = _requireAuth();
     final communityRef = _communities.doc();
     final createdAt = FieldValue.serverTimestamp();
+    print('Creating community with name: $communityName');
+    String coverImageURL = '';
+    if (coverImageBytes != null) {
+      coverImageURL = await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
+    }
+    print('Uploaded cover image, URL: $coverImageURL');
     final batch = _db.batch();
     batch.set(communityRef, {
       'communityId': communityRef.id,
@@ -303,6 +319,15 @@ class CommunityService {
       'timestamp': FieldValue.serverTimestamp(),
       'seenBy': [user.uid],
     });
+  }
+
+  Future<void> sendImageMessage(
+    String communityId, {
+    required Uint8List bytes,
+  }) async {
+    _requireAuth();
+    final imageURL = await _storage.uploadChatImage(bytes, communityId);
+    await sendMessage(communityId, text: '', imageURL: imageURL);
   }
 
   Future<void> markMessageSeen(String communityId, String messageId) async {
