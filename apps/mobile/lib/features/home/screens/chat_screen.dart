@@ -1,8 +1,13 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/community_model.dart';
 import '../../../models/profile_args.dart';
+import '../../../providers/community_provider.dart';
+import '../../../providers/profile_provider.dart';
+import '../widgets/community_info_modal.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';
@@ -29,6 +34,8 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
+
+  bool _menuOpen = false;
 
   // TESTING ONLY - remove when DB connected
   final List<ChatMessage> _messages = [
@@ -58,7 +65,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  /// Current time formatted as "HH:mm" (used as the timestamp on new messages).
+  /// Current time formatted as "HH:mm".
   String get _nowTime {
     final now = DateTime.now();
     return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -128,58 +135,159 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ── Menu actions ────────────────────────────────────────────────────────────
+
+  void _onInfo() {
+    setState(() => _menuOpen = false);
+
+    final communityProvider = context.read<CommunityProvider>();
+    final username = context.read<ProfileProvider>().username;
+
+    // Look up the community the chat belongs to
+    final matches = communityProvider.communities
+        .where((c) => c.name == widget.communityName);
+    final CommunityModel? community =
+        matches.isEmpty ? null : matches.first;
+
+    if (community == null) {
+      // Community not found (e.g., fresh session state) — no action
+      return;
+    }
+
+    final isHost = username == community.hostName;
+
+    if (isHost) {
+      // Host → open Edit Community page
+      context.push('/edit-community', extra: community);
+    } else {
+      // Member → show Community Info modal (view-only: onNext closes the modal)
+      showDialog(
+        context: context,
+        barrierColor: Colors.black45,
+        barrierDismissible: true,
+        builder: (_) => CommunityInfoModal(community: community),
+      );
+    }
+  }
+
+  void _onMute() {
+    setState(() => _menuOpen = false);
+    final provider = context.read<CommunityProvider>();
+    provider.toggleMute(widget.communityName);
+    final nowMuted = provider.isMuted(widget.communityName);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          nowMuted
+              ? AppStrings.chatMutedSnackbar
+              : AppStrings.chatUnmutedSnackbar,
+        ),
+      ),
+    );
+  }
+
+  void _onLeave() {
+    setState(() => _menuOpen = false);
+    showDialog(
+      context: context,
+      builder: (ctx) => _LeaveDialog(
+        onNo: () => Navigator.of(ctx).pop(),
+        onYes: () {
+          Navigator.of(ctx).pop();
+          context.read<CommunityProvider>().leaveCommunity(widget.communityName);
+          context.go('/home');
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final muted = context.watch<CommunityProvider>().isMuted(widget.communityName);
+
     return Scaffold(
       backgroundColor: AppColors.chatBackground,
-      body: Column(
+      body: Stack(
         children: [
-          // ── App bar ──────────────────────────────────────────────────────
-          _ChatAppBar(
-            communityName: widget.communityName,
-            memberCount: widget.memberCount,
+          // ── Main content column ────────────────────────────────────────
+          Column(
+            children: [
+              _ChatAppBar(
+                communityName: widget.communityName,
+                memberCount: widget.memberCount,
+                onMenuTap: () => setState(() => _menuOpen = !_menuOpen),
+              ),
+
+              // ── Message list ───────────────────────────────────────────
+              Expanded(
+                child: ListView.separated(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(AppSizes.paddingM),
+                  itemCount: _messages.length + 1, // +1 for date separator
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSizes.paddingM),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return const _DateSeparator(label: AppStrings.chatToday);
+                    }
+                    final message = _messages[index - 1];
+                    return MessageBubble(
+                      message: message,
+                      onLongPress: (pos) => _onLongPressMessage(message, pos),
+                      onSenderTap: message.isSent
+                          ? null
+                          : () => context.push(
+                                '/other-profile',
+                                extra: ProfileArgs(
+                                  username: message.senderName,
+                                  communityName: widget.communityName,
+                                ),
+                              ),
+                    );
+                  },
+                ),
+              ),
+
+              // ── Input bar ──────────────────────────────────────────────
+              MessageInputBar(
+                controller: _inputController,
+                onSend: _sendTextMessage,
+                onImagePicked: _sendImageMessage,
+                replyToName: _replyingTo?.senderName,
+                replyToText: _replyingTo?.text,
+                onCancelReply: () => setState(() => _replyingTo = null),
+              ),
+            ],
           ),
 
-          // ── Message list ─────────────────────────────────────────────────
-          Expanded(
-            child: ListView.separated(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(AppSizes.paddingM),
-              itemCount: _messages.length + 1, // +1 for the date separator
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: AppSizes.paddingM),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return const _DateSeparator(label: AppStrings.chatToday);
-                }
-                final message = _messages[index - 1];
-                return MessageBubble(
-                  message: message,
-                  onLongPress: (pos) => _onLongPressMessage(message, pos),
-                  // Tapping a received message's avatar/name → other user profile
-                  onSenderTap: message.isSent
-                      ? null
-                      : () => context.push(
-                            '/other-profile',
-                            extra: ProfileArgs(
-                              username: message.senderName,
-                              communityName: widget.communityName,
-                            ),
-                          ),
-                );
-              },
+          // ── Dismissal barrier (shown when menu is open) ────────────────
+          if (_menuOpen)
+            Positioned(
+              top: statusBarHeight + AppSizes.appBarHeight,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: GestureDetector(
+                onTap: () => setState(() => _menuOpen = false),
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
 
-          // ── Input bar (+ reply preview when replying) ────────────────────
-          MessageInputBar(
-            controller: _inputController,
-            onSend: _sendTextMessage,
-            onImagePicked: _sendImageMessage,
-            replyToName: _replyingTo?.senderName,
-            replyToText: _replyingTo?.text,
-            onCancelReply: () => setState(() => _replyingTo = null),
-          ),
+          // ── Drop-down menu bar ─────────────────────────────────────────
+          if (_menuOpen)
+            Positioned(
+              top: statusBarHeight + AppSizes.appBarHeight,
+              left: 0,
+              right: 0,
+              child: _ChatMenuBar(
+                muted: muted,
+                onInfo: _onInfo,
+                onMute: _onMute,
+                onLeave: _onLeave,
+              ),
+            ),
         ],
       ),
     );
@@ -192,10 +300,12 @@ class _ChatScreenState extends State<ChatScreen> {
 class _ChatAppBar extends StatelessWidget {
   final String communityName;
   final String memberCount;
+  final VoidCallback onMenuTap;
 
   const _ChatAppBar({
     required this.communityName,
     required this.memberCount,
+    required this.onMenuTap,
   });
 
   String get _title =>
@@ -233,7 +343,171 @@ class _ChatAppBar extends StatelessWidget {
               ),
             ),
 
-            const Icon(Icons.menu, color: AppColors.cardWhite),
+            GestureDetector(
+              onTap: onMenuTap,
+              child: const Icon(Icons.menu, color: AppColors.cardWhite),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Coral drop-down menu bar with Info / Mute / Leave options.
+class _ChatMenuBar extends StatelessWidget {
+  final bool muted;
+  final VoidCallback onInfo;
+  final VoidCallback onMute;
+  final VoidCallback onLeave;
+
+  const _ChatMenuBar({
+    required this.muted,
+    required this.onInfo,
+    required this.onMute,
+    required this.onLeave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: AppSizes.chatMenuHeight,
+      color: AppColors.primary,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _MenuItem(
+            icon: Icons.description_outlined,
+            label: AppStrings.chatMenuInfo,
+            onTap: onInfo,
+          ),
+          _MenuItem(
+            // Filled icon = muted (active); outlined = not muted
+            icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+            label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
+            onTap: onMute,
+          ),
+          _MenuItem(
+            icon: Icons.exit_to_app,
+            label: AppStrings.chatMenuLeave,
+            onTap: onLeave,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One icon + label item inside the menu bar.
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: AppColors.cardWhite,
+            size: AppSizes.chatMenuIconSize,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.bold,
+              color: AppColors.cardWhite,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact leave-confirmation dialog: white card, shadow, 16px radius.
+class _LeaveDialog extends StatelessWidget {
+  final VoidCallback onNo;
+  final VoidCallback onYes;
+
+  const _LeaveDialog({required this.onNo, required this.onYes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 60, vertical: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingM,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppStrings.chatLeaveTitle,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: AppSizes.paddingM),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                GestureDetector(
+                  onTap: onNo,
+                  child: Text(
+                    AppStrings.chatLeaveNo,
+                    style: AppTextStyles.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.commentBody,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onYes,
+                  child: Text(
+                    AppStrings.chatLeaveYes,
+                    style: AppTextStyles.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

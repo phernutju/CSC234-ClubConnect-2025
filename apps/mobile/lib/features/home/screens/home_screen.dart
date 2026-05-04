@@ -6,6 +6,8 @@ import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
 import '../../../providers/community_provider.dart';
 import '../widgets/club_card.dart';
+import '../widgets/community_info_modal.dart';
+import '../widgets/community_rules_modal.dart';
 import '../widgets/home_tab_bar.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -62,9 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: AppSizes.paddingM),
 
               Expanded(
-                child: _selectedTab == 1
-                    ? _MyClubTab(communities: myCommunities)
-                    : const _EmptyTabContent(),
+                child: _selectedTab == 0
+                    ? const _DiscoverTab()
+                    : _selectedTab == 1
+                        ? _MyClubTab(communities: myCommunities)
+                        : const _EmptyTabContent(),
               ),
             ],
           ),
@@ -167,16 +171,18 @@ class _MyClubTab extends StatelessWidget {
       itemCount: communities.length,
       itemBuilder: (context, index) {
         final c = communities[index];
+        final memberLabel =
+            '${c.memberCount} ${AppStrings.communityMembersLabel}';
         return ClubCard(
           name: c.name,
           description: c.description,
-          memberCount: AppStrings.communityMemberDefault,
+          memberCount: memberLabel,
           coverImage: c.coverImage,
           onTap: () => context.push(
             '/chat',
             extra: ChatArgs(
               communityName: c.name,
-              memberCount: AppStrings.communityMemberDefault,
+              memberCount: memberLabel,
             ),
           ),
         );
@@ -199,6 +205,108 @@ class _EmptyTabContent extends StatelessWidget {
           color: AppColors.textGray,
         ),
       ),
+    );
+  }
+}
+
+// ── Discover tab ───────────────────────────────────────────────────────────────
+
+/// Shows category filter chips and a live-filtered list of discoverable
+/// communities. Tapping a card opens [CommunityInfoModal] → [CommunityRulesModal].
+class _DiscoverTab extends StatefulWidget {
+  const _DiscoverTab();
+
+  @override
+  State<_DiscoverTab> createState() => _DiscoverTabState();
+}
+
+class _DiscoverTabState extends State<_DiscoverTab> {
+  String _selectedCategory = AppStrings.discoverFilterAll;
+
+  void _onCardTap(CommunityModel community) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black45,
+      barrierDismissible: true,
+      builder: (_) => CommunityInfoModal(
+        community: community,
+        onNext: () => _openRulesModal(community),
+      ),
+    );
+  }
+
+  void _openRulesModal(CommunityModel community) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black45,
+      barrierDismissible: true,
+      builder: (_) => CommunityRulesModal(
+        community: community,
+        onJoined: () {
+          context.push(
+            '/chat',
+            extra: ChatArgs(
+              communityName: community.name,
+              memberCount:
+                  '${community.memberCount + 1} ${AppStrings.communityMembersLabel}',
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = context.watch<CommunityProvider>().discoverCommunities;
+    final filtered = _selectedCategory == AppStrings.discoverFilterAll
+        ? all
+        : all.where((c) => c.category == _selectedCategory).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // TESTING ONLY - filter UI hidden until design is finalized
+        // SingleChildScrollView(
+        //   scrollDirection: Axis.horizontal,
+        //   child: Row(
+        //     children: AppStrings.discoverCategories.map((cat) { ... }).toList(),
+        //   ),
+        // ),
+        // const SizedBox(height: AppSizes.paddingM),
+
+        // ── Community card list ────────────────────────────────────────
+        if (filtered.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                'No communities found',
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontSM,
+                  color: AppColors.textGray,
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: filtered.length,
+              itemBuilder: (_, index) {
+                final c = filtered[index];
+                return ClubCard(
+                  name: c.name,
+                  description: c.description,
+                  memberCount:
+                      '${c.memberCount} ${AppStrings.communityMembersLabel}',
+                  coverImage: c.coverImage,
+                  onTap: () => _onCardTap(c),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 }

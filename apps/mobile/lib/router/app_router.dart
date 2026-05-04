@@ -15,6 +15,7 @@ import '../features/home/screens/other_profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
 import '../models/chat_args.dart';
+import '../models/community_model.dart';
 import '../models/profile_args.dart';
 import '../constants/app_constants.dart';
 
@@ -104,6 +105,16 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/create-community',
       builder: (context, state) => const CreateCommunityScreen(),
+    ),
+    GoRoute(
+      path: '/edit-community',
+      builder: (context, state) {
+        final community = state.extra as CommunityModel?;
+        return CreateCommunityScreen(
+          isEditMode: true,
+          existingCommunity: community,
+        );
+      },
     ),
     GoRoute(
       path: '/other-profile',

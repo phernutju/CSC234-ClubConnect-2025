@@ -5,31 +5,46 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/community_model.dart';
+import '../../../models/rule_model.dart';
 import '../../../providers/community_provider.dart';
+import '../../../providers/profile_provider.dart';
 
-/// "Host" screen — create a new community.
+/// Shared screen for creating a new community (isEditMode = false)
+/// and editing an existing one (isEditMode = true).
+///
+/// In edit mode, all fields are pre-filled from [existingCommunity],
+/// the category chips are disabled, and the action button saves changes.
 class CreateCommunityScreen extends StatefulWidget {
-  const CreateCommunityScreen({super.key});
+  final bool isEditMode;
+  final CommunityModel? existingCommunity;
+
+  const CreateCommunityScreen({
+    super.key,
+    this.isEditMode = false,
+    this.existingCommunity,
+  });
 
   @override
   State<CreateCommunityScreen> createState() => _CreateCommunityScreenState();
 }
 
 class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
-  final _nameController  = TextEditingController();
-  final _aboutController = TextEditingController();
-  final List<TextEditingController> _rulesControllers = [TextEditingController()];
+  late final TextEditingController _nameController;
+  late final TextEditingController _aboutController;
+  late final List<TextEditingController> _rulesControllers;
 
   Uint8List? _coverImageBytes;
   String?    _selectedCategory;
 
-  // Errors are only shown after the user taps Create for the first time
   bool _submitted = false;
 
-  // ── Computed error getters ────────────────────────────────────────────────────
+  // ── Computed error getters ─────────────────────────────────────────────────
 
+  // Cover is only required when creating; in edit mode the existing cover is kept.
   String? get _coverError =>
-      _submitted && _coverImageBytes == null ? AppStrings.createErrCover : null;
+      _submitted && !widget.isEditMode && _coverImageBytes == null
+          ? AppStrings.createErrCover
+          : null;
 
   String? get _nameError {
     if (!_submitted) return null;
@@ -56,21 +71,43 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     return hasRule ? null : AppStrings.createErrRules;
   }
 
-  // True when every field satisfies its rule
-  bool get _isValid =>
-      _coverImageBytes != null &&
-      _nameController.text.trim().length >= AppSizes.createNameMinChars &&
-      _aboutController.text.trim().length >= AppSizes.createAboutMinChars &&
-      _selectedCategory != null &&
-      _rulesControllers.any((c) => c.text.trim().isNotEmpty);
+  bool get _isValid {
+    final coverOk = widget.isEditMode || _coverImageBytes != null;
+    return coverOk &&
+        _nameController.text.trim().length >= AppSizes.createNameMinChars &&
+        _aboutController.text.trim().length >= AppSizes.createAboutMinChars &&
+        _selectedCategory != null &&
+        _rulesControllers.any((c) => c.text.trim().isNotEmpty);
+  }
 
   @override
   void initState() {
     super.initState();
-    // Rebuild on every keystroke so errors disappear as soon as the field is filled
+
+    if (widget.isEditMode && widget.existingCommunity != null) {
+      final c = widget.existingCommunity!;
+      _nameController  = TextEditingController(text: c.name);
+      _aboutController = TextEditingController(text: c.description);
+      _coverImageBytes = c.coverImage;
+      _selectedCategory = c.category;
+
+      // Pre-fill one controller per existing rule (fall back to one empty field)
+      final ruleTexts = c.rules.map((r) => r.title).toList();
+      _rulesControllers = ruleTexts.isNotEmpty
+          ? ruleTexts.map((t) => TextEditingController(text: t)).toList()
+          : [TextEditingController()];
+    } else {
+      _nameController   = TextEditingController();
+      _aboutController  = TextEditingController();
+      _rulesControllers = [TextEditingController()];
+    }
+
+    // Rebuild on every keystroke so errors clear as soon as the field is filled
     _nameController.addListener(() => setState(() {}));
     _aboutController.addListener(() => setState(() {}));
-    _rulesControllers.first.addListener(() => setState(() {}));
+    for (final ctrl in _rulesControllers) {
+      ctrl.addListener(() => setState(() {}));
+    }
   }
 
   @override
@@ -93,40 +130,64 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   }
 
   void _addRule() {
-    // Attach listener so the rules error clears as soon as the user types
     final ctrl = TextEditingController()..addListener(() => setState(() {}));
     setState(() => _rulesControllers.add(ctrl));
   }
 
+  List<RuleModel> get _buildRules => _rulesControllers
+      .map((c) => c.text.trim())
+      .where((r) => r.isNotEmpty)
+      .map((text) => RuleModel(title: text))
+      .toList();
+
   void _onCreate() {
-    // Show all errors on first tap, then abort if anything is invalid
     setState(() => _submitted = true);
     if (!_isValid) return;
 
-    final name = _nameController.text.trim();
-    final rules = _rulesControllers
-        .map((c) => c.text.trim())
-        .where((r) => r.isNotEmpty)
-        .toList();
-
     context.read<CommunityProvider>().addCommunity(CommunityModel(
-      name: name,
+      name: _nameController.text.trim(),
       description: _aboutController.text.trim(),
       category: _selectedCategory ?? '',
       coverImage: _coverImageBytes,
-      rules: rules,
+      rules: _buildRules,
+      hostName: context.read<ProfileProvider>().username,
     ));
 
     context.go('/home');
   }
 
+  void _onSave() {
+    setState(() => _submitted = true);
+    if (!_isValid) return;
+
+    final original = widget.existingCommunity!;
+    context.read<CommunityProvider>().updateCommunity(
+      original.name,
+      original.copyWith(
+        name: _nameController.text.trim(),
+        description: _aboutController.text.trim(),
+        coverImage: _coverImageBytes ?? original.coverImage,
+        rules: _buildRules,
+      ),
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.editSnackbar)),
+    );
+    context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.isEditMode;
+
     return Scaffold(
       backgroundColor: AppColors.createBackground,
       body: Column(
         children: [
-          _CreateAppBar(),
+          _CreateAppBar(
+            title: isEdit ? AppStrings.editTitle : AppStrings.createTitle,
+          ),
 
           Expanded(
             child: ListView(
@@ -146,7 +207,6 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                     children: [
                       const SizedBox(height: AppSizes.paddingM),
 
-                      // Cover photo error sits at the top of the form column
                       if (_coverError != null) ...[
                         _ErrorText(_coverError!),
                         const SizedBox(height: AppSizes.paddingS),
@@ -175,7 +235,10 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       const SizedBox(height: AppSizes.paddingS),
                       _CategoryChips(
                         selected: _selectedCategory,
-                        onSelected: (c) => setState(() => _selectedCategory = c),
+                        // Disabled in edit mode: category cannot be changed after creation
+                        onSelected: isEdit
+                            ? null
+                            : (c) => setState(() => _selectedCategory = c),
                         errorText: _categoryError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
@@ -187,7 +250,12 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
 
-                      _CreateButton(onPressed: _onCreate),
+                      _ActionButton(
+                        onPressed: isEdit ? _onSave : _onCreate,
+                        label: isEdit
+                            ? AppStrings.editSaveButton
+                            : AppStrings.createButton,
+                      ),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
                   ),
@@ -204,6 +272,9 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
 // ── App bar ───────────────────────────────────────────────────────────────────
 
 class _CreateAppBar extends StatelessWidget {
+  final String title;
+  const _CreateAppBar({required this.title});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -226,7 +297,7 @@ class _CreateAppBar extends StatelessWidget {
               ),
             ),
             Text(
-              AppStrings.createTitle,
+              title,
               style: AppTextStyles.poppins(
                 fontSize: AppSizes.fontTitle,
                 fontWeight: FontWeight.w500,
@@ -260,7 +331,6 @@ class _CoverImageSection extends StatelessWidget {
               : Container(color: AppColors.inputFill),
         ),
 
-        // Inner-shadow vignette: dark top/bottom edges, transparent centre
         Positioned.fill(
           child: DecoratedBox(
             decoration: const BoxDecoration(
@@ -397,7 +467,9 @@ class _FormField extends StatelessWidget {
 
 class _CategoryChips extends StatelessWidget {
   final String? selected;
-  final ValueChanged<String> onSelected;
+
+  /// Null when chips are disabled (edit mode — category cannot be changed).
+  final ValueChanged<String>? onSelected;
   final String? errorText;
 
   const _CategoryChips({
@@ -415,34 +487,35 @@ class _CategoryChips extends StatelessWidget {
           spacing: AppSizes.paddingS,
           runSpacing: AppSizes.paddingS,
           children: AppStrings.createCategories.map((cat) {
-        final isSelected = cat == selected;
-        return GestureDetector(
-          onTap: () => onSelected(cat),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSizes.paddingM,
-              vertical: AppSizes.paddingS,
-            ),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.chipSelected : AppColors.cardWhite,
-              borderRadius: BorderRadius.circular(64),
-              border: Border.all(
-                color: isSelected ? AppColors.chipSelected : AppColors.chipBorder,
+            final isSelected = cat == selected;
+            return GestureDetector(
+              // null onTap disables interaction in edit mode
+              onTap: onSelected != null ? () => onSelected!(cat) : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingM,
+                  vertical: AppSizes.paddingS,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.chipSelected : AppColors.cardWhite,
+                  borderRadius: BorderRadius.circular(64),
+                  border: Border.all(
+                    color: isSelected ? AppColors.chipSelected : AppColors.chipBorder,
+                  ),
+                ),
+                child: Text(
+                  cat,
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontSM,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? AppColors.chipSelectedText
+                        : AppColors.textDark,
+                  ),
+                ),
               ),
-            ),
-            child: Text(
-              cat,
-              style: AppTextStyles.poppins(
-                fontSize: AppSizes.fontSM,
-                fontWeight: FontWeight.w600,
-                color: isSelected
-                    ? AppColors.chipSelectedText
-                    : AppColors.textDark,
-              ),
-            ),
-          ),
-        );
-        }).toList(),
+            );
+          }).toList(),
         ),
         if (errorText != null) ...[
           const SizedBox(height: 4),
@@ -565,7 +638,7 @@ class _RulesSectionState extends State<_RulesSection> {
         const SizedBox(height: AppSizes.paddingS),
 
         ...widget.controllers.asMap().entries.map((entry) {
-          final i   = entry.key;
+          final i    = entry.key;
           final ctrl = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.paddingS),
@@ -624,11 +697,13 @@ class _RulesSectionState extends State<_RulesSection> {
   }
 }
 
-// ── Create button ─────────────────────────────────────────────────────────────
+// ── Action button (Create / Save) ─────────────────────────────────────────────
 
-class _CreateButton extends StatelessWidget {
+class _ActionButton extends StatelessWidget {
   final VoidCallback onPressed;
-  const _CreateButton({required this.onPressed});
+  final String label;
+
+  const _ActionButton({required this.onPressed, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -646,7 +721,7 @@ class _CreateButton extends StatelessWidget {
             ),
           ),
           child: Text(
-            AppStrings.createButton,
+            label,
             style: AppTextStyles.poppins(
               fontSize: AppSizes.fontTitle,
               fontWeight: FontWeight.w600,
@@ -661,7 +736,6 @@ class _CreateButton extends StatelessWidget {
 
 // ── Shared error label ────────────────────────────────────────────────────────
 
-/// Renders a validation error message below a form field.
 class _ErrorText extends StatelessWidget {
   final String message;
   const _ErrorText(this.message);
