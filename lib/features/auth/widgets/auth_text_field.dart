@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../constants/app_constants.dart';
 
-/// Reusable labeled text field for all auth screens.
-/// Label renders in Inter w300 16px. Supports error text and input formatters.
+/// Reusable text field for all auth screens.
+///
+/// Renders a label above the input and a rounded, lightly-filled input box.
+/// Pass [obscureText] = true for password fields.
+/// Pass [borderColor] to override the default border (e.g., primary orange on
+/// the Verify Phone screen).
 class AuthTextField extends StatelessWidget {
   final String label;
   final String? hint;
   final bool obscureText;
   final TextInputType keyboardType;
   final Color? borderColor;
-  final Color? fillColor;
-  final double? fieldBorderRadius;
-  final Color? enabledBorderColor;
-  final double? contentPaddingVertical;
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
-  final String? errorText;
-  final List<TextInputFormatter>? inputFormatters;
 
   const AuthTextField({
     super.key,
@@ -26,30 +23,13 @@ class AuthTextField extends StatelessWidget {
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
     this.borderColor,
-    this.fillColor,
-    this.fieldBorderRadius,
-    this.enabledBorderColor,
-    this.contentPaddingVertical,
     this.controller,
     this.onChanged,
-    this.errorText,
-    this.inputFormatters,
   });
 
   @override
   Widget build(BuildContext context) {
     final Color activeBorder = borderColor ?? AppColors.primary;
-    final Color effectiveFill = fillColor ?? AppColors.inputFill;
-    final double radius = fieldBorderRadius ?? AppSizes.radiusPill;
-
-    BorderSide enabledSide;
-    if (errorText != null) {
-      enabledSide = const BorderSide(color: Colors.red);
-    } else if (enabledBorderColor != null) {
-      enabledSide = BorderSide(color: enabledBorderColor!, width: 1);
-    } else {
-      enabledSide = BorderSide.none;
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,8 +37,7 @@ class AuthTextField extends StatelessWidget {
         Text(
           label,
           style: AppTextStyles.body(
-            fontSize: 16.0,
-            fontWeight: FontWeight.w300,
+            fontSize: AppSizes.fontS,
             color: AppColors.textDark,
           ),
         ),
@@ -71,55 +50,33 @@ class AuthTextField extends StatelessWidget {
             obscureText: obscureText,
             keyboardType: keyboardType,
             onChanged: onChanged,
-            inputFormatters: inputFormatters,
             style: AppTextStyles.body(
-              fontSize: 14.0,
-              fontWeight: FontWeight.w400,
+              fontSize: AppSizes.fontM,
               color: AppColors.textDark,
             ),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: AppTextStyles.body(color: AppColors.textGray),
               filled: true,
-              fillColor: effectiveFill,
-              contentPadding: EdgeInsets.symmetric(
+              fillColor: AppColors.inputFill,
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppSizes.paddingM,
-                vertical: contentPaddingVertical ?? AppSizes.paddingM,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(radius),
-                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                borderSide: const BorderSide(color: AppColors.inputBorder),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(radius),
-                borderSide: enabledSide,
+                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                borderSide: const BorderSide(color: AppColors.inputBorder),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(radius),
+                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
                 borderSide: BorderSide(color: activeBorder, width: 1.5),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(radius),
-                borderSide: const BorderSide(color: Colors.red),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(radius),
-                borderSide: const BorderSide(color: Colors.red, width: 1.5),
               ),
             ),
           ),
         ),
-
-        if (errorText != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            errorText!,
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontXS,
-              color: Colors.red,
-            ),
-          ),
-        ],
       ],
     );
   }

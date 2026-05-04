@@ -26,21 +26,39 @@ class CommunityModel {
     this.coverImageUrl = '',
   });
 
-  factory CommunityModel.fromJson(Map<String, dynamic> json, String id) =>
-      CommunityModel(
-        id: id,
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String? ?? '',
-        category: json['category'] as String? ?? '',
-        memberCount: json['memberCount'] as int? ?? 0,
-        hostName: json['hostName'] as String? ?? '',
-        hostRating: (json['hostRating'] as num?)?.toDouble() ?? 5.0,
-        coverImageUrl: json['coverImageUrl'] as String? ?? '',
-        rules: (json['rules'] as List<dynamic>?)
-                ?.map((r) => RuleModel.fromJson(r as Map<String, dynamic>))
-                .toList() ??
-            [],
-      );
+  factory CommunityModel.fromJson(Map<String, dynamic> json, String id) {
+    // category may be stored as List<String> (Firestore) or plain String
+    final rawCategory = json['category'];
+    final category = rawCategory is List
+        ? (rawCategory.isNotEmpty ? rawCategory.first as String : '')
+        : (rawCategory as String? ?? '');
+
+    // rule stored as '\n'-joined String; rules stored as List<Map>
+    List<RuleModel> rules = [];
+    if (json['rules'] is List) {
+      rules = (json['rules'] as List<dynamic>)
+          .map((r) => RuleModel.fromJson(r as Map<String, dynamic>))
+          .toList();
+    } else if (json['rule'] is String && (json['rule'] as String).isNotEmpty) {
+      rules = (json['rule'] as String)
+          .split('\n')
+          .where((s) => s.trim().isNotEmpty)
+          .map((t) => RuleModel(title: t.trim()))
+          .toList();
+    }
+
+    return CommunityModel(
+      id: id,
+      name: json['communityName'] as String? ?? json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      category: category,
+      memberCount: json['memberCount'] as int? ?? 0,
+      hostName: json['hostName'] as String? ?? '',
+      hostRating: (json['hostRating'] as num?)?.toDouble() ?? 5.0,
+      coverImageUrl: json['coverImageURL'] as String? ?? json['coverImageUrl'] as String? ?? '',
+      rules: rules,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -54,6 +72,7 @@ class CommunityModel {
       };
 
   CommunityModel copyWith({
+    String? id,
     String? name,
     String? description,
     String? category,
@@ -64,6 +83,7 @@ class CommunityModel {
     double? hostRating,
   }) =>
       CommunityModel(
+        id: id ?? this.id,
         name: name ?? this.name,
         description: description ?? this.description,
         category: category ?? this.category,

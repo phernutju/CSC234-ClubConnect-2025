@@ -50,21 +50,11 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/set-profile',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return SetProfileScreen(
-          googleDisplayName: extra?['googleDisplayName'] as String?,
-        );
-      },
+      builder: (context, state) => const SetProfileScreen(),
     ),
     GoRoute(
       path: '/category',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return CategoryScreen(
-          displayName: extra?['displayName'] as String?,
-        );
-      },
+      builder: (context, state) => const CategoryScreen(),
     ),
 
     // ── Main-app shell (bottom nav shared across these three routes) ─────────
