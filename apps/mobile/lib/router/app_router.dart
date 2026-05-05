@@ -75,6 +75,7 @@ final GoRouter appRouter = GoRouter(
             final extra = state.extra as Map<String, dynamic>?;
             return HomeScreen(
               displayName: extra?['displayName'] as String?,
+              interests: (extra?['interests'] as List?)?.cast<String>() ?? const [],
             );
           },
         ),

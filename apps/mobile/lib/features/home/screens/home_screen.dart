@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
 import '../widgets/home_tab_bar.dart';
+import '../widgets/category_tag.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? displayName;
+  final List<String> interests;
 
-  const HomeScreen({super.key, this.displayName});
+  const HomeScreen({super.key, this.displayName, this.interests = const []});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -47,6 +49,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
               _SearchRow(onCreateTap: () => context.push('/create-community')),
               const SizedBox(height: AppSizes.paddingM),
+
+              if (widget.interests.isNotEmpty) ...[
+                _CategoryRow(interests: widget.interests),
+                const SizedBox(height: AppSizes.paddingM),
+              ],
 
               HomeTabBar(
                 selectedIndex: _selectedTab,
@@ -132,6 +139,37 @@ class _EmptyTabContent extends StatelessWidget {
           fontWeight: FontWeight.w400,
           color: AppColors.textGray,
         ),
+      ),
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  final List<String> interests;
+
+  static const List<Color> _colors = [
+    AppColors.categoryGreen,
+    AppColors.categoryBlue,
+    AppColors.categoryPurple,
+  ];
+
+  const _CategoryRow({required this.interests});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          for (int i = 0; i < interests.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSizes.paddingS),
+            CategoryTag(
+              label: interests[i],
+              color: _colors[i % _colors.length],
+            ),
+          ],
+        ],
       ),
     );
   }

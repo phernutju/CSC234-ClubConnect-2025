@@ -46,7 +46,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   void _onGetStarted() {
     // TODO: save selected categories
-    context.go('/home', extra: {'displayName': widget.displayName ?? ''});
+    context.go('/home', extra: {
+      'displayName': widget.displayName ?? '',
+      'interests': _selected.toList(),
+    });
   }
 
   @override
