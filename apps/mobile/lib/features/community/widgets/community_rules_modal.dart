@@ -114,16 +114,18 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
                                       AppSizes.rulesCheckboxRadius,
                                     ),
                                     border: Border.all(
-                                        color: AppColors.commentBody),
+                                        color: _accepted
+                                            ? AppColors.primary
+                                            : AppColors.commentBody),
                                     color: _accepted
-                                        ? AppColors.primary
+                                        ? Colors.transparent
                                         : AppColors.cardWhite,
                                   ),
                                   child: _accepted
                                       ? const Icon(
                                           Icons.check,
                                           size: 12,
-                                          color: AppColors.cardWhite,
+                                          color: AppColors.primary,
                                         )
                                       : null,
                                 ),
@@ -134,7 +136,9 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
                                   AppStrings.rulesAcceptLabel,
                                   style: AppTextStyles.poppins(
                                     fontSize: AppSizes.fontXS,
-                                    color: AppColors.commentBody,
+                                    color: _accepted
+                                        ? AppColors.primary
+                                        : AppColors.commentBody,
                                   ),
                                 ),
                               ),

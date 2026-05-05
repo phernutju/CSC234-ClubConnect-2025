@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse)",
+      "Bash(Select-Object -First 100)",
+      "Bash(Format-Table FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse -Depth 3 | Select-Object -ExpandProperty FullName | ForEach-Object {$_ -replace [regex]::Escape\\(\"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\"\\), \"\"} | Sort-Object)",
+      "Bash(flutter pub *)",
+      "PowerShell(Get-Command *)"
+    ]
+  }
+}

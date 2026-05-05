@@ -58,8 +58,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _onNext() {
     if (_validate()) {
-      // TODO: authenticate user against backend
-      context.push('/verify-phone');
+      if (_emailController.text.trim() == 'admin@clubconnect.com' &&
+          _passwordController.text.trim() == 'admin1234') {
+        context.go('/admin');
+      } else {
+        // TODO: authenticate user against backend
+        context.push('/verify-phone');
+      }
     }
   }
 

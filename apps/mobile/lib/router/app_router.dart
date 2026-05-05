@@ -18,6 +18,9 @@ import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
 import '../constants/app_constants.dart';
+import '../features/admin/screens/admin_reports_screen.dart';
+import '../features/admin/screens/admin_report_detail_screen.dart';
+import '../features/admin/models/report_model.dart';
 
 /// Defines every named route in the app and their order in the navigation stack.
 ///
@@ -106,24 +109,21 @@ final GoRouter appRouter = GoRouter(
       path: '/create-community',
       builder: (context, state) => const CreateCommunityScreen(),
     ),
+
+    // ── Admin routes ─────────────────────────────────────────────────────────
     GoRoute(
-      path: '/edit-community',
-      builder: (context, state) {
-        final community = state.extra as CommunityModel?;
-        return CreateCommunityScreen(
-          isEditMode: true,
-          existingCommunity: community,
-        );
-      },
+      path: '/admin',
+      builder: (context, state) => const AdminReportsScreen(),
     ),
     GoRoute(
-      path: '/other-profile',
+      path: '/admin-reports',
+      builder: (context, state) => const AdminReportsScreen(),
+    ),
+    GoRoute(
+      path: '/admin-report-detail',
       builder: (context, state) {
-        final args = state.extra as ProfileArgs?;
-        return OtherProfileScreen(
-          username: args?.username ?? AppStrings.rateTestUsername,
-          communityName: args?.communityName ?? AppStrings.rateTestCommunity,
-        );
+        final report = state.extra as ReportModel;
+        return AdminReportDetailScreen(report: report);
       },
     ),
   ],
