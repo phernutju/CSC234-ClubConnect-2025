@@ -47,18 +47,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   void _onGetStarted() {
-    // Format as "label emoji" to match AppStrings.interestOptions keys
-    final interests = _selected.map((label) {
-      final cat = _categories.firstWhere(
-        (c) => c['label'] == label,
-        orElse: () => {'emoji': '', 'label': label},
-      );
-      final emoji = cat['emoji']!;
-      return emoji.isEmpty ? label : '$label $emoji';
-    }).toSet();
-
-    context.read<ProfileProvider>().saveInterests(interests);
-    context.go('/home', extra: {'displayName': widget.displayName ?? ''});
+    // TODO: save selected categories
+    context.go('/home', extra: {
+      'displayName': widget.displayName ?? '',
+      'interests': _selected.toList(),
+    });
   }
 
   @override

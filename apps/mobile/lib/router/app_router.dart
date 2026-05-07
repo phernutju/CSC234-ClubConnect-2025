@@ -80,6 +80,7 @@ final GoRouter appRouter = GoRouter(
             final extra = state.extra as Map<String, dynamic>?;
             return HomeScreen(
               displayName: extra?['displayName'] as String?,
+              interests: (extra?['interests'] as List?)?.cast<String>() ?? const [],
             );
           },
         ),
@@ -108,6 +109,27 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/create-community',
       builder: (context, state) => const CreateCommunityScreen(),
+    ),
+
+    GoRoute(
+      path: '/other-profile',
+      builder: (context, state) {
+        final args = state.extra as ProfileArgs;
+        return OtherProfileScreen(
+          username: args.username,
+          communityName: args.communityName,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/edit-community',
+      builder: (context, state) {
+        final community = state.extra as CommunityModel;
+        return CreateCommunityScreen(
+          isEditMode: true,
+          existingCommunity: community,
+        );
+      },
     ),
 
     // ── Admin routes ─────────────────────────────────────────────────────────
