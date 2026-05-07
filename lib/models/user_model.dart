@@ -11,6 +11,7 @@ class UserModel {
   final String role;
   final Timestamp createdAt;
   final Timestamp updatedAt;
+  final List<String> mutedCommunities; // List of community IDs the user is muted in
 
   const UserModel({
     required this.uid,
@@ -23,6 +24,7 @@ class UserModel {
     required this.role,
     required this.createdAt,
     required this.updatedAt,
+    required this.mutedCommunities,
   });
 
  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -36,6 +38,7 @@ class UserModel {
   role: (json['role']?.toString() ?? 'user').trim(),
   createdAt: json['createdAt'] as Timestamp,
   updatedAt: json['updatedAt'] as Timestamp,
+  mutedCommunities: List<String>.from(json['mutedCommunities'] ?? []),
 );
 
   Map<String, dynamic> toJson() => {
@@ -49,5 +52,6 @@ class UserModel {
         'role': role,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
+        'mutedCommunities': mutedCommunities,
       };
 }

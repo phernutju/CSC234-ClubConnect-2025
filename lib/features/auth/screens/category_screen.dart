@@ -4,6 +4,7 @@ import '../../../constants/app_constants.dart';
 import '../widgets/step_progress_bar.dart';
 import '../widgets/primary_button.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/category_provider.dart';
 import 'package:provider/provider.dart';
 
 /// Step 4 of 4: user picks up to 3 interest categories.
@@ -17,24 +18,6 @@ class CategoryScreen extends StatefulWidget {
 class _CategoryScreenState extends State<CategoryScreen> {
   final Set<String> _selected = {};
 
-  static const List<Map<String, String>> _categories = [
-    {'emoji': '🏸', 'label': 'Badminton'},
-    {'emoji': '🏃', 'label': 'Running'},
-    {'emoji': '🥐', 'label': 'Baking'},
-    {'emoji': '🧗', 'label': 'Climbing'},
-    {'emoji': '🧘', 'label': 'Yoga'},
-    {'emoji': '🚴', 'label': 'Cycling'},
-    {'emoji': '⚽', 'label': 'Football'},
-    {'emoji': '🔍', 'label': 'Home cooking'},
-    {'emoji': '🍷', 'label': 'Wine'},
-    {'emoji': '🥦', 'label': 'Vegan'},
-    {'emoji': '💻', 'label': 'Coding'},
-    {'emoji': '🚀', 'label': 'Startups'},
-    {'emoji': '🔧', 'label': 'Hardware'},
-    {'emoji': '✍️', 'label': 'Writing'},
-    {'emoji': '🎨', 'label': 'Design'},
-  ];
-
   void _toggleCategory(String label) {
     setState(() {
       if (_selected.contains(label)) {
@@ -45,12 +28,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
     });
   }
 
-  void _onGetStarted() {
+  Future<void> _onGetStarted() async {
     final tags = _selected.toList();
     final provider = context.read<AppAuthProvider>();
     provider.setInterests(tags);
-    // TODO: save selected categories, then navigate to the main app
-    provider.signUp();
+    await provider.signUp();
+    if (!mounted) return;
     context.go('/home');
   }
 
@@ -93,10 +76,28 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
               // Scrollable chip grid
               Expanded(
-                child: _CategoryChipGrid(
-                  categories: _categories,
-                  selected: _selected,
-                  onTap: _toggleCategory,
+                child: Consumer<CategoryProvider>(
+                  builder: (context, catProvider, _) {
+                    if (catProvider.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    print(catProvider.error);
+                    if (catProvider.error != null) {
+                      return Center(
+                        child: Text(
+                          'Failed to load categories',
+                          style: AppTextStyles.body(color: AppColors.textGray),
+                        ),
+                      );
+                    }
+                    return _CategoryChipGrid(
+                      categories: catProvider.approvedCategories
+                          .map((c) => c.name)
+                          .toList(),
+                      selected: _selected,
+                      onTap: _toggleCategory,
+                    );
+                  },
                 ),
               ),
 
@@ -129,7 +130,7 @@ class _BackButton extends StatelessWidget {
 }
 
 class _CategoryChipGrid extends StatelessWidget {
-  final List<Map<String, String>> categories;
+  final List<String> categories;
   final Set<String> selected;
   final ValueChanged<String> onTap;
 
@@ -145,14 +146,10 @@ class _CategoryChipGrid extends StatelessWidget {
       child: Wrap(
         spacing: AppSizes.paddingS,
         runSpacing: AppSizes.paddingS,
-        children: categories.map((cat) {
-          final label    = cat['label']!;
-          final emoji    = cat['emoji']!;
-          final isActive = selected.contains(label);
+        children: categories.map((label) {
           return _CategoryChip(
-            emoji: emoji,
             label: label,
-            isSelected: isActive,
+            isSelected: selected.contains(label),
             onTap: () => onTap(label),
           );
         }).toList(),
@@ -162,13 +159,11 @@ class _CategoryChipGrid extends StatelessWidget {
 }
 
 class _CategoryChip extends StatelessWidget {
-  final String emoji;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _CategoryChip({
-    required this.emoji,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -194,8 +189,6 @@ class _CategoryChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: AppTextStyles.body(fontSize: AppSizes.fontM)),
-            const SizedBox(width: AppSizes.paddingXS),
             Text(
               label,
               style: AppTextStyles.body(

@@ -185,6 +185,10 @@ class _ChatScreenState extends State<ChatScreen> {
         reportedUsername: message.senderName,
         communityName: widget.communityName,
         messageSnippet: message.text,
+        reporterId: context.read<AppAuthProvider>().user?.uid ?? '',
+        targetUserId: message.senderId,
+        communityId: widget.communityId,
+        messageId: message.id,
       ),
     );
   }

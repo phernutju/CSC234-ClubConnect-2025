@@ -56,9 +56,7 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
   }
 
   void _loadData() {
-    final pp = context.read<ProfileProvider>();
-    pp.loadProfile(widget.userId);
-    pp.loadReviews(widget.userId);
+    context.read<ProfileProvider>().loadViewedProfile(widget.userId);
   }
 
   void _showRateModal(BuildContext context) {
@@ -88,9 +86,9 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final pp = context.watch<ProfileProvider>();
-    final profile = pp.profile;
-    final ratings = pp.reviewsResult?.reviews ?? [];
-    final avgRating = pp.reviewsResult?.averageScore ?? AppSizes.defaultRating;
+    final profile = pp.viewedProfile;
+    final ratings = pp.viewedReviewsResult?.reviews ?? [];
+    final avgRating = pp.viewedReviewsResult?.averageScore ?? AppSizes.defaultRating;
 
     if (pp.isLoading && profile == null) {
       return const Scaffold(

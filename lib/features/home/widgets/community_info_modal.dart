@@ -192,8 +192,8 @@ class _HostCardState extends State<_HostCard> {
     super.initState();
     final pp = context.read<ProfileProvider>();
     _hostFuture = Future.wait([
-      pp.fetchUserById(widget.community.createdById),
-      pp.fetchReviewsForUser(widget.community.createdById),
+      pp.fetchUserById(widget.community.createdBy),
+      pp.fetchReviewsForUser(widget.community.createdBy),
     ]).then((results) => (results[0] as UserModel, results[1] as ReviewsResult));
   }
 
@@ -282,7 +282,7 @@ class _HostCardState extends State<_HostCard> {
                         context.push(
                           '/other-profile',
                           extra: ProfileArgs(
-                            userId: widget.community.createdById,
+                            userId: widget.community.createdBy,
                             username: user?.displayName ?? 'Unknown',
                             communityId: widget.community.id,
                           ),

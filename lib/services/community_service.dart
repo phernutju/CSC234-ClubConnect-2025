@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/category_model.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
@@ -14,7 +15,7 @@ class CommunityService {
 
   static const _allowedCommunityFields = {
     'communityName',
-    'category',
+    'tags',
     'description',
     'coverImageURL',
     'rules',
@@ -44,8 +45,9 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
+              
         );
   }
 
@@ -57,7 +59,7 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
         );
   }
@@ -76,20 +78,20 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
         );
   }
 
-  // Get communities filtered by category
-  Stream<List<CommunityModel>> getCommunitiesByCategory(String category) {
+  // Get communities filtered by category name (client-side, tags are stored as maps)
+  Stream<List<CommunityModel>> getCommunitiesByCategory(String categoryName) {
     return _communities
-        .where('category', arrayContains: category)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
+              .where((c) => c.tags.any((t) => t.name == categoryName))
               .toList(),
         );
   }
@@ -130,7 +132,7 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
         );
   }
@@ -145,12 +147,12 @@ class CommunityService {
   Future<CommunityModel?> getCommunity(String communityId) async {
     final doc = await _communities.doc(communityId).get();
     if (!doc.exists) return null;
-    return CommunityModel.fromJson(doc.data()!, doc.id);
+    return CommunityModel.fromJson(doc);
   }
 
   Future<void> createCommunity({
     required String communityName,
-    required List<String> category,
+    required List<CategoryModel> category,
     required String description,
     required List<RuleModel> rules,
     Uint8List? coverImageBytes,
@@ -158,17 +160,15 @@ class CommunityService {
     final user = _requireAuth();
     final communityRef = _communities.doc();
     final createdAt = FieldValue.serverTimestamp();
-    print('Creating community with name: $communityName');
     String coverImageURL = '';
     if (coverImageBytes != null) {
       coverImageURL = await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
     }
-    print('Uploaded cover image, URL: $coverImageURL');
     final batch = _db.batch();
     batch.set(communityRef, {
       'communityId': communityRef.id,
       'communityName': communityName,
-      'category': category,
+      'tags': category.map((c) => c.toJson()).toList(),
       'description': description,
       'coverImageURL': coverImageURL,
       'rules': rules.map((r) => r.toJson()).toList(),
@@ -203,10 +203,10 @@ class CommunityService {
       updates['communityName'] = name.trim();
     }
 
-    if (updates.containsKey('category')) {
-      final cat = updates['category'];
-      if (cat is! List || cat.any((e) => e is! String)) {
-        throw ArgumentError('category must be a List<String>');
+    if (updates.containsKey('tags')) {
+      final tags = updates['tags'];
+      if (tags is! List) {
+        throw ArgumentError('tags must be a List');
       }
     }
 

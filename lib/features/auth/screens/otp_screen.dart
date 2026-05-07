@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/auth_provider.dart';
 import '../widgets/step_progress_bar.dart';
 import '../widgets/primary_button.dart';
 
-/// Step 3 of 4: user enters the 4-digit SMS code they received.
-/// Automatically moves focus to the next digit box when a digit is typed.
+/// Step 3 of 4: user enters the 6-digit SMS code they received.
+/// Sends OTP on mount; wires Verify and Resend to AppAuthProvider.
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
 
@@ -15,9 +17,9 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   final List<TextEditingController> _controllers =
-      List.generate(4, (_) => TextEditingController());
+      List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes =
-      List.generate(4, (_) => FocusNode());
+      List.generate(6, (_) => FocusNode());
 
   @override
   void dispose() {
@@ -27,18 +29,29 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _onDigitChanged(String value, int index) {
-    if (value.isNotEmpty && index < 3) {
+    if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
   }
 
-  void _onNext() {
-    // TODO: verify OTP with backend
-    context.push('/set-profile');
+  Future<void> _onNext() async {
+    final code = _controllers.map((c) => c.text).join();
+    if (code.length < 6) return;
+    final provider = context.read<AppAuthProvider>();
+    await provider.verifyOtp(code);
+    if (!mounted) return;
+    if (provider.otpState == OtpState.verified) {
+      context.push('/set-profile');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AppAuthProvider>();
+    final isLoading = provider.otpState == OtpState.verifying ||
+        provider.otpState == OtpState.sendingOtp;
+    final errorMsg = provider.otpState == OtpState.error ? provider.otpError : null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -48,20 +61,12 @@ class _OtpScreenState extends State<OtpScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppSizes.paddingM),
-
-              // Step indicator: 3 of 4 filled
               const StepProgressBar(currentStep: 3),
               const SizedBox(height: AppSizes.paddingL),
-
-              // Back arrow
               _BackButton(),
               const SizedBox(height: AppSizes.paddingM),
-
-              // "Enter " (black) + "OTP" (italic coral)
               _OtpHeading(),
               const SizedBox(height: AppSizes.paddingS),
-
-              // Subtitle explanation
               Text(
                 AppStrings.otpSubtitle,
                 style: AppTextStyles.body(
@@ -71,22 +76,35 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingXL),
-
-              // Row of 4 digit input boxes
               _OtpBoxRow(
                 controllers: _controllers,
                 focusNodes: _focusNodes,
                 onChanged: _onDigitChanged,
               ),
               const SizedBox(height: AppSizes.paddingM),
-
-              // "Didn't receive code? Resend now"
-              _ResendRow(),
-
+              if (errorMsg != null)
+                Center(
+                  child: Text(
+                    errorMsg,
+                    style: AppTextStyles.body(
+                      fontSize: AppSizes.fontS,
+                      color: Colors.red,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (isLoading)
+                const Center(child: CircularProgressIndicator()),
+              const SizedBox(height: AppSizes.paddingS),
+              _ResendRow(
+                canResend: provider.canResend,
+                onResend: () => provider.sendOtp(),
+              ),
               const Spacer(),
-
-              // Next button
-              PrimaryButton(label: AppStrings.otpNext, onPressed: _onNext),
+              PrimaryButton(
+                label: AppStrings.otpNext,
+                onPressed: isLoading ? null : _onNext,
+              ),
               const SizedBox(height: AppSizes.paddingXL),
             ],
           ),
@@ -108,7 +126,6 @@ class _BackButton extends StatelessWidget {
   }
 }
 
-/// "Enter " in bold black + "OTP" in italic coral side-by-side.
 class _OtpHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -132,7 +149,6 @@ class _OtpHeading extends StatelessWidget {
   }
 }
 
-/// Four square digit input boxes in a horizontal row.
 class _OtpBoxRow extends StatelessWidget {
   final List<TextEditingController> controllers;
   final List<FocusNode> focusNodes;
@@ -148,7 +164,7 @@ class _OtpBoxRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(4, (i) {
+      children: List.generate(6, (i) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingS),
           child: SizedBox(
@@ -189,8 +205,12 @@ class _OtpBoxRow extends StatelessWidget {
   }
 }
 
-/// "Didn't receive code?" + tappable "Resend now" in coral.
 class _ResendRow extends StatelessWidget {
+  final bool canResend;
+  final VoidCallback onResend;
+
+  const _ResendRow({required this.canResend, required this.onResend});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -205,14 +225,12 @@ class _ResendRow extends StatelessWidget {
             ),
           ),
           GestureDetector(
-            onTap: () {
-              // TODO: trigger resend OTP
-            },
+            onTap: canResend ? onResend : null,
             child: Text(
               AppStrings.otpResend,
               style: AppTextStyles.body(
                 fontSize: AppSizes.fontS,
-                color: AppColors.primary,
+                color: canResend ? AppColors.primary : AppColors.textGray,
                 fontWeight: FontWeight.w600,
               ),
             ),

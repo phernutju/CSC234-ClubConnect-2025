@@ -26,8 +26,9 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   }
 
   void _onNext() {
-    // TODO: trigger SMS OTP for the entered phone number
-    context.read<AppAuthProvider>().setPhoneNumber(_phoneController.text);
+    final provider = context.read<AppAuthProvider>();
+    provider.setPhoneNumber(_phoneController.text);
+    provider.sendOtp(); // unawaited — provider state drives OTP screen
     context.push('/otp');
   }
 

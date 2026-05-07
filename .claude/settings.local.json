@@ -6,7 +6,11 @@
       "Bash(Sort-Object)",
       "PowerShell(Test-Path *)",
       "Bash(flutter analyze *)",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "mcp__ide__getDiagnostics",
+      "Bash(claude doctor *)",
+      "Bash(Get-Content *)",
+      "PowerShell(claude doctor *)"
     ]
   }
 }
