@@ -22,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -71,6 +72,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<CommunityModel> _filtered(List<CommunityModel> list) {
+    if (_searchQuery.isEmpty) return list;
+    final q = _searchQuery.toLowerCase();
+    return list
+        .where((c) =>
+            c.communityName.toLowerCase().contains(q) ||
+            c.description.toLowerCase().contains(q))
+        .toList();
+  }
+
   void _goToChat(CommunityModel community) {
     context.push(
       '/chat',
@@ -97,7 +108,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: AppSizes.paddingL),
               _WelcomeHeading(),
               const SizedBox(height: AppSizes.paddingM),
-              _SearchRow(onCreateTap: () => context.push('/create-community')),
+              _SearchRow(
+                onCreateTap: () => context.push('/create-community'),
+                onChanged: (q) => setState(() => _searchQuery = q),
+              ),
               if (interests.isNotEmpty) ...[
                 const SizedBox(height: AppSizes.paddingM),
                 _CategoryRow(interests: interests),
@@ -121,8 +135,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                     : _TabContent(
                         selectedTab: _selectedTab,
-                        communities: _selectedTab == 1 ? cp.myCommunities : cp.communities,
-                        myCommunities: cp.myCommunities,
+                        communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
+                        myCommunities: _filtered(cp.myCommunities),
                         onJoinTap: _showJoinFlow,
                         onDirectTap: _goToChat,
                       ),
@@ -140,7 +154,11 @@ class _HomeScreenState extends State<HomeScreen> {
 class _WelcomeHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final name = context.watch<AppAuthProvider>().user?.displayName ?? 'there';
+    final firestoreName = context.watch<ProfileProvider>().profile?.displayName ?? '';
+    final authName = context.watch<AppAuthProvider>().user?.displayName ?? '';
+    final name = firestoreName.isNotEmpty ? firestoreName
+        : authName.isNotEmpty ? authName
+        : 'there';
     return Text(
       '${AppStrings.homeWelcome}$name',
       style: AppTextStyles.title(color: AppColors.textDark),
@@ -150,8 +168,9 @@ class _WelcomeHeading extends StatelessWidget {
 
 class _SearchRow extends StatelessWidget {
   final VoidCallback onCreateTap;
+  final ValueChanged<String> onChanged;
 
-  const _SearchRow({required this.onCreateTap});
+  const _SearchRow({required this.onCreateTap, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -169,13 +188,23 @@ class _SearchRow extends StatelessWidget {
                 const SizedBox(width: AppSizes.paddingM),
                 const Icon(Icons.search, color: AppColors.textGray, size: 18),
                 const SizedBox(width: AppSizes.paddingS),
-                Text(
-                  AppStrings.homeSearchHint,
-                  style: AppTextStyles.body(
-                    color: AppColors.textGray,
-                    fontSize: AppSizes.fontM,
+                Expanded(
+                  child: TextField(
+                    onChanged: onChanged,
+                    decoration: InputDecoration(
+                      hintText: AppStrings.homeSearchHint,
+                      hintStyle: AppTextStyles.body(
+                        color: AppColors.textGray,
+                        fontSize: AppSizes.fontM,
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: AppTextStyles.body(fontSize: AppSizes.fontM),
                   ),
                 ),
+                const SizedBox(width: AppSizes.paddingS),
               ],
             ),
           ),
