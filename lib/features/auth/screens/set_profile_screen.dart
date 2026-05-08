@@ -3,9 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../providers/profile_provider.dart';
 import '../widgets/step_progress_bar.dart';
 
 class SetProfileScreen extends StatefulWidget {
@@ -103,28 +101,13 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
     return error == null;
   }
 
-  Future<void> _onNext() async {
-    if (!_validate()) return;
-
-    // Resolve avatar to bytes regardless of platform
-    Uint8List? avatarBytes = _webImageBytes;
-    if (avatarBytes == null && _imageFile != null) {
-      avatarBytes = await _imageFile!.readAsBytes();
+  void _onNext() {
+    if (_validate()) {
+      context.push(
+        '/category',
+        extra: {'displayName': _displayNameController.text.trim()},
+      );
     }
-
-    if (!mounted) return;
-
-    final profile = context.read<ProfileProvider>();
-    profile.saveProfile(
-      username: _displayNameController.text.trim(),
-      bio: _aboutMeController.text.trim(),
-    );
-    if (avatarBytes != null) profile.updateAvatar(avatarBytes);
-
-    context.push(
-      '/category',
-      extra: {'displayName': _displayNameController.text.trim()},
-    );
   }
 
   @override

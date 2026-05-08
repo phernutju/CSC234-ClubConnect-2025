@@ -47,7 +47,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       return '/login';
     }
 
-    if (signedIn && location == '/') {
+    if (signedIn && isAuthRoute) {
       return '/home';
     }
 
