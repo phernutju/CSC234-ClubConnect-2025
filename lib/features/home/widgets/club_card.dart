@@ -1,0 +1,137 @@
+import 'package:flutter/material.dart';
+import '../../../constants/app_constants.dart';
+import 'network_image_view.dart';
+
+/// Card that represents a single community/club in any of the home tabs.
+class ClubCard extends StatelessWidget {
+  final String name;
+  final String description;
+  final String memberCount;
+  final String? coverImageUrl;
+  final VoidCallback? onTap;
+
+  const ClubCard({
+    super.key,
+    required this.name,
+    required this.description,
+    required this.memberCount,
+    this.coverImageUrl,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppSizes.paddingM),
+        padding: const EdgeInsets.all(AppSizes.paddingM),
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _ClubThumbnail(coverImageUrl: coverImageUrl),
+
+            const SizedBox(width: AppSizes.paddingM),
+
+            Expanded(child: _ClubInfo(
+              name: name,
+              description: description,
+              memberCount: memberCount,
+            )),
+
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+class _ClubThumbnail extends StatelessWidget {
+  final String? coverImageUrl;
+  const _ClubThumbnail({this.coverImageUrl});
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+      child: Container(
+        width: AppSizes.cardThumbnailSize,
+        height: AppSizes.cardThumbnailSize,
+        color: AppColors.inputFill,
+        child: NetworkImageView(
+          url: coverImageUrl,
+          width: AppSizes.cardThumbnailSize,
+          height: AppSizes.cardThumbnailSize,
+        ),
+      ),
+    );
+  }
+}
+
+class _ClubInfo extends StatelessWidget {
+  final String name;
+  final String description;
+  final String memberCount;
+
+  const _ClubInfo({
+    required this.name,
+    required this.description,
+    required this.memberCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.title(
+            fontSize: AppSizes.fontM,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 2),
+
+        Text(
+          description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontXS,
+            color: AppColors.textGray,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 4),
+
+        Text(
+          memberCount,
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontXS,
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}

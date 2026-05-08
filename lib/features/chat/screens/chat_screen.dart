@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/community_model.dart';
 import '../../../models/profile_args.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
-import '../../../providers/profile_provider.dart';
 import '../../community/widgets/community_info_modal.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_bar.dart';
@@ -155,11 +155,10 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _menuOpen = false);
 
     final communityProvider = context.read<CommunityProvider>();
-    final username = context.read<ProfileProvider>().username;
 
     // Look up the community the chat belongs to
     final matches = communityProvider.communities
-        .where((c) => c.name == widget.communityName);
+        .where((c) => c.communityName == widget.communityName);
     final CommunityModel? community =
         matches.isEmpty ? null : matches.first;
 
@@ -168,7 +167,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    final isHost = username == community.hostName;
+    final isHost = community.createdById == context.read<AppAuthProvider>().user?.uid;
 
     if (isHost) {
       // Host → open Edit Community page

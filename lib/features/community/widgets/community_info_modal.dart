@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
@@ -39,7 +38,7 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageBytes: community.coverImage),
+                _CoverArea(imageUrl: community.coverImageURL.isEmpty ? null : community.coverImageURL),
                 Positioned(
                   top: AppSizes.paddingS,
                   right: AppSizes.paddingS,
@@ -65,7 +64,7 @@ class CommunityInfoModal extends StatelessWidget {
                   children: [
                     // Community name
                     Text(
-                      community.name,
+                      community.communityName,
                       style: AppTextStyles.poppins(
                         fontSize: AppSizes.fontTitle,
                         color: AppColors.textDark,
@@ -105,8 +104,9 @@ class CommunityInfoModal extends StatelessWidget {
                         context.push(
                           '/other-profile',
                           extra: ProfileArgs(
-                            username: community.hostName,
-                            communityName: community.name,
+                            userId: community.createdById,
+                            username: '',
+                            communityName: community.communityName,
                           ),
                         );
                       },
@@ -165,16 +165,16 @@ class CommunityInfoModal extends StatelessWidget {
 
 /// Grey placeholder or community cover photo (H167).
 class _CoverArea extends StatelessWidget {
-  final Uint8List? imageBytes;
-  const _CoverArea({this.imageBytes});
+  final String? imageUrl;
+  const _CoverArea({this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: AppSizes.communityInfoCoverHeight,
       width: double.infinity,
-      child: imageBytes != null
-          ? Image.memory(imageBytes!, fit: BoxFit.cover)
+      child: imageUrl != null
+          ? Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill))
           : Container(color: AppColors.inputFill),
     );
   }
@@ -189,7 +189,7 @@ class _HostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filledStars = community.hostRating.floor();
+    final filledStars = 0;
 
     return Container(
       width: double.infinity,
@@ -223,7 +223,7 @@ class _HostCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  community.hostName,
+                  '',
                   style: AppTextStyles.poppins(
                     fontSize: AppSizes.fontXII,
                     color: AppColors.textDark,
@@ -244,7 +244,7 @@ class _HostCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      community.hostRating.toStringAsFixed(1),
+                      '0.0',
                       style: AppTextStyles.poppins(
                         fontSize: AppSizes.fontXXS,
                         color: AppColors.hostRatingColor,

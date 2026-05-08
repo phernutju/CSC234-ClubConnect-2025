@@ -4,18 +4,17 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
-import '../../community/widgets/club_card.dart';
-import '../../community/widgets/community_info_modal.dart';
-import '../../community/widgets/community_rules_modal.dart';
+import '../../../providers/profile_provider.dart';
 import '../widgets/home_tab_bar.dart';
-import '../../community/widgets/category_tag.dart';
+import '../widgets/club_card.dart';
+import '../widgets/category_tag.dart';
+import '../widgets/community_info_modal.dart';
+import '../widgets/community_rules_modal.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String? displayName;
-  final List<String> interests;
-
-  const HomeScreen({super.key, this.displayName, this.interests = const []});
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -24,18 +23,69 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
 
-  String get _welcomeText {
-    final name = widget.displayName;
-    if (name != null && name.isNotEmpty) {
-      return '${AppStrings.homeWelcome}$name';
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AppAuthProvider>();
+      if (auth.user != null) {
+        context.read<CommunityProvider>().loadMyCommunities();
+        context.read<ProfileProvider>().loadProfile(auth.user!.uid);
+      }
+    });
+  }
+
+  void _showJoinFlow(CommunityModel community) async {
+    final cp = context.read<CommunityProvider>();
+    // Fast path: cached list
+    if (cp.myCommunities.any((c) => c.id == community.id)) {
+      _goToChat(community);
+      return;
     }
-    return 'Welcome!';
+    // Authoritative check — myCommunities may not have emitted yet
+    final isMember = await cp.checkIsMember(community.id);
+    if (!mounted) return;
+    if (isMember) {
+      _goToChat(community);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) => CommunityInfoModal(
+        community: community,
+        onNext: () => showDialog(
+          context: context,
+          builder: (_) => CommunityRulesModal(
+            community: community,
+            onJoined: () => context.push(
+              '/chat',
+              extra: ChatArgs(
+                communityId: community.id,
+                communityName: community.communityName,
+                memberCount: community.memberCount.toString(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _goToChat(CommunityModel community) {
+    context.push(
+      '/chat',
+      extra: ChatArgs(
+        communityId: community.id,
+        communityName: community.communityName,
+        memberCount: community.memberCount.toString(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final myCommunities = context.watch<CommunityProvider>().communities;
-
+    final cp = context.watch<CommunityProvider>();
+    final interests = context.watch<ProfileProvider>().selectedInterests.toList();
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
@@ -45,42 +95,55 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppSizes.paddingL),
-
-              Text(
-                _welcomeText,
-                style: AppTextStyles.title(
-                  fontSize: 32.0,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textDark,
-                ),
-              ),
+              _WelcomeHeading(),
               const SizedBox(height: AppSizes.paddingM),
-
               _SearchRow(onCreateTap: () => context.push('/create-community')),
-              const SizedBox(height: AppSizes.paddingM),
-
-              if (widget.interests.isNotEmpty) ...[
-                _CategoryRow(interests: widget.interests),
+              if (interests.isNotEmpty) ...[
                 const SizedBox(height: AppSizes.paddingM),
+                _CategoryRow(interests: interests),
               ],
-
+              const SizedBox(height: AppSizes.paddingM),
               HomeTabBar(
                 selectedIndex: _selectedTab,
-                onTabChanged: (i) => setState(() => _selectedTab = i),
+                onTabChanged: (i) {
+                  setState(() => _selectedTab = i);
+                  final provider = context.read<CommunityProvider>();
+                  if (i == 1) {
+                    provider.loadMyCommunities();
+                  } else {
+                    provider.loadCommunities();
+                  }
+                },
               ),
               const SizedBox(height: AppSizes.paddingM),
-
               Expanded(
-                child: _selectedTab == 0
-                    ? const _DiscoverTab()
-                    : _selectedTab == 1
-                        ? _MyClubTab(communities: myCommunities)
-                        : const _EmptyTabContent(),
+                child: cp.isLoading && cp.communities.isEmpty
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                    : _TabContent(
+                        selectedTab: _selectedTab,
+                        communities: _selectedTab == 1 ? cp.myCommunities : cp.communities,
+                        myCommunities: cp.myCommunities,
+                        onJoinTap: _showJoinFlow,
+                        onDirectTap: _goToChat,
+                      ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+class _WelcomeHeading extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final name = context.watch<AppAuthProvider>().user?.displayName ?? 'there';
+    return Text(
+      '${AppStrings.homeWelcome}$name',
+      style: AppTextStyles.title(color: AppColors.textDark),
     );
   }
 }
@@ -94,43 +157,30 @@ class _SearchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Search bar — transparent fill, warm-stroke border, pill shape
         Expanded(
           child: Container(
             height: 42,
             decoration: BoxDecoration(
-              color: Colors.transparent,
+              color: AppColors.inputFill,
               borderRadius: BorderRadius.circular(AppSizes.radiusPill),
-              border: Border.all(
-                color: AppColors.rateCardBorder,
-                width: AppSizes.fieldBorderWidth,
-              ),
             ),
             child: Row(
               children: [
                 const SizedBox(width: AppSizes.paddingM),
-                const Icon(
-                  Icons.search,
-                  color: AppColors.rateCardBorder,
-                  size: 18,
-                ),
+                const Icon(Icons.search, color: AppColors.textGray, size: 18),
                 const SizedBox(width: AppSizes.paddingS),
                 Text(
                   AppStrings.homeSearchHint,
-                  style: AppTextStyles.poppins(
-                    fontSize: AppSizes.fontSM,
-                    fontWeight: FontWeight.w300,
-                    color: AppColors.fieldPlaceholder,
+                  style: AppTextStyles.body(
+                    color: AppColors.textGray,
+                    fontSize: AppSizes.fontM,
                   ),
                 ),
               ],
             ),
           ),
         ),
-
         const SizedBox(width: AppSizes.paddingS),
-
-        // Create community button — coral square pill
         GestureDetector(
           onTap: onCreateTap,
           child: Container(
@@ -152,130 +202,7 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
-class _DiscoverTab extends StatelessWidget {
-  const _DiscoverTab();
-
-  void _openJoinFlow(BuildContext context, CommunityModel community) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => CommunityInfoModal(
-        community: community,
-        onNext: () {
-          showDialog<void>(
-            context: context,
-            builder: (_) => CommunityRulesModal(
-              community: community,
-              onJoined: () => context.push(
-                '/chat',
-                extra: ChatArgs(
-                  communityName: community.name,
-                  memberCount:
-                      '${community.memberCount} ${AppStrings.communityMembersLabel}',
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final communities = context.watch<CommunityProvider>().discoverCommunities;
-    if (communities.isEmpty) {
-      return Center(
-        child: Text(
-          AppStrings.myClubEmpty,
-          textAlign: TextAlign.center,
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontSM,
-            color: AppColors.textGray,
-          ),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: communities.length,
-      itemBuilder: (context, index) {
-        final c = communities[index];
-        return ClubCard(
-          name: c.name,
-          description: c.description,
-          memberCount: '${c.memberCount} ${AppStrings.communityMembersLabel}',
-          coverImage: c.coverImage,
-          onTap: () => _openJoinFlow(context, c),
-        );
-      },
-    );
-  }
-}
-
-/// My Club tab — shows created communities or an empty-state prompt.
-class _MyClubTab extends StatelessWidget {
-  final List<CommunityModel> communities;
-
-  const _MyClubTab({required this.communities});
-
-  @override
-  Widget build(BuildContext context) {
-    if (communities.isEmpty) {
-      return Center(
-        child: Text(
-          AppStrings.myClubEmpty,
-          textAlign: TextAlign.center,
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontSM,
-            color: AppColors.textGray,
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: communities.length,
-      itemBuilder: (context, index) {
-        final c = communities[index];
-        final memberLabel =
-            '${c.memberCount} ${AppStrings.communityMembersLabel}';
-        return ClubCard(
-          name: c.name,
-          description: c.description,
-          memberCount: memberLabel,
-          coverImage: c.coverImage,
-          onTap: () => context.push(
-            '/chat',
-            extra: ChatArgs(
-              communityName: c.name,
-              memberCount: memberLabel,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _EmptyTabContent extends StatelessWidget {
-  const _EmptyTabContent();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'No clubs yet',
-        style: AppTextStyles.body(
-          fontSize: 14.0,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textGray,
-        ),
-      ),
-    );
-  }
-}
-
+/// Horizontal scrollable row showing the user's interests from sign-up.
 class _CategoryRow extends StatelessWidget {
   final List<String> interests;
 
@@ -305,4 +232,128 @@ class _CategoryRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TabContent extends StatelessWidget {
+  final int selectedTab;
+  final List<CommunityModel> communities;
+  final List<CommunityModel> myCommunities;
+  final void Function(CommunityModel) onJoinTap;
+  final void Function(CommunityModel) onDirectTap;
+
+  const _TabContent({
+    required this.selectedTab,
+    required this.communities,
+    required this.myCommunities,
+    required this.onJoinTap,
+    required this.onDirectTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    switch (selectedTab) {
+      case 1:
+        return _MyClubList(communities: myCommunities, onTap: onDirectTap);
+      case 2:
+        final trending = [...communities]
+          ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
+        return _CommunityList(communities: trending, onTap: onJoinTap);
+      default:
+        return _DiscoverTab(communities: communities, onTap: onJoinTap);
+    }
+  }
+}
+
+class _MyClubList extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final void Function(CommunityModel) onTap;
+
+  const _MyClubList({required this.communities, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (communities.isEmpty) {
+      return Center(
+        child: Text(
+          AppStrings.myClubEmpty,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.body(color: AppColors.textGray),
+        ),
+      );
+    }
+    return ListView(
+      children: communities
+          .map((c) => ClubCard(
+                name: c.communityName,
+                description: c.description.isEmpty
+                    ? c.category.join(', ')
+                    : c.description,
+                memberCount:
+                    '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+                coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+                onTap: () => onTap(c),
+              ))
+          .toList(),
+    );
+  }
+}
+
+class _DiscoverTab extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final void Function(CommunityModel) onTap;
+
+  const _DiscoverTab({required this.communities, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (communities.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.only(top: AppSizes.paddingXL),
+          child: Text(
+            'No communities found',
+            style: AppTextStyles.body(color: AppColors.textGray),
+          ),
+        ),
+      );
+    }
+    return ListView(children: _buildCommunityCards(communities, onTap));
+  }
+}
+
+class _CommunityList extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final void Function(CommunityModel) onTap;
+
+  const _CommunityList({required this.communities, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (communities.isEmpty) {
+      return Center(
+        child: Text(
+          'No communities yet',
+          style: AppTextStyles.body(color: AppColors.textGray),
+        ),
+      );
+    }
+    return ListView(children: _buildCommunityCards(communities, onTap));
+  }
+}
+
+List<Widget> _buildCommunityCards(
+  List<CommunityModel> communities,
+  void Function(CommunityModel) onTap,
+) {
+  return communities
+      .map((c) => ClubCard(
+            name: c.communityName,
+            description:
+                c.description.isEmpty ? c.category.join(', ') : c.description,
+            memberCount:
+                '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+            coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+            onTap: () => onTap(c),
+          ))
+      .toList();
 }

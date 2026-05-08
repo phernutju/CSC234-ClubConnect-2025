@@ -1,87 +1,264 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/community_model.dart';
+import '../models/member_model.dart';
+import '../models/message_model.dart';
+import '../models/rule_model.dart';
 import '../services/community_service.dart';
 
-/// Manages all community data for the current session.
-/// Notifies listeners whenever the community lists change.
 class CommunityProvider extends ChangeNotifier {
-  List<CommunityModel> _discover = [];
-  final List<CommunityModel> _created = [];
-  final List<CommunityModel> _joined  = [];
+  final CommunityService _service;
   final Set<String> _mutedCommunities = {};
+  final Map<String, String> _nameCache = {};
+  List<CommunityModel> communities = [];
+  List<CommunityModel> myCommunities = [];
+  CommunityModel? activeCommunity;
+  List<MessageModel> messages = [];
+  List<MemberModel> members = [];
+  bool isLoading = false;
+  bool isUploading = false;
+  String? error;
 
-  CommunityProvider() {
-    _loadCommunities();
-  }
+  StreamSubscription<List<CommunityModel>>? _communitiesSub;
+  StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
+  StreamSubscription<List<MessageModel>>? _messagesSub;
+  StreamSubscription<List<MemberModel>>? _membersSub;
 
-  Future<void> _loadCommunities() async {
-    _discover = await CommunityService.fetchCommunities();
-    notifyListeners();
-  }
 
-  bool isMuted(String communityName) => _mutedCommunities.contains(communityName);
-
-  /// Read-only view of all muted community names (used by NotificationScreen).
   Set<String> get mutedCommunityNames => Set.unmodifiable(_mutedCommunities);
 
-  void toggleMute(String communityName) {
-    if (_mutedCommunities.contains(communityName)) {
-      _mutedCommunities.remove(communityName);
+  bool isMuted(String communityId) => _mutedCommunities.contains(communityId);
+
+  void toggleMute(String communityId) {
+    if (_mutedCommunities.contains(communityId)) {
+      _mutedCommunities.remove(communityId);
     } else {
-      _mutedCommunities.add(communityName);
+      _mutedCommunities.add(communityId);
     }
     notifyListeners();
   }
 
-  /// Communities the user belongs to (created or joined) — My Club tab.
-  List<CommunityModel> get communities => [..._created, ..._joined];
+  /// Returns the cached display name for [uid], or empty string if not yet fetched.
+  String displayNameOf(String uid) => _nameCache[uid] ?? '';
 
-  /// Communities available to join — Discover tab.
-  /// Excludes anything the user already created or joined.
-  List<CommunityModel> get discoverCommunities {
-    final myNames = {
-      ..._created.map((c) => c.name),
-      ..._joined.map((c) => c.name),
-    };
-    return _discover.where((c) => !myNames.contains(c.name)).toList();
-  }
-
-  /// Adds a user-created community directly to My Club.
-  void addCommunity(CommunityModel community) {
-    _created.add(community);
-    CommunityService.createCommunity(community);
+  /// Fetches and caches the display name for [uid] from Firestore.
+  /// No-ops if already cached. Notifies listeners when the name arrives.
+  Future<void> fetchDisplayName(String uid) async {
+    if (_nameCache.containsKey(uid)) return;
+    _nameCache[uid] = ''; // mark as in-flight to prevent duplicate fetches
+    try {
+      _nameCache[uid] = await _service.getUserDisplayName(uid);
+    } catch (_) {
+      _nameCache[uid] = 'User';
+    }
     notifyListeners();
   }
 
-  /// Joins a Discover community, incrementing its member count by 1.
-  void joinCommunity(CommunityModel community) {
-    _joined.add(community.copyWith(memberCount: community.memberCount + 1));
-    CommunityService.joinCommunity(community.name);
+  void _listenToCommunities(Stream<List<CommunityModel>> stream) {
+    _communitiesSub?.cancel();
+    _communitiesSub = stream.listen(
+      (list) {
+        communities = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  void _listenToMyCommunities(Stream<List<CommunityModel>> stream) {
+    _myCommunitiesSub?.cancel();
+    _myCommunitiesSub = stream.listen(
+      (list) {
+        myCommunities = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  CommunityProvider({CommunityService? service})
+      : _service = service ?? CommunityService() {
+    _listenToCommunities(_service.getCommunities());
+  }
+
+  void loadCommunities() {
+    _listenToCommunities(_service.getCommunities());
+  }
+
+  void loadFirst10Communities() {
+    _listenToCommunities(_service.getFirst10Communities());
+  }
+
+  void loadCommunitiesLimited({int limit = 20}) {
+    _listenToCommunities(_service.getCommunitiesLimited(limit: limit));
+  }
+
+  void loadCommunitiesByIds(List<String> communityIds) {
+    _listenToCommunities(_service.getCommunitiesByIds(communityIds));
+  }
+
+  void loadCommunitiesByCategory(String category) {
+    _listenToCommunities(_service.getCommunitiesByCategory(category));
+  }
+
+  void loadMyCommunities() {
+    _listenToMyCommunities(_service.getMyCommunities());
+  }
+
+  Future<bool> checkIsMember(String communityId) =>
+      _service.checkIsMember(communityId);
+
+  Future<CommunityModel?> fetchCommunity(String communityId) {
+    return _service.getCommunity(communityId);
+  }
+
+  // ── Active community ───────────────────────────────────────────────────────
+
+  void setActiveCommunity(CommunityModel community) {
+    activeCommunity = community;
+
+    _messagesSub?.cancel();
+    _membersSub?.cancel();
+
+    _messagesSub = _service.getMessages(community.id).listen(
+      (list) {
+        messages = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+
+    _membersSub = _service.getMembers(community.id).listen(
+      (list) {
+        members = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+
     notifyListeners();
   }
 
-  /// Removes a community from My Club (works for both created and joined).
-  void leaveCommunity(String communityName) {
-    _created.removeWhere((c) => c.name == communityName);
-    _joined.removeWhere((c) => c.name == communityName);
-    CommunityService.leaveCommunity(communityName);
+  void clearActiveCommunity() {
+    activeCommunity = null;
+    messages = [];
+    members = [];
+    _messagesSub?.cancel();
+    _membersSub?.cancel();
     notifyListeners();
   }
 
-  /// Updates an existing community matched by [currentName].
-  void updateCommunity(String currentName, CommunityModel updated) {
-    final ci = _created.indexWhere((c) => c.name == currentName);
-    if (ci != -1) {
-      _created[ci] = updated;
-      CommunityService.updateCommunity(currentName, updated);
+  // ── Community actions ──────────────────────────────────────────────────────
+
+  Future<void> editCommunity(
+    String communityId,
+    Map<String, dynamic> data,
+  ) =>
+      _run(() => _service.editCommunity(communityId, data));
+
+  Future<void> joinCommunity(String communityId) =>
+      _run(() => _service.joinCommunity(communityId));
+
+  Future<void> leaveCommunity(String communityId) =>
+      _run(() async {
+        await _service.leaveCommunity(communityId);
+        if (activeCommunity?.id == communityId) clearActiveCommunity();
+      });
+
+  Future<void> addCommunity({
+    required String communityName,
+    required List<String> category,
+    required String description,
+    required List<RuleModel> rules,
+    Uint8List? coverImageBytes,
+  }) =>
+      _run(() => _service.createCommunity(
+            communityName: communityName,
+            category: category,
+            description: description,
+            rules: rules,
+            coverImageBytes: coverImageBytes,
+          ));
+
+  // ── Member actions ─────────────────────────────────────────────────────────
+
+  Future<void> editMember(
+    String communityId,
+    String userId,
+    String newRole,
+  ) =>
+      _run(() => _service.editMember(communityId, userId, newRole));
+
+  // ── Message actions ────────────────────────────────────────────────────────
+
+  Future<void> sendMessage(
+    String communityId, {
+    required String text,
+    String imageURL = '',
+    String? replyToId,
+    String? replyToSenderName,
+    String? replyToText,
+  }) =>
+      _run(() => _service.sendMessage(
+            communityId,
+            text: text,
+            imageURL: imageURL,
+            replyToId: replyToId,
+            replyToSenderName: replyToSenderName,
+            replyToText: replyToText,
+          ));
+
+  Future<void> sendImageMessage(String communityId, Uint8List bytes) async {
+    isUploading = true;
+    error = null;
+    notifyListeners();
+    try {
+      await _service.sendImageMessage(communityId, bytes: bytes);
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isUploading = false;
       notifyListeners();
-      return;
     }
-    final ji = _joined.indexWhere((c) => c.name == currentName);
-    if (ji != -1) {
-      _joined[ji] = updated;
-      CommunityService.updateCommunity(currentName, updated);
+  }
+
+  Future<void> markMessageSeen(String communityId, String messageId) =>
+      _run(() => _service.markMessageSeen(communityId, messageId));
+
+  // ── Helper ─────────────────────────────────────────────────────────────────
+
+  Future<void> _run(Future<void> Function() action) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+    try {
+      await action();
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isLoading = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _communitiesSub?.cancel();
+    _myCommunitiesSub?.cancel();
+    _messagesSub?.cancel();
+    _membersSub?.cancel();
+    super.dispose();
   }
 }

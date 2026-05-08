@@ -1,61 +1,117 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// TODO: Replace stubs with real API calls.
-/// Backend team: implement these methods.
 class AuthService {
-  /// TODO: POST /api/auth/login
-  static Future<Map<String, dynamic>> login(
-      String email, String password) async {
-    return {};
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  ///  Sign Up
+  Future<User> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+    required String phoneNumber,
+    required List<String> interests,
+    required String bio,
+    required String? photoURL,
+  }) async {
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = credential.user!;
+      await _db.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'displayName': displayName,
+        'email': email,
+        'phoneNumber': phoneNumber,
+        'photoURL': photoURL ?? '',
+        'bio': bio,
+        'interests': interests,
+        'role': 'user',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      return credential.user!;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
   }
 
-  /// TODO: POST /api/auth/signup
-  static Future<Map<String, dynamic>> signup(
-      String email, String password) async {
-    return {};
+  ///  Sign In
+  Future<UserCredential> signIn({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      return await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapError(e.code));
+    }
   }
 
-  /// TODO: POST /api/auth/verify-phone
-  static Future<void> verifyPhone(String phoneNumber) async {}
-
-  /// TODO: POST /api/auth/verify-otp
-  static Future<bool> verifyOtp(String otp) async {
-    return true;
+  /// 🚪 Sign Out
+  Future<void> signOut() async {
+    await _auth.signOut();
   }
 
-  /// TODO: POST /api/auth/logout
-  static Future<void> logout() async {}
+  /// 👤 Current user stream
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  /// 📱 Phone verification (basic)
+  Future<void> verifyPhone({
+    required String phoneNumber,
+    required Function(String verificationId) codeSent,
+  }) async {
+    await _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await _auth.signInWithCredential(credential);
+      },
+      verificationFailed: (e) {
+        throw Exception(e.message);
+      },
+      codeSent: (verificationId, _) {
+        codeSent(verificationId);
+      },
+      codeAutoRetrievalTimeout: (_) {},
+    );
+  }
+
+  /// 🔢 Confirm OTP
+  Future<void> confirmOtp({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: smsCode,
+    );
+
+    await _auth.signInWithCredential(credential);
+  }
 }
 
-// TODO: Add google-services.json to android/app/ folder
-class GoogleAuthService {
-  static final _googleSignIn = GoogleSignIn();
+class AuthException implements Exception {
+  final String message;
+  AuthException(this.message);
+}
 
-  // IMPORTANT: Add your debug SHA-1 to Firebase Console → Project Settings → Android App
-  // Run: cd android && ./gradlew signingReport to get your SHA-1
-  static Future<GoogleSignInAccount?> signInWithGoogle() async {
-    try {
-      await _googleSignIn.signOut();
-      return await _googleSignIn.signIn();
-    } catch (e, stackTrace) {
-      // ignore: avoid_print
-      print('Google Sign-In Error: $e');
-      // ignore: avoid_print
-      print('Stack trace: $stackTrace');
-      if (e is PlatformException) {
-        debugPrint('Google Sign-In PlatformException: code=${e.code} message=${e.message}');
-        // DEVELOPER_ERROR (code 10) means google-services.json is missing or SHA-1 is not registered
-        if (e.code == 'sign_in_failed' ||
-            (e.message?.contains('DEVELOPER_ERROR') ?? false) ||
-            (e.message?.contains(': 10') ?? false)) {
-          throw Exception(
-            'Google Sign-In is not configured. Please add google-services.json',
-          );
-        }
-      }
-      rethrow;
-    }
+String _mapError(String code) {
+  switch (code) {
+    case 'user-not-found':
+      return 'No user found with this email';
+    case 'wrong-password':
+      return 'Incorrect password';
+    case 'invalid-email':
+      return 'Invalid email format';
+    default:
+      return 'Something went wrong';
   }
 }

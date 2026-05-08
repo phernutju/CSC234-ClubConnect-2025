@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
 import '../widgets/step_progress_bar.dart';
 import '../widgets/primary_button.dart';
 
+/// Step 3 of 4: user enters the 4-digit SMS code they received.
+/// Automatically moves focus to the next digit box when a digit is typed.
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
 
@@ -41,59 +42,37 @@ class _OtpScreenState extends State<OtpScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        minimum: const EdgeInsets.only(top: 16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 48),
+              const SizedBox(height: AppSizes.paddingM),
+
+              // Step indicator: 3 of 4 filled
               const StepProgressBar(currentStep: 3),
               const SizedBox(height: AppSizes.paddingL),
 
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: const Icon(Icons.arrow_back, color: AppColors.textDark),
-              ),
+              // Back arrow
+              _BackButton(),
               const SizedBox(height: AppSizes.paddingM),
 
               // "Enter " (black) + "OTP" (italic coral)
-              RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: AppStrings.otpHeading,
-                      style: AppTextStyles.title(
-                        fontSize: 36.0,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    TextSpan(
-                      text: AppStrings.otpHeadingAccent,
-                      style: AppTextStyles.title(
-                        fontSize: 36.0,
-                        fontWeight: FontWeight.w400,
-                        fontStyle: FontStyle.italic,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _OtpHeading(),
               const SizedBox(height: AppSizes.paddingS),
 
+              // Subtitle explanation
               Text(
                 AppStrings.otpSubtitle,
                 style: AppTextStyles.body(
-                  fontSize: 14.0,
-                  fontWeight: FontWeight.w400,
+                  fontSize: AppSizes.fontS,
                   color: AppColors.textGray,
                   height: 1.5,
                 ),
               ),
               const SizedBox(height: AppSizes.paddingXL),
 
+              // Row of 4 digit input boxes
               _OtpBoxRow(
                 controllers: _controllers,
                 focusNodes: _focusNodes,
@@ -101,9 +80,12 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
               const SizedBox(height: AppSizes.paddingM),
 
+              // "Didn't receive code? Resend now"
               _ResendRow(),
-              const SizedBox(height: AppSizes.paddingXL),
 
+              const Spacer(),
+
+              // Next button
               PrimaryButton(label: AppStrings.otpNext, onPressed: _onNext),
               const SizedBox(height: AppSizes.paddingXL),
             ],
@@ -114,6 +96,43 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 }
 
+// ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+class _BackButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.pop(),
+      child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+    );
+  }
+}
+
+/// "Enter " in bold black + "OTP" in italic coral side-by-side.
+class _OtpHeading extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: AppStrings.otpHeading,
+            style: AppTextStyles.title(color: AppColors.textDark),
+          ),
+          TextSpan(
+            text: AppStrings.otpHeadingAccent,
+            style: AppTextStyles.title(
+              fontStyle: FontStyle.italic,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Four square digit input boxes in a horizontal row.
 class _OtpBoxRow extends StatelessWidget {
   final List<TextEditingController> controllers;
   final List<FocusNode> focusNodes;
@@ -141,24 +160,25 @@ class _OtpBoxRow extends StatelessWidget {
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
               maxLength: 1,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) => onChanged(v, i),
               style: AppTextStyles.body(
                 fontSize: AppSizes.fontXL,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 counterText: '',
-                filled: true,
-                fillColor: Colors.white,
+                filled: false,
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                  borderSide: const BorderSide(color: AppColors.inputBorder),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide(color: Color(0xFFFF6B4A), width: 2),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -169,6 +189,7 @@ class _OtpBoxRow extends StatelessWidget {
   }
 }
 
+/// "Didn't receive code?" + tappable "Resend now" in coral.
 class _ResendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -179,8 +200,7 @@ class _ResendRow extends StatelessWidget {
           Text(
             AppStrings.otpNoCode,
             style: AppTextStyles.body(
-              fontSize: AppSizes.fontXS,
-              fontWeight: FontWeight.w400,
+              fontSize: AppSizes.fontS,
               color: AppColors.textGray,
             ),
           ),
@@ -191,9 +211,9 @@ class _ResendRow extends StatelessWidget {
             child: Text(
               AppStrings.otpResend,
               style: AppTextStyles.body(
-                fontSize: AppSizes.fontXS,
-                fontWeight: FontWeight.w700,
+                fontSize: AppSizes.fontS,
                 color: AppColors.primary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

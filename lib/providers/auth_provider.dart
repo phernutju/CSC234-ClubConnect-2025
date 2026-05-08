@@ -1,50 +1,101 @@
-import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 
-/// Wraps all authentication service calls.
-/// Screens call this provider — never the service directly.
-class AuthProvider extends ChangeNotifier {
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+class AppAuthProvider extends ChangeNotifier {
+  final AuthService _authService = AuthService();
 
-  Future<GoogleSignInAccount?> signInWithGoogle() async {
-    _isLoading = true;
+  User? user;
+  bool isLoading = false;
+
+  String? _email;
+  String? _password;
+  String? _displayName;
+  String? _phone;
+  String? _bio;
+  List<String>? _tags;
+  String? _photoURL;
+
+  AppAuthProvider() {
+    _authService.authStateChanges.listen((u) {
+      user = u;
+      notifyListeners();
+    });
+  }
+
+  void setEmailPassword(String email, String password) {
+    _email = email;
+    _password = password;
+  }
+
+  void setPhoneNumber(String phonenum) {
+    _phone = phonenum;
+  }
+
+  void setExtraInfo(String photoURL, String displayName, String bio) {
+    _photoURL = photoURL;
+    _displayName = displayName;
+    _bio = bio;
+  }
+
+  void setInterests(List<String> tags) {
+    _tags = tags;
+  }
+
+  Future<void> signUp() async {
+    isLoading = true;
     notifyListeners();
+    if (_email == null || _password == null || _displayName == null) {
+      throw Exception('Missing required signup data');
+    }
+    await _authService.signUp(
+      email: _email!,
+      password: _password!,
+      displayName: _displayName!,
+      phoneNumber: _phone ?? '',
+      interests: _tags ?? [],
+      bio: _bio ?? '',
+      photoURL: _photoURL ?? '',
+    );
+
+    isLoading = false;
+    notifyListeners();
+
+    _clearSignupData();
+  }
+
+   Future<void> signIn({
+    required String email,
+    required String password,
+  }) async {
+    isLoading = true;
+    notifyListeners();
+
     try {
-      return await GoogleAuthService.signInWithGoogle();
+      final credential = await _authService.signIn(
+        email: email,
+        password: password,
+      );
+      user = credential.user;
     } finally {
-      _isLoading = false;
+      isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      return await AuthService.login(email, password);
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  Future<void> signOut() async {
+    await _authService.signOut();
   }
 
-  Future<Map<String, dynamic>> signup(String email, String password) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      return await AuthService.signup(email, password);
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  void _clearSignupData() {
+    _email = null;
+    _password = null;
+    _displayName = null;
+    _phone = null;
+    _tags = null;
+    _bio = null;
+    _photoURL = null;
   }
 
-  Future<void> verifyPhone(String phoneNumber) =>
-      AuthService.verifyPhone(phoneNumber);
 
-  Future<bool> verifyOtp(String otp) => AuthService.verifyOtp(otp);
-
-  Future<void> logout() => AuthService.logout();
 }
