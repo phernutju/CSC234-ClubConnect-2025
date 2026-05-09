@@ -15,6 +15,13 @@ import '../features/home/screens/other_profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
 import '../features/community/screens/edit_community_screen.dart';
+import '../features/community/screens/events_screen.dart';
+import '../features/community/screens/create_event_screen.dart';
+import '../features/community/screens/event_detail_screen.dart';
+import '../features/community/screens/event_chat_screen.dart';
+import '../features/community/screens/edit_event_screen.dart';
+import '../models/event_model.dart';
+import '../models/event_chat_args.dart';
 import '../features/admin/screens/admin_reports_screen.dart';
 import '../features/admin/screens/admin_report_detail_screen.dart';
 import '../models/chat_args.dart';
@@ -132,6 +139,52 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           return EditCommunityScreen(community: community);
         },
       ),
+      GoRoute(
+        path: '/events',
+        builder: (context, state) {
+          final args = state.extra as ChatArgs?;
+          return EventsScreen(
+            communityId: args?.communityId ?? '',
+            communityName: args?.communityName ?? AppStrings.chatCommunityName,
+            memberCount: args?.memberCount ?? '',
+          );
+        },
+      ),
+      GoRoute(
+        path: '/create-event',
+        builder: (context, state) {
+          final communityId = state.extra as String? ?? '';
+          return CreateEventScreen(communityId: communityId);
+        },
+      ),
+      GoRoute(
+        path: '/edit-event',
+        builder: (context, state) {
+          final event = state.extra as EventModel?;
+          if (event == null) return const SizedBox.shrink();
+          return EditEventScreen(event: event);
+        },
+      ),
+      GoRoute(
+        path: '/event-detail',
+        builder: (context, state) {
+          final event = state.extra as EventModel?;
+          if (event == null) return const SizedBox.shrink();
+          return EventDetailScreen(event: event);
+        },
+      ),
+      GoRoute(
+        path: '/event-chat',
+        builder: (context, state) {
+          final args = state.extra as EventChatArgs?;
+          if (args == null) return const SizedBox.shrink();
+          return EventChatScreen(
+            event: args.event,
+            memberCount: args.memberCount,
+          );
+        },
+      ),
+
       // ── Admin routes ──────────────────────────────────────────────────────────
       GoRoute(
         path: '/admin',

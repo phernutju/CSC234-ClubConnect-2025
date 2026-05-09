@@ -551,6 +551,31 @@ class AppStrings {
       'I accept the rules and the consequences for breaking them.';
   static const String rulesJoinButton  = 'Join';
 
+  // Events screen
+  static const String eventsEmpty        = 'No events yet';
+  static const String eventsMaxMembers   = 'Max members:';
+
+  // Create Event screen
+  static const String createEventTitle        = 'Events';
+  static const String createEventName        = 'Event Name';
+  static const String createEventNameHint    = 'Enter Event Name';
+  static const String createEventHostName    = 'Host Name';
+  static const String createEventHostNameHint = 'Enter Host Name';
+  static const String createEventDate        = 'DATE';
+  static const String createEventDateHint    = 'DD/MM/YYYY';
+  static const String createEventTime        = 'TIME';
+  static const String createEventTimeHint    = '00:00 AM';
+  static const String createEventLocation    = 'Location';
+  static const String createEventLocationHint = "Enter Event's location";
+  static const String createEventDetail      = 'Event Detail';
+  static const String createEventDetailHint  = 'Enter Event description';
+  static const String createEventMembers     = 'Members';
+  static const String createEventButton      = 'Create';
+  static const String createEventSuccess     = 'Event created!';
+  static const String createEventCoverHint    = 'Tap to add cover image';
+  static const String createEventErrName     = 'Please enter an event name';
+  static const String createEventErrDate     = 'Please select a date';
+
   // Member sheet
   static const String membersEmpty       = 'No members yet';
   static const String memberRoleCreator  = 'Creator';

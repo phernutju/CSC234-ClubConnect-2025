@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/chat_args.dart';
 import '../../../models/message_model.dart';
 import '../../../models/profile_args.dart';
 import '../../../providers/auth_provider.dart';
@@ -261,7 +262,21 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _onEvents() => setState(() => _menuOpen = false);
+  void _onEvents() {
+    setState(() => _menuOpen = false);
+    final cp = context.read<CommunityProvider>();
+    final memberCount = cp.members.isNotEmpty
+        ? cp.members.length.toString()
+        : widget.memberCount;
+    context.push(
+      '/events',
+      extra: ChatArgs(
+        communityId: widget.communityId,
+        communityName: widget.communityName,
+        memberCount: memberCount,
+      ),
+    );
+  }
 
   // ── Build ────────────────────────────────────────────────────────────────────
 
@@ -550,7 +565,7 @@ class _ChatMenuBar extends StatelessWidget {
                 onTap: onInfo,
               ),
               _MenuItem(
-                icon: Icons.event_outlined,
+                icon: Icons.local_activity,
                 label: AppStrings.chatMenuEvents,
                 onTap: onEvents,
               ),
