@@ -177,6 +177,9 @@ class CommunityProvider extends ChangeNotifier {
         if (activeCommunity?.id == communityId) clearActiveCommunity();
       });
 
+  Future<void> kickMember(String communityId, String userId) =>
+      _run(() => _service.kickMember(communityId, userId));
+
   Future<void> addCommunity({
     required String communityName,
     required List<String> category,

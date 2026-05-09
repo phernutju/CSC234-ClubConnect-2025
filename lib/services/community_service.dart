@@ -254,6 +254,17 @@ class CommunityService {
     await batch.commit();
   }
 
+  Future<void> kickMember(String communityId, String userId) async {
+    _requireAuth();
+    final batch = _db.batch();
+    batch.delete(_members(communityId).doc(userId));
+    batch.update(_communities.doc(communityId), {
+      'memberCount': FieldValue.increment(-1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
   Stream<List<MemberModel>> getMembers(String communityId) {
     return _members(communityId).snapshots().map(
       (snap) => snap.docs

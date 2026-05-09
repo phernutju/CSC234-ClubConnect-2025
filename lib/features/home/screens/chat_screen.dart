@@ -8,6 +8,7 @@ import '../../../models/profile_args.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../widgets/community_info_modal.dart';
+import '../widgets/members_sheet.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';
@@ -246,6 +247,22 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _onShowMembers() {
+    setState(() => _menuOpen = false);
+    final cp = context.read<CommunityProvider>();
+    final community = cp.communities.where((c) => c.id == widget.communityId).firstOrNull;
+    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
+    showMembersBottomSheet(
+      context,
+      communityId: widget.communityId,
+      communityName: widget.communityName,
+      currentUid: currentUid,
+      creatorId: community?.createdById ?? '',
+    );
+  }
+
+  void _onEvents() => setState(() => _menuOpen = false);
+
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
@@ -343,6 +360,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 onInfo: _onInfo,
                 onMute: _onMute,
                 onLeave: _onLeave,
+                onShowMembers: _onShowMembers,
+                onEvents: _onEvents,
               ),
             ),
         ],
@@ -478,37 +497,64 @@ class _ChatMenuBar extends StatelessWidget {
   final VoidCallback onInfo;
   final VoidCallback onMute;
   final VoidCallback onLeave;
+  final VoidCallback onShowMembers;
+  final VoidCallback onEvents;
 
   const _ChatMenuBar({
     required this.muted,
     required this.onInfo,
     required this.onMute,
     required this.onLeave,
+    required this.onShowMembers,
+    required this.onEvents,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: AppSizes.chatMenuHeight,
       color: AppColors.primary,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _MenuItem(
-            icon: Icons.description_outlined,
-            label: AppStrings.chatMenuInfo,
-            onTap: onInfo,
+          // Row 1: Mute · Members · Leave
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _MenuItem(
+                icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+                label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
+                onTap: onMute,
+              ),
+              _MenuItem(
+                icon: Icons.group_outlined,
+                label: AppStrings.chatMenuMembers,
+                onTap: onShowMembers,
+              ),
+              _MenuItem(
+                icon: Icons.exit_to_app,
+                label: AppStrings.chatMenuLeave,
+                onTap: onLeave,
+              ),
+            ],
           ),
-          _MenuItem(
-            icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
-            label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
-            onTap: onMute,
-          ),
-          _MenuItem(
-            icon: Icons.exit_to_app,
-            label: AppStrings.chatMenuLeave,
-            onTap: onLeave,
+          const SizedBox(height: 8),
+          // Row 2: Info · Events
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _MenuItem(
+                icon: Icons.description_outlined,
+                label: AppStrings.chatMenuInfo,
+                onTap: onInfo,
+              ),
+              _MenuItem(
+                icon: Icons.event_outlined,
+                label: AppStrings.chatMenuEvents,
+                onTap: onEvents,
+              ),
+            ],
           ),
         ],
       ),

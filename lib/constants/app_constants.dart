@@ -137,6 +137,21 @@ class AppColors {
 
   /// Host info card — rating score text
   static const Color hostRatingColor = Color(0xFF6B5F66);
+
+  // Member sheet
+  static const Color memberLightBg    = Color(0xFFFAFAFA);
+  static const Color memberSheetHandle = Color(0xFFDDDDDD);
+  static const Color memberCloseBtnBg  = Color(0xFFF2F2F2);
+  static const Color memberRoleText    = Color(0xFF888888);
+  static const Color memberAdminRowBg  = Color(0xFFFFF3EF);
+  static const Color memberRowDivider  = Color(0xFFEEEEEE);
+  static const Color onlineDot         = Color(0xFF4CAF50);
+  static const Color memberKickBtnBg   = Color(0xFFFFEEEE);
+  static const Color kickButton        = Color(0xFFFF4444);
+  static const Color kickModalCircle   = Color(0xFFFFEEEE);
+  static const Color kickModalNameGray = Color(0xFF888888);
+  static const Color kickModalNo       = Color(0xFFF2F2F2);
+  static const Color kickModalYes      = Color(0xFFFF4444);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -299,6 +314,14 @@ class AppSizes {
 
   /// Blur sigma for BackdropFilter on liquid glass cards
   static const double glassBlurSigma = 15.0;
+
+  // Member sheet
+  static const double memberAvatarSize    = 44.0;
+  static const double memberSheetRadius   = 20.0;
+  static const double memberCloseBtnSize  = 32.0;
+  static const double memberOnlineDotSize =  9.0;
+  static const double memberKickBtnSize   = 32.0;
+  static const double memberKickBtnRadius =  8.0;
 }
 
 // ─── String Constants ─────────────────────────────────────────────────────────
@@ -396,6 +419,8 @@ class AppStrings {
   static const String chatMenuMute        = 'Mute';
   static const String chatMenuUnmute      = 'Unmute';
   static const String chatMenuLeave       = 'leave';
+  static const String chatMenuMembers     = 'Members';
+  static const String chatMenuEvents      = 'Events';
   static const String chatLeaveTitle      = 'Leave this community?';
   static const String chatLeaveYes        = 'Yes';
   static const String chatLeaveNo         = 'No';
@@ -525,6 +550,16 @@ class AppStrings {
   static const String rulesAcceptLabel =
       'I accept the rules and the consequences for breaking them.';
   static const String rulesJoinButton  = 'Join';
+
+  // Member sheet
+  static const String membersEmpty       = 'No members yet';
+  static const String memberRoleCreator  = 'Creator';
+  static const String memberRoleAdmin    = 'Admin';
+  static const String memberRoleMember   = 'Member';
+  static const String memberKickedToast  = 'has been removed';
+  static const String kickConfirmTitle   = 'Remove member?';
+  static const String kickConfirmNo      = 'Cancel';
+  static const String kickConfirmYes     = 'Remove';
 }
 
 // ─── Text Styles ──────────────────────────────────────────────────────────────
