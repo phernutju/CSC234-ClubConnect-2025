@@ -317,7 +317,7 @@ class _ImageContent extends StatelessWidget {
         width: targetWidth,
         fit: BoxFit.cover,
         // Show a grey placeholder if the bytes can't be decoded
-        errorBuilder: (_, _, _) => Container(
+        errorBuilder: (_, __, ___) => Container(
           width: targetWidth,
           height: AppSizes.chatImageMaxHeight,
           color: AppColors.inputFill,

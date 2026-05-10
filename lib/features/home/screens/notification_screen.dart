@@ -34,7 +34,7 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedNames = context.watch<CommunityProvider>().mutedCommunityNames; // Get muted community names from provider mock data
+    final mutedNames = context.watch<CommunityProvider>().mutedCommunityNames;
 
     // Filter out notifications from muted communities
     final visible = _allNotifications

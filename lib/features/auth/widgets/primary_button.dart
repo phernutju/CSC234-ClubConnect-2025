@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 
 /// Full-width pill-shaped button used as the primary action on every screen.
-///
-/// Defaults to the app's coral primary color with white text.
-/// Pass [backgroundColor] and [textColor] to override for special cases.
 class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -36,11 +33,7 @@ class PrimaryButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontL,
-            fontWeight: FontWeight.w600,
-            color: AppColors.cardWhite,
-          ),
+          style: AppTextStyles.button(color: textColor),
         ),
       ),
     );

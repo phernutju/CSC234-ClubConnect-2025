@@ -119,9 +119,8 @@ class ProfileService {
         .map((doc) => ReviewModel.fromJson(doc.id, doc.data()))
         .toList();
     final average = reviews.isEmpty
-    ? 0.0
-    : reviews.fold<double>(0, (acc, r) => acc + r.score) /
-        reviews.length;
+        ? 5.0
+        : reviews.fold<double>(0, (acc, r) => acc + r.score) / reviews.length;
     return ReviewsResult(reviews: reviews, averageScore: average);
   }
 

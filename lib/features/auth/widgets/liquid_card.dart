@@ -1,47 +1,39 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 
-/// Frosted-glass card that "floats" over the cream background on auth screens.
-///
-/// ClipRRect clips the blur region to rounded top corners. BackdropFilter blurs
-/// the background behind the card. The semi-transparent white container with a
-/// white border completes the liquid glass look.
+/// Solid card that sits at the bottom of auth screens over the background image.
+/// Rounded top corners of 30px to match Figma design.
 class LiquidCard extends StatelessWidget {
   final Widget child;
   final double horizontalPadding;
+  final Color? color;
+  final EdgeInsetsGeometry? padding;
 
   const LiquidCard({
     super.key,
     required this.child,
     this.horizontalPadding = AppSizes.paddingL,
+    this.color,
+    this.padding,
   });
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(
-        top: Radius.circular(AppSizes.radiusXL),
+        top: Radius.circular(30),
       ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: AppSizes.glassBlurSigma,
-          sigmaY: AppSizes.glassBlurSigma,
-        ),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppColors.glassBackground,
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            AppSizes.paddingXL,
-            horizontalPadding,
-            AppSizes.paddingXXL,
-          ),
-          child: child,
-        ),
+      child: Container(
+        width: double.infinity,
+        color: color ?? AppColors.cardWhite,
+        padding: padding ??
+            EdgeInsets.fromLTRB(
+              horizontalPadding,
+              AppSizes.paddingXL,
+              horizontalPadding,
+              AppSizes.paddingXXL,
+            ),
+        child: child,
       ),
     );
   }

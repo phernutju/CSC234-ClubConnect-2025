@@ -28,6 +28,8 @@ class CommunityProvider extends ChangeNotifier {
 
   Set<String> get mutedCommunityNames => Set.unmodifiable(_mutedCommunities);
 
+  bool isMuted(String communityId) => _mutedCommunities.contains(communityId);
+
   void toggleMute(String communityId) {
     if (_mutedCommunities.contains(communityId)) {
       _mutedCommunities.remove(communityId);
@@ -176,6 +178,9 @@ class CommunityProvider extends ChangeNotifier {
         if (activeCommunity?.id == communityId) clearActiveCommunity();
       });
 
+  Future<void> kickMember(String communityId, String userId) =>
+      _run(() => _service.kickMember(communityId, userId));
+
   Future<void> addCommunity({
     required String communityName,
     required List<CategoryModel> category,
@@ -206,11 +211,17 @@ class CommunityProvider extends ChangeNotifier {
     String communityId, {
     required String text,
     String imageURL = '',
+    String? replyToId,
+    String? replyToSenderName,
+    String? replyToText,
   }) =>
       _run(() => _service.sendMessage(
             communityId,
             text: text,
             imageURL: imageURL,
+            replyToId: replyToId,
+            replyToSenderName: replyToSenderName,
+            replyToText: replyToText,
           ));
 
   Future<void> sendImageMessage(String communityId, Uint8List bytes) async {

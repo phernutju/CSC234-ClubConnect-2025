@@ -34,7 +34,7 @@ class EventService {
     required String title,
     required String description,
     required List<CategoryModel> tags,
-    required Timestamp date,
+    required Timestamp startDate,
     required Timestamp endDate,
     required String roomId,
     String? imageUrl,
@@ -42,17 +42,18 @@ class EventService {
   }) async {
     final user = _requireAuth();
     final eventRef = _events(communityId).doc();
-
+    final createdAt = FieldValue.serverTimestamp();
     await eventRef.set({
       'title': title,
       'description': description,
       'imageUrl': imageUrl,
+      'createdAt': createdAt,
       'createdBy': user.uid,
       'attendees': [user.uid],
       'tags': tags.map((t) => t.toJson()).toList(),
       'roomId': roomId,
       'maxAttendees': maxAttendees,
-      'date': date,
+      'startDate': startDate,
       'endDate': endDate,
     });
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
@@ -55,6 +56,7 @@ class _OtpScreenState extends State<OtpScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
+        minimum: const EdgeInsets.only(top: 16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
           child: Column(
@@ -70,7 +72,8 @@ class _OtpScreenState extends State<OtpScreen> {
               Text(
                 AppStrings.otpSubtitle,
                 style: AppTextStyles.body(
-                  fontSize: AppSizes.fontS,
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w400,
                   color: AppColors.textGray,
                   height: 1.5,
                 ),
@@ -176,25 +179,24 @@ class _OtpBoxRow extends StatelessWidget {
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
               maxLength: 1,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) => onChanged(v, i),
               style: AppTextStyles.body(
                 fontSize: AppSizes.fontXL,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 counterText: '',
-                filled: false,
+                filled: true,
+                fillColor: Colors.white,
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  borderSide: const BorderSide(color: AppColors.inputBorder),
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                  borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  borderSide: const BorderSide(
-                    color: AppColors.primary,
-                    width: 1.5,
-                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                  borderSide: BorderSide(color: Color(0xFFFF6B4A), width: 2),
                 ),
               ),
             ),
@@ -220,7 +222,8 @@ class _ResendRow extends StatelessWidget {
           Text(
             AppStrings.otpNoCode,
             style: AppTextStyles.body(
-              fontSize: AppSizes.fontS,
+              fontSize: AppSizes.fontXS,
+              fontWeight: FontWeight.w400,
               color: AppColors.textGray,
             ),
           ),

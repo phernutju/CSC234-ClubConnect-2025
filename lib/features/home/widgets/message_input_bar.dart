@@ -82,7 +82,6 @@ class MessageInputBar extends StatelessWidget {
               // Pill-shaped text field
               Expanded(
                 child: Container(
-                  height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.cardWhite,
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
@@ -96,7 +95,7 @@ class MessageInputBar extends StatelessWidget {
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.paddingM,
-                        vertical: 0,
+                        vertical: 12,
                       ),
                     ),
                   ),

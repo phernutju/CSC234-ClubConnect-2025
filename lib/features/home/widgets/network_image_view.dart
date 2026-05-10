@@ -43,7 +43,7 @@ class NetworkImageView extends StatelessWidget {
           ),
         );
       },
-      errorBuilder: (_, error, _) {
+      errorBuilder: (_, __, ___) {
         return Container(
           width: width,
           height: height,

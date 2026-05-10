@@ -1,39 +1,47 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 
-/// Circular Google sign-in icon shown below the Next button on
-/// the Login and Sign-up screens.
-///
-/// The "G" logo is replicated with Flutter's built-in text styling
-/// since we don't bundle a custom SVG asset here.
+/// Circular Google sign-in button below the Next button on Login and Sign-up screens.
+/// Shows the Google 'G' in Google blue as a fallback logo (flutter_svg not available).
+/// Shows a loading spinner when [isLoading] is true.
 class GoogleSignInButton extends StatelessWidget {
   final VoidCallback? onPressed;
+  final bool isLoading;
 
-  const GoogleSignInButton({super.key, this.onPressed});
+  const GoogleSignInButton({
+    super.key,
+    this.onPressed,
+    this.isLoading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: GestureDetector(
-        onTap: onPressed,
+        onTap: isLoading ? null : onPressed,
         child: Container(
-          width: 44,
-          height: 44,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.inputBorder, width: 1.5),
-            color: AppColors.cardWhite,
+            border: Border.all(color: const Color(0xFFDDDDDD), width: 1),
+            color: Colors.white,
           ),
-          // Multicolor "G" text that approximates the Google logo
-          child: const Center(
-            child: Text(
-              'G',
-              style: TextStyle(
-                fontSize: AppSizes.fontL,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF4285F4), // Google blue
-              ),
-            ),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    ),
+                  )
+                : Image.asset(
+                    'assets/images/google_icon.png',
+                    width: 24,
+                    height: 24,
+                  ),
           ),
         ),
       ),

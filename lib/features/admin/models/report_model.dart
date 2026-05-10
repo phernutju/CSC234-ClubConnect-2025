@@ -12,7 +12,7 @@ class ContextMessage {
   });
 }
 
-class ReportModel {
+class AdminReportModel {
   final String id;
   final String aiDetectedLabel;
   final String category;
@@ -28,7 +28,7 @@ class ReportModel {
   final String source;
   final List<ContextMessage> contextMessages;
 
-  const ReportModel({
+  const AdminReportModel({
     required this.id,
     required this.aiDetectedLabel,
     required this.category,
@@ -54,8 +54,8 @@ class ReportModel {
   }
 }
 
-final List<ReportModel> mockReports = const [
-  ReportModel(
+final List<AdminReportModel> mockReports = const [
+  AdminReportModel(
     id: 'R-001',
     aiDetectedLabel: 'AI detected',
     category: 'Hate Speech',
@@ -76,7 +76,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'username1', message: 'shitty ass gamepaly go to hell ggez', time: '10:36', isReported: true),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-002',
     aiDetectedLabel: 'AI detected',
     category: 'Harassment',
@@ -96,7 +96,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'Player1', message: 'That is really rude...', time: '14:22', isReported: false),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-003',
     aiDetectedLabel: 'AI detected',
     category: 'Spam',
@@ -116,7 +116,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'Moderator1', message: 'Please stop spamming', time: '09:11', isReported: false),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-004',
     aiDetectedLabel: 'AI detected',
     category: 'Threat',
@@ -137,7 +137,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'Admin', message: 'This will be reported', time: '11:03', isReported: false),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-005',
     aiDetectedLabel: 'AI detected',
     category: 'Hate Speech',

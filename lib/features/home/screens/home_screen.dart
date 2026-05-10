@@ -22,7 +22,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
-  String? _selectedCategory; // null = All
+  String _searchQuery = '';
+  String? _selectedCategory;
 
   @override
   void initState() {
@@ -85,6 +86,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<CommunityModel> _filtered(List<CommunityModel> list) {
+    if (_searchQuery.isEmpty) return list;
+    final q = _searchQuery.toLowerCase();
+    return list
+        .where((c) =>
+            c.communityName.toLowerCase().contains(q) ||
+            c.description.toLowerCase().contains(q))
+        .toList();
+  }
+
   void _goToChat(CommunityModel community) {
     context.push(
       '/chat',
@@ -112,7 +123,14 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: AppSizes.paddingL),
               _WelcomeHeading(),
               const SizedBox(height: AppSizes.paddingM),
-              _SearchRow(onCreateTap: () => context.push('/create-community')),
+              _SearchRow(
+                onCreateTap: () => context.push('/create-community'),
+                onChanged: (q) => setState(() => _searchQuery = q),
+              ),
+              if (userInterests.isNotEmpty) ...[
+                const SizedBox(height: AppSizes.paddingM),
+                _CategoryRow(interests: userInterests),
+              ],  
               const SizedBox(height: AppSizes.paddingM),
               HomeTabBar(
                 selectedIndex: _selectedTab,
@@ -121,8 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   final provider = context.read<CommunityProvider>();
                   if (i == 1) {
                     provider.loadMyCommunities();
-                  } else if (_selectedCategory != null) {
-                    provider.loadCommunitiesByCategory(_selectedCategory!);
                   } else {
                     provider.loadCommunities();
                   }
@@ -156,7 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
 class _WelcomeHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final name = context.watch<AppAuthProvider>().user?.displayName ?? 'there';
+    final firestoreName = context.watch<ProfileProvider>().profile?.displayName ?? '';
+    final authName = context.watch<AppAuthProvider>().user?.displayName ?? '';
+    final name = firestoreName.isNotEmpty ? firestoreName
+        : authName.isNotEmpty ? authName
+        : 'there';
     return Text(
       '${AppStrings.homeWelcome}$name',
       style: AppTextStyles.title(color: AppColors.textDark),
@@ -166,8 +186,9 @@ class _WelcomeHeading extends StatelessWidget {
 
 class _SearchRow extends StatelessWidget {
   final VoidCallback onCreateTap;
+  final ValueChanged<String> onChanged;
 
-  const _SearchRow({required this.onCreateTap});
+  const _SearchRow({required this.onCreateTap, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -185,13 +206,23 @@ class _SearchRow extends StatelessWidget {
                 const SizedBox(width: AppSizes.paddingM),
                 const Icon(Icons.search, color: AppColors.textGray, size: 18),
                 const SizedBox(width: AppSizes.paddingS),
-                Text(
-                  AppStrings.homeSearchHint,
-                  style: AppTextStyles.body(
-                    color: AppColors.textGray,
-                    fontSize: AppSizes.fontM,
+                Expanded(
+                  child: TextField(
+                    onChanged: onChanged,
+                    decoration: InputDecoration(
+                      hintText: AppStrings.homeSearchHint,
+                      hintStyle: AppTextStyles.body(
+                        color: AppColors.textGray,
+                        fontSize: AppSizes.fontM,
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: AppTextStyles.body(fontSize: AppSizes.fontM),
                   ),
                 ),
+                const SizedBox(width: AppSizes.paddingS),
               ],
             ),
           ),
@@ -218,10 +249,43 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
+/// Horizontal scrollable row showing the user's interests from sign-up.
+class _CategoryRow extends StatelessWidget {
+  final List<String> interests;
+
+  static const List<Color> _colors = [
+    AppColors.categoryGreen,
+    AppColors.categoryBlue,
+    AppColors.categoryPurple,
+  ];
+
+  const _CategoryRow({required this.interests});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          for (int i = 0; i < interests.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSizes.paddingS),
+            CategoryTag(
+              label: interests[i],
+              color: _colors[i % _colors.length],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _TabContent extends StatelessWidget {
   final int selectedTab;
   final List<CommunityModel> communities;
   final List<CommunityModel> myCommunities;
+
   final String? selectedCategory;
   final ValueChanged<String> onCategoryChanged;
   final void Function(CommunityModel) onJoinTap;
@@ -232,11 +296,11 @@ class _TabContent extends StatelessWidget {
     required this.selectedTab,
     required this.communities,
     required this.myCommunities,
-    required this.selectedCategory,
-    required this.onCategoryChanged,
     required this.onJoinTap,
     required this.onDirectTap,
     required this.userInterests,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
   });
 
   @override
@@ -286,11 +350,37 @@ class _MyClubList extends StatelessWidget {
                     : c.description,
                 memberCount:
                     '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-                    
-                coverImageUrl: c.coverImageURL.isEmpty ? null : "",
+                coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
                 onTap: () => onTap(c),
               ))
           .toList(),
+    );
+  }
+}
+
+class _SelectableCategory extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SelectableCategory({
+    required this.label,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: isSelected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSizes.radiusM + 3),
+              border: Border.all(color: AppColors.primary, width: 3),
+            )
+          : null,
+      child: CategoryTag(label: label, color: color, onTap: onTap),
     );
   }
 }
@@ -355,33 +445,6 @@ class _DiscoverTab extends StatelessWidget {
         else
           ..._buildCommunityCards(filtered, onTap),
       ],
-    );
-  }
-}
-
-class _SelectableCategory extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SelectableCategory({
-    required this.label,
-    required this.color,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: isSelected
-          ? BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSizes.radiusM + 3),
-              border: Border.all(color: AppColors.primary, width: 3),
-            )
-          : null,
-      child: CategoryTag(label: label, color: color, onTap: onTap),
     );
   }
 }

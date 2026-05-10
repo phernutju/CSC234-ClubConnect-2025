@@ -254,6 +254,17 @@ class CommunityService {
     await batch.commit();
   }
 
+  Future<void> kickMember(String communityId, String userId) async {
+    _requireAuth();
+    final batch = _db.batch();
+    batch.delete(_members(communityId).doc(userId));
+    batch.update(_communities.doc(communityId), {
+      'memberCount': FieldValue.increment(-1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
   Stream<List<MemberModel>> getMembers(String communityId) {
     return _members(communityId).snapshots().map(
       (snap) => snap.docs
@@ -303,6 +314,9 @@ class CommunityService {
     String communityId, {
     required String text,
     String imageURL = '',
+    String? replyToId,
+    String? replyToSenderName,
+    String? replyToText,
   }) async {
     final user = _requireAuth();
     await _requireMemberDoc(communityId, user.uid);
@@ -318,6 +332,9 @@ class CommunityService {
       'imageURL': imageURL,
       'timestamp': FieldValue.serverTimestamp(),
       'seenBy': [user.uid],
+      if (replyToId != null) 'replyToId': replyToId,
+      if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
+      if (replyToText != null) 'replyToText': replyToText,
     });
   }
 

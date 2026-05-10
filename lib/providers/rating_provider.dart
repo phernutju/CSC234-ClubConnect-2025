@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import '../models/review_model.dart';
+import '../models/rating_model.dart';
+import '../services/rating_service.dart';
 
-/// Holds all submitted reviews in memory for the current session.
-class ReviewProvider extends ChangeNotifier {
-  final List<ReviewModel> _reviews = [];
+/// Holds all submitted ratings in memory for the current session.
+class RatingProvider extends ChangeNotifier {
+  final List<RatingModel> _ratings = [];
 
-  List<ReviewModel> get reviews => List.unmodifiable(_reviews);
+  List<RatingModel> get ratings => List.unmodifiable(_ratings);
 
-  void addReview(ReviewModel review) {
-    _reviews.add(review);
+  void addRating(RatingModel rating) {
+    _ratings.add(rating);
+    RatingService.addRating(rating);
     notifyListeners();
   }
 }

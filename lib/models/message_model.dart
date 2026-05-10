@@ -7,6 +7,9 @@ class MessageModel {
   final String imageURL;
   final DateTime timestamp;
   final List<String> seenBy;
+  final String? replyToId;
+  final String? replyToSenderName;
+  final String? replyToText;
 
   MessageModel({
     required this.id,
@@ -15,6 +18,9 @@ class MessageModel {
     required this.imageURL,
     required this.timestamp,
     required this.seenBy,
+    this.replyToId,
+    this.replyToSenderName,
+    this.replyToText,
   });
 
   factory MessageModel.fromJson(Map<String, dynamic> json, String id) {
@@ -25,6 +31,9 @@ class MessageModel {
       imageURL: (json['imageURL'] as String? ?? '').trim(),
       timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       seenBy: List<String>.from(json['seenBy'] ?? []),
+      replyToId: json['replyToId'] as String?,
+      replyToSenderName: json['replyToSenderName'] as String?,
+      replyToText: json['replyToText'] as String?,
     );
   }
 
@@ -35,6 +44,9 @@ class MessageModel {
       'imageURL': imageURL,
       'timestamp': Timestamp.fromDate(timestamp),
       'seenBy': seenBy,
+      if (replyToId != null) 'replyToId': replyToId,
+      if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
+      if (replyToText != null) 'replyToText': replyToText,
     };
   }
 }

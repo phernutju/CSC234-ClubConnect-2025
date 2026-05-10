@@ -138,6 +138,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         children: [
           _ProfileAppBar(
             title: displayName,
+            isEditing: _isEditing,
+            onBackTap: () => setState(() => _isEditing = false),
             onLogout: () async {
               await context.read<AppAuthProvider>().signOut();
             },
@@ -234,13 +236,19 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
 class _ProfileAppBar extends StatelessWidget {
   final String title;
+  final bool isEditing;
+  final VoidCallback? onBackTap;
   final Future<void> Function()? onLogout;
 
-  const _ProfileAppBar({required this.title, this.onLogout});
+  const _ProfileAppBar({
+    required this.title,
+    this.isEditing = false,
+    this.onBackTap,
+    this.onLogout,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final canGoBack = context.canPop();
     return Container(
       color: AppColors.primary,
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
@@ -250,10 +258,14 @@ class _ProfileAppBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(width: AppSizes.paddingM),
-            if (canGoBack)
+            if (isEditing)
               GestureDetector(
-                onTap: () => context.pop(),
-                child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+                onTap: onBackTap,
+                child: const Icon(
+                  Icons.arrow_back_ios,
+                  color: AppColors.cardWhite,
+                  size: AppSizes.iconSize,
+                ),
               )
             else
               const SizedBox(width: AppSizes.iconSize),
@@ -396,16 +408,13 @@ class _UserInfoRow extends StatelessWidget {
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingS,
                   vertical: AppSizes.paddingXS,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.inputBorder),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.inputBorder),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.primary),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
                 ),
               ),
             ),
@@ -424,23 +433,24 @@ class _UserInfoRow extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(width: AppSizes.paddingXS),
-        const Icon(
-          Icons.star,
-          color: AppColors.starColor,
-          size: AppSizes.starIconSize,
-        ),
-        const SizedBox(width: 2),
-        Text(
-          avgRating.toStringAsFixed(1),
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontTitle,
-            fontWeight: FontWeight.normal,
-            color: AppColors.textDark,
+        if (!isEditing) ...[
+          const SizedBox(width: AppSizes.paddingXS),
+          const Icon(
+            Icons.star,
+            color: AppColors.starColor,
+            size: AppSizes.starIconSize,
           ),
-        ),
-
-        const SizedBox(width: AppSizes.paddingS),
+          const SizedBox(width: 2),
+          Text(
+            avgRating.toStringAsFixed(1),
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontTitle,
+              fontWeight: FontWeight.normal,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(width: AppSizes.paddingS),
+        ],
 
         if (isEditing)
           GestureDetector(
@@ -531,14 +541,14 @@ class _BioField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.all(AppSizes.paddingS),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.inputBorder),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: AppSizes.paddingS,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.primary),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.inputBorder),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.primary),
         ),
       ),
     );
