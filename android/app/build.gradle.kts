@@ -40,6 +40,25 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    packaging {
+        jniLibs {
+            pickFirsts += setOf("**/*.so")
+        }
+        resources {
+            excludes += setOf(
+                "META-INF/**",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/*.kotlin_module",
+                "DebugProbesKt.bin",
+                "kotlin/**",
+            )
+        }
+    }
 }
 
 flutter {

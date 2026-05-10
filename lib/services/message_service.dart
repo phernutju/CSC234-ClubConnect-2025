@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/message_model.dart';
-import 'gemini_service.dart';
+import 'ai_service.dart';
 
 class MessageService {
   static final _db = FirebaseFirestore.instance;

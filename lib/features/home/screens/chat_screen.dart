@@ -7,6 +7,7 @@ import '../../../models/message_model.dart';
 import '../../../models/profile_args.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
+import '../../../services/message_service.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';
@@ -37,6 +38,8 @@ class _ChatScreenState extends State<ChatScreen> {
   ChatMessage? _replyingTo;
   bool _isSending = false;
   bool _isInitializing = true;
+  bool _isBanned = false;
+  DateTime? _banUntil;
 
   // Track which sender UIDs have already had a name fetch triggered.
   final Set<String> _fetchedUids = {};
@@ -67,6 +70,18 @@ class _ChatScreenState extends State<ChatScreen> {
       final community = await cp.fetchCommunity(widget.communityId);
       if (!mounted) return;
       if (community != null) cp.setActiveCommunity(community);
+
+      final uid = context.read<AppAuthProvider>().user?.uid;
+      if (uid != null) {
+        final banStatus = await MessageService.getBanStatus(uid);
+        if (mounted) {
+          setState(() {
+            _isBanned = banStatus.isBanned;
+            _banUntil = banStatus.bannedUntil;
+          });
+        }
+      }
+
       setState(() => _isInitializing = false);
     });
   }
@@ -113,7 +128,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendTextMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty || _isSending || _isBanned) return;
 
     final replySnapshot = _replyingTo;
     _inputController.clear();
@@ -123,15 +138,65 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      await context.read<CommunityProvider>().sendMessage(
-            widget.communityId,
-            text: text,
+      final cp = context.read<CommunityProvider>();
+      final rules = cp.activeCommunity?.rules
+              .map((r) => '- ${r.text}')
+              .join('\n') ??
+          '';
+
+      final result = await MessageService.sendMessage(
+        communityId: widget.communityId,
+        text: text,
+        communityRules: rules,
+      );
+
+      if (!mounted) return;
+
+      switch (result.status) {
+        case SendStatus.success:
+          _scrollToBottom();
+
+        case SendStatus.flagged:
+          setState(() => _replyingTo = replySnapshot);
+          if (result.newBan) {
+            setState(() {
+              _isBanned = true;
+              _banUntil = result.banUntil;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'ข้อความไม่เหมาะสม — คุณถูกระงับการส่งข้อความเป็นเวลา 24 ชั่วโมง'),
+                backgroundColor: AppColors.alertRed,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('ข้อความมีเนื้อหาไม่เหมาะสม ไม่สามารถส่งได้'),
+                backgroundColor: AppColors.alertRed,
+              ),
+            );
+          }
+
+        case SendStatus.banned:
+          setState(() {
+            _replyingTo = replySnapshot;
+            _isBanned = true;
+            _banUntil = result.banUntil;
+          });
+
+        case SendStatus.error:
+          setState(() => _replyingTo = replySnapshot);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result.errorMessage ?? 'ส่งข้อความไม่สำเร็จ')),
           );
-      _scrollToBottom();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send: $e')),
+        SnackBar(content: Text('ส่งข้อความไม่สำเร็จ: $e')),
       );
       setState(() => _replyingTo = replySnapshot);
     } finally {
@@ -307,6 +372,10 @@ class _ChatScreenState extends State<ChatScreen> {
           if (cp.error != null)
             _ErrorBanner(message: cp.error!),
 
+          // ── Ban banner ────────────────────────────────────────────────────
+          if (_isBanned)
+            _BanBanner(banUntil: _banUntil),
+
           // ── Message list ──────────────────────────────────────────────────
           Expanded(
             child: _buildMessageList(uiMessages, cp),
@@ -320,6 +389,7 @@ class _ChatScreenState extends State<ChatScreen> {
             replyToName: _replyingTo?.senderName,
             replyToText: _replyingTo?.text,
             onCancelReply: () => setState(() => _replyingTo = null),
+            enabled: !_isBanned,
           ),
         ],
       ),
@@ -468,6 +538,49 @@ class _ErrorBanner extends StatelessWidget {
           fontSize: AppSizes.fontXS,
           color: AppColors.alertRed,
         ),
+      ),
+    );
+  }
+}
+
+/// Red banner shown when the current user is banned from sending messages.
+class _BanBanner extends StatelessWidget {
+  final DateTime? banUntil;
+  const _BanBanner({this.banUntil});
+
+  String get _label {
+    if (banUntil == null) return 'คุณถูกระงับการส่งข้อความชั่วคราว';
+    final dt = banUntil!;
+    final date =
+        '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    final time =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    return 'คุณถูกระงับการส่งข้อความ — ระงับถึง $date เวลา $time น.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.alertRed,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingS,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.block, color: AppColors.cardWhite, size: 14),
+          const SizedBox(width: AppSizes.paddingS),
+          Expanded(
+            child: Text(
+              _label,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontXS,
+                color: AppColors.cardWhite,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
