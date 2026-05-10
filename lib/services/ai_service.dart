@@ -1,65 +1,333 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
+
+class ModerationResult {
+  final bool isViolating;
+  final List<int> violatedRules;
+  final String reason;
+
+  const ModerationResult({
+    required this.isViolating,
+    required this.violatedRules,
+    required this.reason,
+  });
+}
 
 class GeminiService {
-  static const _endpoint =
-      'https://openrouter.ai/api/v1/chat/completions';
-  static const _model = 'qwen/qwen3-next-80b-a3b-instruct:free';
+  static const _endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+  static const _model = 'inclusionai/ring-2.6-1t:free';
+  static const _maxRetries = 3;
 
-  static Future<bool> moderateMessage(String text,
-      {String rules = ''}) async {
-    if (text.trim().isEmpty) return false;
+  static Future<ModerationResult> moderateMessage(
+    String text, {
+    String rules = '',
+  }) async {
+    if (text.trim().isEmpty) {
+      return const ModerationResult(
+          isViolating: false, violatedRules: [], reason: '');
+    }
 
     final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
     final rulesSection = rules.isNotEmpty ? rules : '(ไม่มีกฎเพิ่มเติม)';
 
     final prompt = '''
-กฎของชุมชนนี้ (อ่านและเข้าใจก่อนตัดสิน — กฎอาจเขียนในภาษาใดก็ได้):
+กฎของชุมชนนี้:
 $rulesSection
 
-ตรวจสอบข้อความต่อไปนี้ว่าละเมิดข้อใดข้อหนึ่งด้านล่างหรือไม่:
+ตรวจสอบข้อความต่อไปนี้ว่าละเมิดข้อใดด้านล่างหรือไม่ (ทุกภาษา):
 1. ละเมิดกฎชุมชนข้างต้น
-2. คำหยาบหรือคำด่าทอในภาษาไทย — ตัวอย่าง: ควย, หี, เย็ด, มึง, กู, ไอ้สัตว์, อีสัตว์, ไอ้หน้าหี, ไอ้เหี้ย, สัตว์, แม่ง ฯลฯ (รวมถึงการสะกดแปลกหรือเว้นช่องไฟ)
-3. คำหยาบในภาษาอังกฤษ — ตัวอย่าง: fuck, shit, bitch, asshole, bastard ฯลฯ
-4. การข่มขู่ คุกคาม หรือล่อลวง
-5. การเหยียดเชื้อชาติ ศาสนา หรือเพศ
+2. คำหยาบภาษาไทย: ควย หี เย็ด มึง กู ไอ้สัตว์ อีสัตว์ เหี้ย แม่ง ฯลฯ (รวมถึงสะกดแปลก เช่น ค-ว-ย หรือเว้นช่องไฟ)
+3. คำหยาบภาษาอังกฤษ: fuck, f*ck, fck, shit, bitch, asshole, bastard, cunt, dick, pussy, cock ฯลฯ (รวมถึงสะกดแปลงหรือ censor บางตัว)
+4. การข่มขู่ คุกคาม หรือล่อลวง (ทุกภาษา)
+5. การเหยียดเชื้อชาติ ศาสนา หรือเพศ (ทุกภาษา)
 
 ข้อความ: "$text"
 
-ตอบ FLAGGED หรือ SAFE เท่านั้น ห้ามอธิบาย ห้ามเพิ่มเนื้อหาอื่นใด
+ตอบเป็น JSON object เท่านั้น ห้าม markdown ห้าม backtick ห้ามอธิบายเพิ่ม:
+ถ้าละเมิด: {"isViolating":true,"violatedRules":[<เลขข้อ>],"reason":"<อธิบายสั้นๆ>"}
+ถ้าปลอดภัย: {"isViolating":false,"violatedRules":[],"reason":""}
 ''';
 
-    final response = await http.post(
-      Uri.parse(_endpoint),
-      headers: {
-        'Authorization': 'Bearer $apiKey',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': _model,
-        'max_tokens': 10,
-        'temperature': 0,
-        'messages': [
-          {
-            'role': 'system',
-            'content':
-                'คุณคือระบบกรองเนื้อหาอัตโนมัติสำหรับแอปชุมชน '
-                'ตอบได้เพียงคำเดียวเท่านั้น: FLAGGED หรือ SAFE '
-                'ห้ามอธิบาย ห้ามเพิ่มเนื้อหาอื่นใด',
-          },
-          {'role': 'user', 'content': prompt},
-        ],
-      }),
-    );
+    final body = jsonEncode({
+      'model': _model,
+      'max_tokens': 200,
+      'temperature': 0,
+      'response_format': {'type': 'json_object'},
+      'messages': [
+        {
+          'role': 'system',
+          'content': 'You are a content moderation system. '
+              'Always respond with a single JSON object only. '
+              'No reasoning, no explanation, no markdown.',
+        },
+        {'role': 'user', 'content': prompt},
+      ],
+    });
 
-    if (response.statusCode != 200) return false;
+    for (var attempt = 0; attempt < _maxRetries; attempt++) {
+      final response = await http.post(
+        Uri.parse(_endpoint),
+        headers: {
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
 
-    final body = jsonDecode(response.body);
-    final result = (body['choices']?[0]?['message']?['content'] as String?)
-            ?.trim()
-            .toUpperCase() ??
-        'SAFE';
-    return result.contains('FLAGGED');
+      // ignore: avoid_print
+      print('[AI] status=${response.statusCode} body=${response.body}');
+
+      if (response.statusCode == 429) {
+        final errorBody = jsonDecode(response.body);
+        final retryAfter = (errorBody['error']?['metadata']
+                    ?['retry_after_seconds'] as num?)
+                ?.toInt() ??
+            10;
+        if (attempt < _maxRetries - 1) {
+          await Future.delayed(Duration(seconds: retryAfter));
+          continue;
+        }
+        return const ModerationResult(
+            isViolating: false, violatedRules: [], reason: '');
+      }
+
+      if (response.statusCode != 200) {
+        return const ModerationResult(
+            isViolating: false, violatedRules: [], reason: '');
+      }
+
+      String combined = '';
+      try {
+        final respBody = jsonDecode(response.body);
+        // ignore: avoid_print
+        print('[AI] FULL=${response.body}');
+        final msg = respBody['choices']?[0]?['message'];
+        final content = (msg?['content'] as String? ?? '').trim();
+        final reasoning = (msg?['reasoning'] as String? ?? '').trim();
+        combined = content.isNotEmpty ? content : reasoning;
+        // ignore: avoid_print
+        print('[AI] raw="$combined"');
+
+        // find JSON containing isViolating anywhere in the text
+        final jsonMatch = RegExp(
+          r'\{[^{}]*"isViolating"[^{}]*\}',
+          dotAll: true,
+        ).firstMatch(combined);
+        // fallback: any JSON object
+        final fallbackMatch = RegExp(r'\{[^{}]+\}').firstMatch(combined);
+        final cleaned =
+            jsonMatch?.group(0) ?? fallbackMatch?.group(0) ?? combined;
+
+        final parsed = jsonDecode(cleaned);
+        // ignore: avoid_print
+        print('[AI] parsed isViolating=${parsed['isViolating']}');
+        return ModerationResult(
+          isViolating: parsed['isViolating'] as bool? ?? false,
+          violatedRules: (parsed['violatedRules'] as List<dynamic>?)
+                  ?.map((e) => (e as num).toInt())
+                  .toList() ??
+              [],
+          reason: parsed['reason'] as String? ?? '',
+        );
+      } catch (e) {
+        // ignore: avoid_print
+        print('[AI] parse error: $e | raw was: $combined');
+        // fallback: detect violation from reasoning text keywords
+        final lower = combined.toLowerCase();
+        final violating = lower.contains('violat') ||
+            lower.contains('profanity') ||
+            lower.contains('inappropriate') ||
+            lower.contains('offensive') ||
+            lower.contains('คำหยาบ') ||
+            lower.contains('ละเมิด');
+        return ModerationResult(
+          isViolating: violating,
+          violatedRules: [],
+          reason: violating ? 'Detected via reasoning fallback' : '',
+        );
+      }
+    }
+
+    return const ModerationResult(
+        isViolating: false, violatedRules: [], reason: '');
+  }
+
+  static String _mimeType(Uint8List b) {
+    if (b.length >= 2 && b[0] == 0xFF && b[1] == 0xD8) return 'image/jpeg';
+    if (b.length >= 4 && b[0] == 0x89 && b[1] == 0x50) return 'image/png';
+    if (b.length >= 4 && b[0] == 0x52 && b[1] == 0x49) return 'image/webp';
+    if (b.length >= 6 && b[0] == 0x47 && b[1] == 0x49) return 'image/gif';
+    return 'image/jpeg';
+  }
+
+  static Future<bool> moderateImageBytes(Uint8List bytes) async {
+    final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
+    Uint8List data = bytes;
+    String mime = _mimeType(bytes);
+
+    // Try resize to reduce payload; fall back to original if decode fails
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded != null) {
+        final resized = img.copyResize(decoded, width: 384);
+        data = Uint8List.fromList(img.encodePng(resized));
+        mime = 'image/png';
+      } else {
+        // ignore: avoid_print
+        print('[IMG] decode returned null, using original bytes');
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[IMG] resize error: $e — using original bytes');
+    }
+
+    // Skip if still too large (>3MB) — API will reject anyway
+    if (data.lengthInBytes > 3 * 1024 * 1024) {
+      // ignore: avoid_print
+      print('[IMG] image too large (${data.lengthInBytes}), skipping moderation');
+      return false;
+    }
+
+    final base64Image = base64Encode(data);
+
+    try {
+      final response = await http.post(
+        Uri.parse(_endpoint),
+        headers: {
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': 'nvidia/nemotron-nano-12b-v2-vl:free',
+          'max_tokens': 400,
+          'temperature': 0,
+          'messages': [
+            {
+              'role': 'system',
+              'content': 'You are an extremely strict content moderation AI for a community platform. '
+                  'Your priority is safety. ALWAYS flag content that is questionable or borderline. '
+                  'It is better to over-flag than to allow harmful content through.',
+            },
+            {
+              'role': 'user',
+              'content': [
+                {
+                  'type': 'image_url',
+                  'image_url': {
+                    'url': 'data:$mime;base64,$base64Image',
+                  },
+                },
+                {
+                  'type': 'text',
+                  'text': 'Examine this image as a strict content moderator. '
+                      'Reply {"isNSFW":true} for ANY of the following — even partially visible, implied, or borderline: '
+                      '(1) any exposed skin of breasts (including cleavage), genitals, or buttocks; '
+                      '(2) sexually suggestive poses, gestures, or objects used in a sexual manner '
+                      '(e.g. eating a banana suggestively, phallic objects); '
+                      '(3) pornographic or sexually explicit content; '
+                      '(4) any firearm, gun, pistol, rifle, or weapon being held or shown; '
+                      '(5) knives, swords, or bladed weapons; '
+                      '(6) explosives or bombs; '
+                      '(7) illegal drugs, syringes, drug paraphernalia, or drug use; '
+                      '(8) smoking, vaping, e-cigarettes, or tobacco products. '
+                      'When in doubt, reply {"isNSFW":true}. '
+                      'Only reply {"isNSFW":false} if the image is clearly safe for all audiences. '
+                      'End with the JSON.',
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      // ignore: avoid_print
+      print('[IMG] status=${response.statusCode} body=${response.body}');
+      if (response.statusCode != 200) return false;
+
+      final body = jsonDecode(response.body);
+      final msg = body['choices']?[0]?['message'];
+      final content = (msg?['content'] as String? ?? '').trim();
+      final reasoning = (msg?['reasoning'] as String? ?? '').trim();
+      final combined = content.isNotEmpty ? content : reasoning;
+      // ignore: avoid_print
+      print('[IMG] combined="$combined"');
+
+      final jsonMatch = RegExp(r'\{[^{}]*"isNSFW"[^{}]*\}').firstMatch(combined);
+      if (jsonMatch == null) {
+        final lower = combined.toLowerCase();
+        return (lower.contains('nsfw') && !lower.contains('not nsfw')) ||
+            lower.contains('explicit') ||
+            lower.contains('pornograph') ||
+            lower.contains('nudity') ||
+            lower.contains('nude') ||
+            lower.contains('breast') ||
+            lower.contains('genital') ||
+            lower.contains('weapon') ||
+            lower.contains('drug') ||
+            lower.contains('vap') ||
+            lower.contains('cigarette') ||
+            lower.contains('smoking') ||
+            lower.contains('tobacco');
+      }
+      final parsed = jsonDecode(jsonMatch.group(0)!);
+      return parsed['isNSFW'] as bool? ?? false;
+    } catch (e) {
+      // ignore: avoid_print
+      print('[IMG] error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> moderateImageUrl(String imageUrl) async {
+    final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
+
+    try {
+      final response = await http.post(
+        Uri.parse(_endpoint),
+        headers: {
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': 'google/gemma-4-31b-it:free',
+          'max_tokens': 50,
+          'temperature': 0,
+          'messages': [
+            {
+              'role': 'user',
+              'content': [
+                {
+                  'type': 'image_url',
+                  'image_url': {'url': imageUrl},
+                },
+                {
+                  'type': 'text',
+                  'text': 'Is this image sexually explicit, pornographic, or NSFW? '
+                      'Reply with JSON only, no explanation: {"isNSFW":true} or {"isNSFW":false}',
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      // ignore: avoid_print
+      print('[IMG] status=${response.statusCode} body=${response.body}');
+      if (response.statusCode != 200) return false;
+
+      final body = jsonDecode(response.body);
+      final content =
+          (body['choices']?[0]?['message']?['content'] as String? ?? '').trim();
+      final jsonMatch = RegExp(r'\{[^{}]*"isNSFW"[^{}]*\}').firstMatch(content);
+      final parsed = jsonDecode(jsonMatch?.group(0) ?? content);
+      return parsed['isNSFW'] as bool? ?? false;
+    } catch (e) {
+      // ignore: avoid_print
+      print('[IMG] error: $e');
+      return false;
+    }
   }
 }

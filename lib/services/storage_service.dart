@@ -26,7 +26,6 @@ class StorageService {
     return ref.getDownloadURL();
     }
     catch(e){
-      print('Error uploading community image: $e');
       rethrow;
     }
   }

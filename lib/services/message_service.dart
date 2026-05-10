@@ -42,10 +42,10 @@ class MessageService {
     final banStatus = await getBanStatus(user.uid);
     if (banStatus.isBanned) return SendResult.banned(banStatus.bannedUntil!);
 
-    // 2. Moderate with Gemini
-    final bool flagged;
+    // 2. Moderate
+    final ModerationResult moderation;
     try {
-      flagged = await GeminiService.moderateMessage(
+      moderation = await GeminiService.moderateMessage(
         text,
         rules: communityRules,
       );
@@ -53,7 +53,7 @@ class MessageService {
       return SendResult.error('Content moderation unavailable: $e');
     }
 
-    if (flagged) {
+    if (moderation.isViolating) {
       // 3a. Increment violation count and ban if threshold reached
       await _recordViolation(user.uid);
       final newStatus = await getBanStatus(user.uid);

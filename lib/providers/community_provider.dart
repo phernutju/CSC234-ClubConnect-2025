@@ -214,15 +214,27 @@ class CommunityProvider extends ChangeNotifier {
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
-  }) =>
-      _run(() => _service.sendMessage(
-            communityId,
-            text: text,
-            imageURL: imageURL,
-            replyToId: replyToId,
-            replyToSenderName: replyToSenderName,
-            replyToText: replyToText,
-          ));
+  }) {
+    error = null;
+    notifyListeners();
+    // fire-and-forget: save + moderate in background, return immediately
+    _service
+        .sendMessage(
+          communityId,
+          text: text,
+          imageURL: imageURL,
+          replyToId: replyToId,
+          replyToSenderName: replyToSenderName,
+          replyToText: replyToText,
+        )
+        .catchError((e) {
+      // ignore: avoid_print
+      print('[PROVIDER] catchError fired: $e');
+      error = e.toString();
+      notifyListeners();
+    });
+    return Future.value();
+  }
 
   Future<void> sendImageMessage(String communityId, Uint8List bytes) async {
     isUploading = true;

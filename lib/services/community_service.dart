@@ -6,6 +6,7 @@ import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
 import '../models/rule_model.dart';
+import 'ai_service.dart';
 import 'storage_service.dart';
 
 class CommunityService {
@@ -314,6 +315,7 @@ class CommunityService {
     String communityId, {
     required String text,
     String imageURL = '',
+    String rules = '',
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
@@ -326,7 +328,7 @@ class CommunityService {
       throw ArgumentError('Message must have text or an image');
     }
 
-    await _messages(communityId).add({
+    final ref = await _messages(communityId).add({
       'senderId': user.uid,
       'text': trimmed,
       'imageURL': imageURL,
@@ -336,6 +338,15 @@ class CommunityService {
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
     });
+
+    if (trimmed.isNotEmpty) {
+      final result = await GeminiService.moderateMessage(trimmed, rules: rules);
+      if (result.isViolating) {
+        await ref.delete();
+        throw Exception(
+            'Message failed to send. This content goes against our community standards.');
+      }
+    }
   }
 
   Future<void> sendImageMessage(
@@ -343,6 +354,11 @@ class CommunityService {
     required Uint8List bytes,
   }) async {
     _requireAuth();
+    final isNSFW = await GeminiService.moderateImageBytes(bytes);
+    if (isNSFW) {
+      throw Exception(
+          'Message failed to send. This content goes against our community standards.');
+    }
     final imageURL = await _storage.uploadChatImage(bytes, communityId);
     await sendMessage(communityId, text: '', imageURL: imageURL);
   }
