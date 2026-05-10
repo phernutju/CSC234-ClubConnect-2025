@@ -6,12 +6,14 @@ import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
 import '../models/rule_model.dart';
+import 'notification_service.dart';
 import 'storage_service.dart';
 
 class CommunityService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final StorageService _storage;
+  final NotificationService _notifications;
 
   static const _allowedCommunityFields = {
     'communityName',
@@ -21,10 +23,15 @@ class CommunityService {
     'rules',
   };
 
-  CommunityService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
-    : _db = db ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance,
-      _storage = storage ?? StorageService();
+  CommunityService({
+    FirebaseFirestore? db,
+    FirebaseAuth? auth,
+    StorageService? storage,
+    NotificationService? notifications,
+  })  : _db = db ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        _storage = storage ?? StorageService(),
+        _notifications = notifications ?? NotificationService();
 
   // ── Collection refs ────────────────────────────────────────────────────────
 
@@ -224,6 +231,12 @@ class CommunityService {
       throw Exception('Already a member of this community');
     }
 
+    final communityDoc = await _communities.doc(communityId).get();
+    final communityName =
+        communityDoc.data()?['communityName'] as String? ?? '';
+    final createdById =
+        communityDoc.data()?['createdById'] as String?;
+
     final batch = _db.batch();
     batch.set(memberRef, {
       'joinedAt': FieldValue.serverTimestamp(),
@@ -234,6 +247,17 @@ class CommunityService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
+
+    if (createdById != null && createdById != user.uid) {
+      final joinerName = await getUserDisplayName(user.uid);
+      await _notifications.createNotification(createdById, {
+        'communityId': communityId,
+        'mentionedBy': user.uid,
+        'title': joinerName,
+        'description': '$joinerName joined $communityName',
+        'type': 'join',
+      });
+    }
   }
 
   Future<void> leaveCommunity(String communityId) async {

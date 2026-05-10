@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'constants/app_constants.dart';
 import 'providers/auth_provider.dart';
 import 'providers/community_provider.dart';
+import 'providers/notification_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/rating_provider.dart';
@@ -31,6 +32,7 @@ class ClubConnectApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: _authProvider),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => ReportProvider()),

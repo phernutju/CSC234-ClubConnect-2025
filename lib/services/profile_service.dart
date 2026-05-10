@@ -3,12 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/review_model.dart';
 import '../models/user_model.dart';
+import 'notification_service.dart';
 import 'storage_service.dart';
 
 class ProfileService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final StorageService _storage;
+  final NotificationService _notifications;
 
   static const _allowedProfileFields = {
     'displayName',
@@ -18,10 +20,15 @@ class ProfileService {
     'photoURL',
   };
 
-  ProfileService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
-      : _db = db ?? FirebaseFirestore.instance,
+  ProfileService({
+    FirebaseFirestore? db,
+    FirebaseAuth? auth,
+    StorageService? storage,
+    NotificationService? notifications,
+  })  : _db = db ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _storage = storage ?? StorageService();
+        _storage = storage ?? StorageService(),
+        _notifications = notifications ?? NotificationService();
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
@@ -109,6 +116,16 @@ class ProfileService {
     };
 
     final ref = await _ratings(targetUserId).add(data);
+
+    await _notifications.createNotification(targetUserId, {
+      'communityId': communityId,
+      'mentionedBy': current.uid,
+      'title': current.displayName ?? 'Someone',
+      'description':
+          '${current.displayName ?? 'Someone'} rated you ${score.toInt()} stars in $communityName',
+      'type': 'rating',
+    });
+
     return ReviewModel.fromJson(ref.id, data);
   }
 
@@ -119,7 +136,7 @@ class ProfileService {
         .map((doc) => ReviewModel.fromJson(doc.id, doc.data()))
         .toList();
     final average = reviews.isEmpty
-    ? 0.0
+    ? 5.0
     : reviews.fold<double>(0, (acc, r) => acc + r.score) /
         reviews.length;
     return ReviewsResult(reviews: reviews, averageScore: average);

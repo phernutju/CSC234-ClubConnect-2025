@@ -3,17 +3,19 @@ import '../../../constants/app_constants.dart';
 
 /// Single notification row in the Inbox screen.
 class NotificationItem extends StatelessWidget {
-  final String senderName;
-  final String communityName;
+  final String title;
   final String body;
+  final bool isRead;
   final VoidCallback? onTap;
+  final VoidCallback? onDismiss;
 
   const NotificationItem({
     super.key,
-    required this.senderName,
-    required this.communityName,
+    required this.title,
     required this.body,
+    this.isRead = true,
     this.onTap,
+    this.onDismiss,
   });
 
   @override
@@ -25,23 +27,42 @@ class NotificationItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: AppSizes.avatarSmall,
-              height: AppSizes.avatarSmall,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.avatarSalmon,
-              ),
+            Stack(
+              children: [
+                Container(
+                  width: AppSizes.avatarSmall,
+                  height: AppSizes.avatarSmall,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.avatarSalmon,
+                  ),
+                ),
+                if (!isRead)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+              ],
             ),
 
             const SizedBox(width: AppSizes.paddingM),
 
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
                     left: BorderSide(
-                      color: AppColors.notifBorder,
+                      color: isRead
+                          ? AppColors.notifBorder
+                          : AppColors.primary,
                       width: 3,
                     ),
                   ),
@@ -50,24 +71,16 @@ class NotificationItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    RichText(
-                      text: TextSpan(
-                        style: AppTextStyles.body(
-                          fontSize: AppSizes.fontS,
-                          color: AppColors.textDark,
-                        ),
-                        children: [
-                          TextSpan(text: senderName),
-                          const TextSpan(text: AppStrings.notifMention),
-                          TextSpan(
-                            text: communityName,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                    Text(
+                      title,
+                      style: AppTextStyles.body(
+                        fontSize: AppSizes.fontS,
+                        color: AppColors.textDark,
+                        fontWeight:
+                            isRead ? FontWeight.normal : FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 2),
-
                     Text(
                       body,
                       style: AppTextStyles.body(
