@@ -9,8 +9,28 @@ import '../../../services/user_service.dart';
 import '../models/report_model.dart';
 import 'admin_report_detail_screen.dart';
 
-class AdminReportsScreen extends StatelessWidget {
+class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
+
+  @override
+  State<AdminReportsScreen> createState() => _AdminReportsScreenState();
+}
+
+class _AdminReportsScreenState extends State<AdminReportsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,209 +60,71 @@ class AdminReportsScreen extends StatelessWidget {
               20,
               topPad + MediaQuery.of(context).size.height * 0.03,
               20,
-              16,
+              0,
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Trust & Safety',
-                          style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xFF797979))),
-                      Text('Reports Queue',
-                          style: GoogleFonts.poppins(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white)),
-                    ],
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Trust & Safety',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF797979))),
+                          Text('Admin Panel',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8A598),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.asset(
+                        '.claude/usericon.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const Center(child: Text('🙂', style: TextStyle(fontSize: 32))),
+                      ),
+                    ),
+                  ],
                 ),
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8A598),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Image.asset(
-                    '.claude/usericon.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                        const Center(child: Text('🙂', style: TextStyle(fontSize: 32))),
-                  ),
+                const SizedBox(height: 12),
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: const Color(0xFFFF6B4A),
+                  labelColor: Colors.white,
+                  unselectedLabelColor: const Color(0xFF797979),
+                  labelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                  unselectedLabelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w400),
+                  tabs: const [
+                    Tab(text: 'Reports Queue'),
+                    Tab(text: 'Banned Users'),
+                  ],
                 ),
               ],
             ),
           ),
           Expanded(
-            child: StreamBuilder<List<ReportModel>>(
-              stream: context.read<ReportProvider>().pendingReportsStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Color(0xFFFF6B4A)),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Error loading reports: ${snapshot.error}',
-                      style: GoogleFonts.poppins(color: Colors.red),
-                    ),
-                  );
-                }
-
-                final firestoreReports = snapshot.data ?? [];
-                final reports = firestoreReports
-                    .map((r) => AdminReportModel.fromReportModel(r))
-                    .toList();
-
-                if (reports.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No pending reports',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: const Color(0xFF797979),
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: reports.length,
-                  itemBuilder: (context, index) {
-                    final r = reports[index];
-                    return GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AdminReportDetailScreen(report: r),
-                        ),
-                      ),
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: r.status == 'urgent' ? const Color(0xFFFFE5E5) : const Color(0xFFE8DFD8),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFE5A0),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(r.aiDetectedLabel,
-                                      style: GoogleFonts.poppins(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w400,
-                                          color: Colors.black)),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(r.category,
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w400,
-                                        color: Colors.black)),
-                                if (r.status == 'urgent')
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 4),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFF4444),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text('URGENT',
-                                        style: GoogleFonts.poppins(
-                                            fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
-                                  ),
-                                const Spacer(),
-                                Text(r.timeAgo,
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w300,
-                                        color: const Color(0xFF797979))),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                color: Colors.white,
-                                child: IntrinsicHeight(
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Container(width: 20, color: const Color(0xFFFF6B6B)),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          child: Text(r.reportedText,
-                                              style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w400,
-                                                  color: Colors.black)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                const CircleAvatar(
-                                    radius: 22,
-                                    backgroundColor: Color(0xFFE8A598)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('@${r.username}',
-                                          style: GoogleFonts.poppins(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.black),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis),
-                                      Text(r.source,
-                                          style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w400,
-                                              color: const Color(0xFF797979))),
-                                    ],
-                                  ),
-                                ),
-                                if (r.targetUserId.isNotEmpty)
-                                  _UnbanButton(userId: r.targetUserId),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _ReportsTab(),
+                _BannedUsersTab(),
+              ],
             ),
           ),
         ],
@@ -270,6 +152,279 @@ class AdminReportsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ReportsTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ReportModel>>(
+      stream: context.read<ReportProvider>().pendingReportsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFFFF6B4A)),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading reports: ${snapshot.error}',
+              style: GoogleFonts.poppins(color: Colors.red),
+            ),
+          );
+        }
+
+        final firestoreReports = snapshot.data ?? [];
+        final reports = firestoreReports
+            .map((r) => AdminReportModel.fromReportModel(r))
+            .toList();
+
+        if (reports.isEmpty) {
+          return Center(
+            child: Text(
+              'No pending reports',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: const Color(0xFF797979),
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: reports.length,
+          itemBuilder: (context, index) {
+            final r = reports[index];
+            return GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AdminReportDetailScreen(report: r),
+                ),
+              ),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: r.status == 'urgent' ? const Color(0xFFFFE5E5) : const Color(0xFFE8DFD8),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFE5A0),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(r.aiDetectedLabel,
+                              style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.black)),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(r.category,
+                            style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.black)),
+                        if (r.status == 'urgent')
+                          Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF4444),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text('URGENT',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                          ),
+                        const Spacer(),
+                        Text(r.timeAgo,
+                            style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w300,
+                                color: const Color(0xFF797979))),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        color: Colors.white,
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(width: 20, color: const Color(0xFFFF6B6B)),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  child: Text(r.reportedText,
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w400,
+                                          color: Colors.black)),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const CircleAvatar(
+                            radius: 22,
+                            backgroundColor: Color(0xFFE8A598)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('@${r.username}',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              Text(r.source,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF797979))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _BannedUsersTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: UserService.streamBannedUsers(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFFFF6B4A)),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: GoogleFonts.poppins(color: Colors.red),
+            ),
+          );
+        }
+
+        final users = snapshot.data ?? [];
+
+        if (users.isEmpty) {
+          return Center(
+            child: Text(
+              'No banned users',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: const Color(0xFF797979),
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final u = users[index];
+            final uid = u['uid'] as String? ?? '';
+            final username = u['username'] as String? ?? u['displayName'] as String? ?? uid;
+            final reason = u['banReason'] as String? ?? 'No reason given';
+            final duration = u['durationLabel'] as String? ?? 'Permanently';
+
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFE5E5),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Color(0xFFE8A598),
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '@$username',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Reason: $reason',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: const Color(0xFF797979),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Duration: $duration',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: const Color(0xFF797979),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _UnbanButton(userId: uid),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -75,11 +75,39 @@ class UserService {
 
     await _users.doc(userId).update({
       'isBanned': false,
+      'isMuted': false,
+      'violationCount': 0,
       'banReason': FieldValue.delete(),
       'durationLabel': FieldValue.delete(),
       'banExpiresAt': FieldValue.delete(),
       'bannedAt': FieldValue.delete(),
       'bannedBy': FieldValue.delete(),
+    });
+  }
+
+  static Stream<List<Map<String, dynamic>>> streamBannedUsers() {
+    final bannedStream = _db
+        .collection('users')
+        .where('isBanned', isEqualTo: true)
+        .snapshots();
+    final mutedStream = _db
+        .collection('users')
+        .where('isMuted', isEqualTo: true)
+        .snapshots();
+
+    return bannedStream.asyncExpand((bannedSnap) {
+      return mutedStream.map((mutedSnap) {
+        final seen = <String>{};
+        final result = <Map<String, dynamic>>[];
+        for (final doc in [...bannedSnap.docs, ...mutedSnap.docs]) {
+          if (seen.add(doc.id)) {
+            final data = doc.data();
+            data['uid'] = doc.id;
+            result.add(data);
+          }
+        }
+        return result;
+      });
     });
   }
 }

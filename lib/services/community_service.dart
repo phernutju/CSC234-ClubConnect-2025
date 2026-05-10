@@ -366,7 +366,7 @@ class CommunityService {
 
     // Check if user is muted before adding message
     if (trimmed.isNotEmpty) {
-      final userDoc = await _db.collection('users').doc(user.uid).get();
+      final userDoc = await _db.collection('users').doc(user.uid).get(const GetOptions(source: Source.server));
       if ((userDoc.data()?['isMuted'] as bool?) == true) {
         throw const ContentViolationException(
           'You have been restricted from sending messages.',
