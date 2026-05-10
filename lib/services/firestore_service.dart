@@ -86,10 +86,10 @@ class FirestoreService {
   Future<void> submitReport(ReportModel report) => _db
       .collection(Collections.reports)
       .doc(report.reportId)
-      .set(report.toJson());
+      .set(report.toMap());
 
   Future<List<ReportModel>> listReports() async {
     final snap = await _db.collection(Collections.reports).get();
-    return snap.docs.map((d) => ReportModel.fromJson(d.data())).toList();
+    return snap.docs.map((d) => ReportModel.fromMap(d.data())).toList();
   }
 }

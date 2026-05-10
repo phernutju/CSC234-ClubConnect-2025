@@ -42,12 +42,14 @@ class _RateUserModalState extends State<RateUserModal> {
   /// Saves the rating to [ProfileProvider] and closes the modal.
   void _onPost() {
     if (_stars == 0) return;
-    
+    final comment = _commentController.text.trim().isNotEmpty
+        ? _commentController.text.trim()
+        : '${'★' * _stars}${'☆' * (5 - _stars)}';
     context.read<ProfileProvider>().createReview(
       widget.userId,
-      communityId: widget.communityId, // TODO: pass actual communityId
+      communityId: widget.communityId,
       score: _stars.toDouble(),
-      comment: _commentController.text,
+      comment: comment,
     );
     Navigator.of(context).pop();
   }

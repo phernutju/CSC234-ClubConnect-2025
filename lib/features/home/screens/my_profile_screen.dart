@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/review_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/category_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
 import '../widgets/view_all_reviews_modal.dart';
+import '../widgets/network_image_view.dart';
 
 // ── File-scoped helpers ─────────────────────────
 String _relativeTime(DateTime time) {
@@ -63,7 +65,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   void _loadData() {
     final uid = context.read<AppAuthProvider>().user?.uid;
-    print("Loading profile for user ID: $uid");
     if (uid == null) return;
     final pp = context.read<ProfileProvider>();
     pp.loadProfile(uid);
@@ -99,11 +100,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   void _saveProfile() {
     final uid = context.read<AppAuthProvider>().user?.uid;
     if (uid == null) return;
-    context.read<ProfileProvider>().updateProfile(uid, {
-      'displayName': _usernameController.text.trim(),
-      'bio': _bioController.text.trim(),
-      'interests': _selectedInterests.toList(),
-    });
+    context.read<ProfileProvider>().updateProfile(
+      uid,
+      {
+        'displayName': _usernameController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'interests': _selectedInterests.toList(),
+      },
+      avatarBytes: _avatarBytes,
+    );
     setState(() => _isEditing = false);
   }
 
@@ -123,7 +128,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final reviews = pp.reviewsResult?.reviews ?? [];
     final avgRating = pp.reviewsResult?.averageScore ?? AppSizes.defaultRating;
     final displayName = profile?.displayName ?? 'Username';
-    print(profile);
     if (pp.isLoading && profile == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -132,7 +136,14 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       backgroundColor: AppColors.cardWhite,
       body: Column(
         children: [
-          _ProfileAppBar(title: displayName),
+          _ProfileAppBar(
+            title: displayName,
+            isEditing: _isEditing,
+            onBackTap: () => setState(() => _isEditing = false),
+            onLogout: () async {
+              await context.read<AppAuthProvider>().signOut();
+            },
+          ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
@@ -225,12 +236,19 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
 class _ProfileAppBar extends StatelessWidget {
   final String title;
+  final bool isEditing;
+  final VoidCallback? onBackTap;
+  final Future<void> Function()? onLogout;
 
-  const _ProfileAppBar({required this.title});
+  const _ProfileAppBar({
+    required this.title,
+    this.isEditing = false,
+    this.onBackTap,
+    this.onLogout,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final canGoBack = context.canPop();
     return Container(
       color: AppColors.primary,
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
@@ -240,10 +258,14 @@ class _ProfileAppBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(width: AppSizes.paddingM),
-            if (canGoBack)
+            if (isEditing)
               GestureDetector(
-                onTap: () => context.pop(),
-                child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+                onTap: onBackTap,
+                child: const Icon(
+                  Icons.arrow_back_ios,
+                  color: AppColors.cardWhite,
+                  size: AppSizes.iconSize,
+                ),
               )
             else
               const SizedBox(width: AppSizes.iconSize),
@@ -261,7 +283,16 @@ class _ProfileAppBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: AppSizes.iconSize + AppSizes.paddingM),
+            if (onLogout != null)
+              GestureDetector(
+                onTap: onLogout,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: AppSizes.paddingM),
+                  child: Icon(Icons.logout, color: AppColors.cardWhite),
+                ),
+              )
+            else
+              const SizedBox(width: AppSizes.iconSize + AppSizes.paddingM),
           ],
         ),
       ),
@@ -334,9 +365,7 @@ class _ProfileHeader extends StatelessWidget {
               clipBehavior: hasAvatar ? Clip.antiAlias : Clip.none,
               child: avatarBytes != null
                   ? Image.memory(avatarBytes!, fit: BoxFit.cover)
-                  : (photoURL != null && photoURL!.isNotEmpty)
-                  ? Image.network(photoURL!, fit: BoxFit.cover)
-                  : null,
+                  : NetworkImageView(url: photoURL),
             ),
           ),
         ],
@@ -379,16 +408,13 @@ class _UserInfoRow extends StatelessWidget {
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingS,
                   vertical: AppSizes.paddingXS,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.inputBorder),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.inputBorder),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  borderSide: const BorderSide(color: AppColors.primary),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
                 ),
               ),
             ),
@@ -407,23 +433,24 @@ class _UserInfoRow extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(width: AppSizes.paddingXS),
-        const Icon(
-          Icons.star,
-          color: AppColors.starColor,
-          size: AppSizes.starIconSize,
-        ),
-        const SizedBox(width: 2),
-        Text(
-          avgRating.toStringAsFixed(1),
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontTitle,
-            fontWeight: FontWeight.normal,
-            color: AppColors.textDark,
+        if (!isEditing) ...[
+          const SizedBox(width: AppSizes.paddingXS),
+          const Icon(
+            Icons.star,
+            color: AppColors.starColor,
+            size: AppSizes.starIconSize,
           ),
-        ),
-
-        const SizedBox(width: AppSizes.paddingS),
+          const SizedBox(width: 2),
+          Text(
+            avgRating.toStringAsFixed(1),
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontTitle,
+              fontWeight: FontWeight.normal,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(width: AppSizes.paddingS),
+        ],
 
         if (isEditing)
           GestureDetector(
@@ -514,14 +541,14 @@ class _BioField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.all(AppSizes.paddingS),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.inputBorder),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: AppSizes.paddingS,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          borderSide: const BorderSide(color: AppColors.primary),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.inputBorder),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.primary),
         ),
       ),
     );
@@ -539,10 +566,15 @@ class _InterestsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final catProvider = context.watch<CategoryProvider>();
+    if (catProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final interests = catProvider.approvedCategories.map((c) => c.name).toList();
     return Wrap(
       spacing: AppSizes.paddingS,
       runSpacing: AppSizes.paddingS,
-      children: AppStrings.interestOptions.map((interest) {
+      children: interests.map((interest) {
         return InterestChip(
           label: interest,
           selected: selectedInterests.contains(interest),

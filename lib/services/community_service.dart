@@ -1,25 +1,30 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/category_model.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
 import '../models/rule_model.dart';
+import 'storage_service.dart';
 
 class CommunityService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
+  final StorageService _storage;
 
   static const _allowedCommunityFields = {
     'communityName',
-    'category',
+    'tags',
     'description',
     'coverImageURL',
     'rules',
   };
 
-  CommunityService({FirebaseFirestore? db, FirebaseAuth? auth})
+  CommunityService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
     : _db = db ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance;
+      _auth = auth ?? FirebaseAuth.instance,
+      _storage = storage ?? StorageService();
 
   // ── Collection refs ────────────────────────────────────────────────────────
 
@@ -40,7 +45,7 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
         );
   }
@@ -53,7 +58,7 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
         );
   }
@@ -72,20 +77,20 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
         );
   }
 
-  // Get communities filtered by category
-  Stream<List<CommunityModel>> getCommunitiesByCategory(String category) {
+  // Get communities filtered by category name (client-side, tags are stored as maps)
+  Stream<List<CommunityModel>> getCommunitiesByCategory(String categoryName) {
     return _communities
-        .where('category', arrayContains: category)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
+              .where((c) => c.tags.any((t) => t.name == categoryName))
               .toList(),
         );
   }
@@ -94,16 +99,16 @@ class CommunityService {
   Stream<List<CommunityModel>> getMyCommunities() async* {
     final user = _requireAuth();
 
-    // ✅ Fetch communities ONCE
+    // Fetch communities ONCE
     final communitiesSnapshot = await _communities.get();
     final communityDocs = communitiesSnapshot.docs;
 
-    // ✅ Check membership
+    // Check membership
     final memberChecks = await Future.wait(
       communityDocs.map((doc) => _members(doc.id).doc(user.uid).get()),
     );
 
-    // ✅ Extract IDs safely
+    // Extract IDs safely
     final communityIds = <String>[];
 
     for (int i = 0; i < memberChecks.length; i++) {
@@ -117,7 +122,7 @@ class CommunityService {
       return;
     }
 
-    // ⚠️ Firestore limit: whereIn max 10
+    // Firestore limit: whereIn max 10
     final limitedIds = communityIds.take(10).toList();
 
     yield* _communities
@@ -126,40 +131,50 @@ class CommunityService {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc.data(), doc.id))
+              .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
         );
+  }
+
+  Future<bool> checkIsMember(String communityId) async {
+    final user = _requireAuth();
+    final doc = await _members(communityId).doc(user.uid).get();
+    return doc.exists;
   }
 
   // Get a specific community by ID
   Future<CommunityModel?> getCommunity(String communityId) async {
     final doc = await _communities.doc(communityId).get();
     if (!doc.exists) return null;
-    return CommunityModel.fromJson(doc.data()!, doc.id);
+    return CommunityModel.fromJson(doc);
   }
 
   Future<String> createCommunity({
     required String communityName,
-    required List<String> category,
+    required List<CategoryModel> category,
     required String description,
-    required String coverImageURL,
     required List<RuleModel> rules,
+    Uint8List? coverImageBytes,
   }) async {
     final user = _requireAuth();
     final communityRef = _communities.doc();
     final createdAt = FieldValue.serverTimestamp();
+    String coverImageURL = '';
+    if (coverImageBytes != null) {
+      coverImageURL = await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
+    }
     final batch = _db.batch();
     batch.set(communityRef, {
       'communityId': communityRef.id,
       'communityName': communityName,
-      'category': category,
+      'tags': category.map((c) => c.toJson()).toList(),
       'description': description,
       'coverImageURL': coverImageURL,
       'rules': rules.map((r) => r.toJson()).toList(),
       'memberCount': 1,
       'createdAt': createdAt,
       'updatedAt': createdAt,
-      'createdById': user.uid,
+      'createdBy': user.uid,
     });
     batch.set(_members(communityRef.id).doc(user.uid), {
       'joinedAt': createdAt,
@@ -188,10 +203,10 @@ class CommunityService {
       updates['communityName'] = name.trim();
     }
 
-    if (updates.containsKey('category')) {
-      final cat = updates['category'];
-      if (cat is! List || cat.any((e) => e is! String)) {
-        throw ArgumentError('category must be a List<String>');
+    if (updates.containsKey('tags')) {
+      final tags = updates['tags'];
+      if (tags is! List) {
+        throw ArgumentError('tags must be a List');
       }
     }
 
@@ -232,6 +247,17 @@ class CommunityService {
 
     final batch = _db.batch();
     batch.delete(_members(communityId).doc(user.uid));
+    batch.update(_communities.doc(communityId), {
+      'memberCount': FieldValue.increment(-1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  Future<void> kickMember(String communityId, String userId) async {
+    _requireAuth();
+    final batch = _db.batch();
+    batch.delete(_members(communityId).doc(userId));
     batch.update(_communities.doc(communityId), {
       'memberCount': FieldValue.increment(-1),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -288,6 +314,9 @@ class CommunityService {
     String communityId, {
     required String text,
     String imageURL = '',
+    String? replyToId,
+    String? replyToSenderName,
+    String? replyToText,
   }) async {
     final user = _requireAuth();
     await _requireMemberDoc(communityId, user.uid);
@@ -303,7 +332,19 @@ class CommunityService {
       'imageURL': imageURL,
       'timestamp': FieldValue.serverTimestamp(),
       'seenBy': [user.uid],
+      if (replyToId != null) 'replyToId': replyToId,
+      if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
+      if (replyToText != null) 'replyToText': replyToText,
     });
+  }
+
+  Future<void> sendImageMessage(
+    String communityId, {
+    required Uint8List bytes,
+  }) async {
+    _requireAuth();
+    final imageURL = await _storage.uploadChatImage(bytes, communityId);
+    await sendMessage(communityId, text: '', imageURL: imageURL);
   }
 
   Future<void> markMessageSeen(String communityId, String messageId) async {

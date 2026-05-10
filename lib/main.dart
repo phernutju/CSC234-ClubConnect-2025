@@ -2,13 +2,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-
 import 'constants/app_constants.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/community_provider.dart';
 import 'providers/profile_provider.dart';
+import 'providers/category_provider.dart';
+import 'providers/event_provider.dart';
 import 'providers/rating_provider.dart';
+import 'providers/report_provider.dart';
 import 'router/app_router.dart';
 
 void main() async {
@@ -25,31 +27,37 @@ class ClubConnectApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = AppAuthProvider();
+    final appRouter = createAppRouter(authProvider);
+
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AppAuthProvider()),
-        ChangeNotifierProvider(create: (_) => CommunityProvider()),
+        ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        ChangeNotifierProvider(create: (_) => CommunityProvider()),
         ChangeNotifierProvider(create: (_) => RatingProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(create: (_) => ReportProvider()),
+        ChangeNotifierProvider(create: (_) => EventProvider()),
       ],
       child: MaterialApp.router(
-      title: 'ClubConnect',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        // Suppress the default blue focus/cursor color across the app
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFF6B4A),
-          brightness: Brightness.light,
+        title: 'ClubConnect',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          // Suppress the default blue focus/cursor color across the app
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFFF6B4A),
+            brightness: Brightness.light,
+          ),
+          // Remove the Material splash / ink-well ripple in favor of custom GestureDetectors
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          appBarTheme: const AppBarTheme(
+            toolbarHeight: AppSizes.appBarHeight,
+          ),
         ),
-        // Remove the Material splash / ink-well ripple in favor of custom GestureDetectors
-        splashFactory: NoSplash.splashFactory,
-        highlightColor: Colors.transparent,
-        appBarTheme: const AppBarTheme(
-          toolbarHeight: AppSizes.appBarHeight,
-        ),
-      ),
-      routerConfig: appRouter,
+        routerConfig: appRouter,
       ),
     );
   }

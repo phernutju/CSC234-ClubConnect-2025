@@ -1,11 +1,14 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/review_model.dart';
 import '../models/user_model.dart';
+import 'storage_service.dart';
 
 class ProfileService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
+  final StorageService _storage;
 
   static const _allowedProfileFields = {
     'displayName',
@@ -15,12 +18,16 @@ class ProfileService {
     'photoURL',
   };
 
-  ProfileService({FirebaseFirestore? db, FirebaseAuth? auth})
+  ProfileService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
       : _db = db ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _storage = storage ?? StorageService();
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
+
+  CollectionReference<Map<String, dynamic>> get _communities =>
+      _db.collection('communities');
 
   CollectionReference<Map<String, dynamic>> _ratings(String userId) =>
       _users.doc(userId).collection('rating');
@@ -35,8 +42,9 @@ class ProfileService {
 
   Future<void> updateUserProfile(
     String userId,
-    Map<String, dynamic> data,
-  ) async {
+    Map<String, dynamic> data, {
+    Uint8List? avatarBytes,
+  }) async {
     final current = _requireAuth();
     if (current.uid != userId) {
       throw Exception('You can only modify your own profile');
@@ -44,6 +52,11 @@ class ProfileService {
 
     final updates = Map<String, dynamic>.from(data)
       ..removeWhere((k, _) => !_allowedProfileFields.contains(k));
+
+    if (avatarBytes != null) {
+      updates['photoURL'] = await _storage.uploadUserAvatar(avatarBytes, userId);
+    }
+
     if (updates.isEmpty) throw ArgumentError('No updatable fields provided');
 
     if (updates.containsKey('displayName')) {
@@ -84,11 +97,12 @@ class ProfileService {
       throw ArgumentError('You cannot review yourself');
     }
     _validateScore(score);
-    if (comment.trim().isEmpty) throw ArgumentError('comment must not be empty');
 
+    final communityName = await getCommunityName(communityId) ?? '';
     final data = {
       'raterId': current.uid,
       'communityId': communityId,
+      'communityName': communityName,
       'score': score,
       'comment': comment.trim(),
       'createdAt': Timestamp.now(),
@@ -100,12 +114,13 @@ class ProfileService {
 
   Future<ReviewsResult> getReviews(String targetUserId) async {
     final snapshot = await _ratings(targetUserId).get();
+
     final reviews = snapshot.docs
         .map((doc) => ReviewModel.fromJson(doc.id, doc.data()))
         .toList();
     final average = reviews.isEmpty
-        ? 0.0
-        : reviews.fold<double>(0.0, (acc, r) => acc + r.score) / reviews.length;
+        ? 5.0
+        : reviews.fold<double>(0, (acc, r) => acc + r.score) / reviews.length;
     return ReviewsResult(reviews: reviews, averageScore: average);
   }
 
@@ -151,12 +166,31 @@ class ProfileService {
     await _ratings(targetUserId).doc(reviewId).delete();
   }
 
-  // ── Community name lookup ──────────────────────────────────────────────────
+  // ── Community ──────────────────────────────────────────────────────────────
 
+  /// Fetch just the community name from a community ID.
   Future<String?> getCommunityName(String communityId) async {
     if (communityId.isEmpty) return null;
-    final doc = await _db.collection('communities').doc(communityId).get();
+    final doc = await _communities.doc(communityId).get();
+    if (!doc.exists) return null;
     return doc.data()?['communityName'] as String?;
+  }
+
+  // ── Reports ────────────────────────────────────────────────────────────────
+
+  Future<void> submitReport({
+    required String targetId,
+    required String reason,
+    required String description,
+  }) async {
+    final current = _requireAuth();
+    await _db.collection('reports').add({
+      'reporterId': current.uid,
+      'targetId': targetId,
+      'reason': reason,
+      'description': description.trim(),
+      'createdAt': Timestamp.now(),
+    });
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

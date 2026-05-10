@@ -9,7 +9,8 @@ class MessageModel {
   final DateTime timestamp;
   final List<String> seenBy;
   final bool flagged;
-  final String? replyToName;
+  final String? replyToId;
+  final String? replyToSenderName;
   final String? replyToText;
 
   MessageModel({
@@ -21,7 +22,8 @@ class MessageModel {
     required this.timestamp,
     this.seenBy = const [],
     this.flagged = false,
-    this.replyToName,
+    this.replyToId,
+    this.replyToSenderName,
     this.replyToText,
   });
 
@@ -36,35 +38,39 @@ class MessageModel {
       timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       seenBy: List<String>.from(json['seenBy'] ?? []),
       flagged: json['flagged'] ?? false,
-      replyToName: json['replyToName'],
-      replyToText: json['replyToText'],
+      replyToId: json['replyToId'] as String?,
+      replyToSenderName: json['replyToSenderName'] as String?,
+      replyToText: json['replyToText'] as String?,
     );
   }
 
   factory MessageModel.fromJson(Map<String, dynamic> json, String id) =>
       MessageModel(
         id: id,
-        senderId: json['senderId'] ?? '',
-        senderName: json['senderName'] ?? '',
-        text: json['text'] ?? '',
-        imageURL: json['imageURL'] ?? '',
-        timestamp:
-            (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        senderId: (json['senderId'] as String? ?? '').trim(),
+        senderName: json['senderName'] as String? ?? '',
+        text: (json['text'] as String? ?? '').trim(),
+        imageURL: (json['imageURL'] as String? ?? '').trim(),
+        timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         seenBy: List<String>.from(json['seenBy'] ?? []),
         flagged: json['flagged'] ?? false,
-        replyToName: json['replyToName'],
-        replyToText: json['replyToText'],
+        replyToId: json['replyToId'] as String?,
+        replyToSenderName: json['replyToSenderName'] as String?,
+        replyToText: json['replyToText'] as String?,
       );
 
-  Map<String, dynamic> toJson() => {
-        'senderId': senderId,
-        'senderName': senderName,
-        'text': text,
-        'imageURL': imageURL,
-        'timestamp': Timestamp.fromDate(timestamp),
-        'seenBy': seenBy,
-        'flagged': flagged,
-        'replyToName': replyToName,
-        'replyToText': replyToText,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'senderId': senderId,
+      'senderName': senderName,
+      'text': text,
+      'imageURL': imageURL,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'seenBy': seenBy,
+      'flagged': flagged,
+      if (replyToId != null) 'replyToId': replyToId,
+      if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
+      if (replyToText != null) 'replyToText': replyToText,
+    };
+  }
 }

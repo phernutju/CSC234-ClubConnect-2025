@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../models/category_model.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
@@ -16,6 +17,7 @@ class CommunityProvider extends ChangeNotifier {
   List<MessageModel> messages = [];
   List<MemberModel> members = [];
   bool isLoading = false;
+  bool isUploading = false;
   String? error;
 
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
@@ -25,6 +27,8 @@ class CommunityProvider extends ChangeNotifier {
 
 
   Set<String> get mutedCommunityNames => Set.unmodifiable(_mutedCommunities);
+
+  bool isMuted(String communityId) => _mutedCommunities.contains(communityId);
 
   void toggleMute(String communityId) {
     if (_mutedCommunities.contains(communityId)) {
@@ -108,6 +112,9 @@ class CommunityProvider extends ChangeNotifier {
     _listenToMyCommunities(_service.getMyCommunities());
   }
 
+  Future<bool> checkIsMember(String communityId) =>
+      _service.checkIsMember(communityId);
+
   Future<CommunityModel?> fetchCommunity(String communityId) {
     return _service.getCommunity(communityId);
   }
@@ -171,19 +178,22 @@ class CommunityProvider extends ChangeNotifier {
         if (activeCommunity?.id == communityId) clearActiveCommunity();
       });
 
+  Future<void> kickMember(String communityId, String userId) =>
+      _run(() => _service.kickMember(communityId, userId));
+
   Future<void> addCommunity({
     required String communityName,
-    required List<String> category,
+    required List<CategoryModel> category,
     required String description,
-    required String coverImageURL,
     required List<RuleModel> rules,
+    Uint8List? coverImageBytes,
   }) =>
       _run(() => _service.createCommunity(
             communityName: communityName,
             category: category,
             description: description,
-            coverImageURL: coverImageURL,
             rules: rules,
+            coverImageBytes: coverImageBytes,
           ));
 
   // ── Member actions ─────────────────────────────────────────────────────────
@@ -201,12 +211,32 @@ class CommunityProvider extends ChangeNotifier {
     String communityId, {
     required String text,
     String imageURL = '',
+    String? replyToId,
+    String? replyToSenderName,
+    String? replyToText,
   }) =>
       _run(() => _service.sendMessage(
             communityId,
             text: text,
             imageURL: imageURL,
+            replyToId: replyToId,
+            replyToSenderName: replyToSenderName,
+            replyToText: replyToText,
           ));
+
+  Future<void> sendImageMessage(String communityId, Uint8List bytes) async {
+    isUploading = true;
+    error = null;
+    notifyListeners();
+    try {
+      await _service.sendImageMessage(communityId, bytes: bytes);
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isUploading = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> markMessageSeen(String communityId, String messageId) =>
       _run(() => _service.markMessageSeen(communityId, messageId));

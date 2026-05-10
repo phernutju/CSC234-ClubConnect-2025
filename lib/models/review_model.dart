@@ -4,6 +4,7 @@ class ReviewModel {
   final String id;
   final String raterId;
   final String communityId;
+  final String communityName;
   final double score;
   final String comment;
   final Timestamp createdAt;
@@ -12,6 +13,7 @@ class ReviewModel {
     required this.id,
     required this.raterId,
     required this.communityId,
+    required this.communityName,
     required this.score,
     required this.comment,
     required this.createdAt,
@@ -20,16 +22,18 @@ class ReviewModel {
   factory ReviewModel.fromJson(String id, Map<String, dynamic> json) =>
       ReviewModel(
         id: id,
-        raterId: json['raterId'] as String,
-        communityId: json['communityId'] as String? ?? '',
+        raterId: (json['raterId'] as String? ?? '').trim(),
+        communityId: (json['communityId'] as String? ?? '').trim(),
+        communityName: (json['communityName'] as String? ?? '').trim(),
         score: json['score'] as double? ?? 0.0,
-        comment: json['comment'] as String,
+        comment: (json['comment'] as String? ?? '').trim(),
         createdAt: json['createdAt'] as Timestamp,
       );
 
   Map<String, dynamic> toJson() => {
         'raterId': raterId,
         'communityId': communityId,
+        'communityName': communityName,
         'score': score,
         'comment': comment,
         'createdAt': createdAt,

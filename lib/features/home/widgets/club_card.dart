@@ -1,13 +1,13 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
+import 'network_image_view.dart';
 
 /// Card that represents a single community/club in any of the home tabs.
 class ClubCard extends StatelessWidget {
   final String name;
   final String description;
   final String memberCount;
-  final Uint8List? coverImage;
+  final String? coverImageUrl;
   final VoidCallback? onTap;
 
   const ClubCard({
@@ -15,7 +15,7 @@ class ClubCard extends StatelessWidget {
     required this.name,
     required this.description,
     required this.memberCount,
-    this.coverImage,
+    this.coverImageUrl,
     this.onTap,
   });
 
@@ -36,7 +36,7 @@ class ClubCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _ClubThumbnail(imageBytes: coverImage),
+            _ClubThumbnail(coverImageUrl: coverImageUrl),
 
             const SizedBox(width: AppSizes.paddingM),
 
@@ -55,9 +55,8 @@ class ClubCard extends StatelessWidget {
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
 class _ClubThumbnail extends StatelessWidget {
-  final Uint8List? imageBytes;
-  const _ClubThumbnail({this.imageBytes});
-
+  final String? coverImageUrl;
+  const _ClubThumbnail({this.coverImageUrl});
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -66,9 +65,11 @@ class _ClubThumbnail extends StatelessWidget {
         width: AppSizes.clubThumbnailSize,
         height: AppSizes.clubThumbnailSize,
         color: AppColors.inputFill,
-        child: imageBytes != null
-            ? Image.memory(imageBytes!, fit: BoxFit.cover)
-            : null,
+        child: NetworkImageView(
+          url: coverImageUrl,
+          width: AppSizes.cardThumbnailSize,
+          height: AppSizes.cardThumbnailSize,
+        ),
       ),
     );
   }
@@ -95,7 +96,7 @@ class _ClubInfo extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppTextStyles.poppins(
-            fontSize: 16.0,
+            fontSize: AppSizes.fontML,
             fontWeight: FontWeight.w600,
             color: AppColors.textDark,
           ),
@@ -107,26 +108,27 @@ class _ClubInfo extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: AppTextStyles.poppins(
-            fontSize: AppSizes.fontXXS,
-            color: AppColors.commentBody,
+            fontSize: AppSizes.fontS,
+            color: AppColors.textGray,
           ).copyWith(height: 1.4),
         ),
         const SizedBox(height: 4),
 
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              memberCount,
-              style: AppTextStyles.poppins(
-                fontSize: AppSizes.fontXXS,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primary,
+            Expanded(
+              child: Text(
+                memberCount,
+                style: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontXS,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-            Icon(
+            const Icon(
               Icons.arrow_forward,
-              size: AppSizes.clubArrowSize,
+              size: 16,
               color: AppColors.primary,
             ),
           ],

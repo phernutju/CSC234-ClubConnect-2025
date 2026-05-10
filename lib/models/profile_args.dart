@@ -6,10 +6,12 @@ class ProfileArgs {
   final String userId;
   final String username;
   final String communityName;
+  final String communityId;
 
   const ProfileArgs({
     this.userId = '',
     this.username = AppStrings.rateTestUsername,
     this.communityName = AppStrings.rateTestCommunity,
+    this.communityId = AppStrings.rateTestCommunityId,
   });
 }
