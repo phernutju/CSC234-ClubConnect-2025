@@ -111,7 +111,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     if (catProvider.isLoading) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    print(catProvider.error);
                     if (catProvider.error != null) {
                       return Center(
                         child: Text(

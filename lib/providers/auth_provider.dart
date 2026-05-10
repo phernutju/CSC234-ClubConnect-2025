@@ -43,7 +43,6 @@ class AppAuthProvider extends ChangeNotifier {
 
   void setPhoneNumber(String phonenum) {
     _phone = formatPhoneNumber(phonenum);
-    print('Formatted phone: $_phone');
   }
   String formatPhoneNumber(String phone) {
   // Remove any spaces or dashes

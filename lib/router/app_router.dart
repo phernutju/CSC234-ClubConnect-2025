@@ -22,6 +22,7 @@ import '../features/community/screens/event_chat_screen.dart';
 import '../features/community/screens/edit_event_screen.dart';
 import '../models/event_model.dart';
 import '../models/event_chat_args.dart';
+import '../models/event_detail_args.dart';
 import '../features/admin/screens/admin_reports_screen.dart';
 import '../features/admin/screens/admin_report_detail_screen.dart';
 import '../models/chat_args.dart';
@@ -169,9 +170,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       GoRoute(
         path: '/event-detail',
         builder: (context, state) {
-          final event = state.extra as EventModel?;
-          if (event == null) return const SizedBox.shrink();
-          return EventDetailScreen(event: event);
+          final args = state.extra as EventDetailArgs?;
+          if (args == null) return const SizedBox.shrink();
+          return EventDetailScreen(
+              event: args.event, communityId: args.communityId);
         },
       ),
       GoRoute(
@@ -182,6 +184,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           return EventChatScreen(
             event: args.event,
             memberCount: args.memberCount,
+            communityId: args.communityId,
           );
         },
       ),

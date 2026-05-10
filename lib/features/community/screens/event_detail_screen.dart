@@ -6,38 +6,25 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
+import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
-
-// ── Join status ───────────────────────────────────────────────────────────────
-
-enum _JoinStatus { none, pending, accepted }
-
-class _JoinRequest {
-  final String userId;
-  final String username;
-  const _JoinRequest({required this.userId, required this.username});
-}
-
-// ── Screen ────────────────────────────────────────────────────────────────────
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel event;
+  final String communityId;
 
-  const EventDetailScreen({super.key, required this.event});
+  const EventDetailScreen({
+    super.key,
+    required this.event,
+    required this.communityId,
+  });
 
   @override
   State<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
-  _JoinStatus _joinStatus = _JoinStatus.none;
-  int _currentMembers = 0;
-
-  /// Pending join requests — populated locally; backend will sync later.
-  final List<_JoinRequest> _pendingRequests = [];
-
-  /// Accepted member display names — populated locally; backend will sync later.
-  final List<String> _memberNames = [];
+  AttendeeProvider? _attendeeProvider;
 
   static const _avatarColors = [
     Color(0xFFFFB347),
@@ -48,6 +35,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     Color(0xFFFFD700),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _attendeeProvider = context.read<AttendeeProvider>();
+      _attendeeProvider!.loadAttendees(widget.communityId, widget.event.id);
+      await _attendeeProvider!
+          .checkIsAttending(widget.communityId, widget.event.id);
+    });
+  }
+
+  @override
+  void dispose() {
+    _attendeeProvider?.clearAttendees();
+    super.dispose();
+  }
+
   // ── Host check ──────────────────────────────────────────────────────────────
 
   bool get _isHost {
@@ -55,95 +60,92 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return uid.isNotEmpty && widget.event.createdBy == uid;
   }
 
-  // ── Button ──────────────────────────────────────────────────────────────────
-
-  String get _buttonLabel {
-    if (_isHost) return 'Enter Chat';
-    switch (_joinStatus) {
-      case _JoinStatus.none:     return 'Join';
-      case _JoinStatus.pending:  return 'Cancel';
-      case _JoinStatus.accepted: return 'Enter Chat';
-    }
-  }
-
-  void _onButtonTap() {
-    if (_isHost) {
-      _goToChat();
-      return;
-    }
-    switch (_joinStatus) {
-      case _JoinStatus.none:
-        final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-        setState(() {
-          _joinStatus = _JoinStatus.pending;
-          _pendingRequests.add(_JoinRequest(userId: uid, username: 'You'));
-        });
-        break;
-      case _JoinStatus.pending:
-        final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-        setState(() {
-          _pendingRequests.removeWhere((r) => r.userId == uid);
-          _joinStatus = _JoinStatus.none;
-        });
-        break;
-      case _JoinStatus.accepted:
-        _goToChat();
-        break;
-    }
-  }
+  // ── Navigation ──────────────────────────────────────────────────────────────
 
   void _goToChat() {
+    final ap = context.read<AttendeeProvider>();
     context.push(
       '/event-chat',
       extra: EventChatArgs(
         event: widget.event,
-        memberCount: '$_currentMembers/${widget.event.maxAttendees}',
+        memberCount: '${ap.attendees.length}/${widget.event.maxAttendees}',
+        communityId: widget.communityId,
       ),
     );
   }
 
-  // ── Host actions ─────────────────────────────────────────────────────────────
+  // ── Button tap ──────────────────────────────────────────────────────────────
 
-  void _acceptRequest(_JoinRequest req) {
-    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
-    setState(() {
-      _pendingRequests.remove(req);
-      _memberNames.add(req.username);
-      _currentMembers++;
-      // Same-device demo: if current user's request is accepted, update status.
-      if (req.userId == currentUid) _joinStatus = _JoinStatus.accepted;
-    });
-  }
+  Future<void> _onButtonTap() async {
+    if (_isHost) {
+      _goToChat();
+      return;
+    }
+    final ap = context.read<AttendeeProvider>();
+    final communityId = widget.communityId;
+    final eventId = widget.event.id;
 
-  void _rejectRequest(_JoinRequest req) {
-    setState(() => _pendingRequests.remove(req));
+    if (ap.isAttending) {
+      await ap.leaveEvent(communityId, eventId);
+      if (!mounted) return;
+      if (ap.error != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(ap.error!)));
+      }
+    } else {
+      await ap.joinEvent(communityId, eventId);
+      if (!mounted) return;
+      if (ap.error != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(ap.error!)));
+      } else {
+        _goToChat();
+      }
+    }
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('d MMMM yyyy  hh:mm a').format(widget.event.startDate.toDate());
+    final ap = context.watch<AttendeeProvider>();
+    final dateStr = DateFormat('d MMMM yyyy  hh:mm a')
+        .format(widget.event.startDate.toDate());
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isHost = _isHost;
+    final memberCount = ap.attendees.length;
+    final memberNames = ap.attendees.map((a) => a.displayName).toList();
+
+    String buttonLabel;
+    if (isHost) {
+      buttonLabel = 'Enter Chat';
+    } else if (ap.isAttending) {
+      buttonLabel = 'Leave';
+    } else {
+      buttonLabel = 'Join';
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // ── App bar ─────────────────────────────────────────────────────────
+          // ── App bar ───────────────────────────────────────────────────────
           _DetailAppBar(
             title: widget.event.title,
-            memberCount: '$_currentMembers/${widget.event.maxAttendees}',
+            memberCount: '$memberCount/${widget.event.maxAttendees}',
           ),
 
-          // ── Scrollable content ───────────────────────────────────────────────
+          // ── Scrollable content ────────────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _CoverImage(url: widget.event.imageUrl?.isNotEmpty == true ? widget.event.imageUrl! : ''),
+                  _CoverImage(
+                    url: widget.event.imageUrl?.isNotEmpty == true
+                        ? widget.event.imageUrl!
+                        : '',
+                  ),
 
                   Padding(
                     padding: const EdgeInsets.all(AppSizes.paddingM),
@@ -164,10 +166,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         // Date row
                         _IconRow(icon: Icons.calendar_month, text: dateStr),
 
-                        // Location row
+                        // Location / description row
                         if (widget.event.description.isNotEmpty) ...[
                           const SizedBox(height: 14),
-                          _IconRow(icon: Icons.location_on, text: widget.event.description),
+                          _IconRow(
+                              icon: Icons.location_on,
+                              text: widget.event.description),
                         ],
 
                         // Event Detail section
@@ -194,66 +198,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                         // ── Members section ──────────────────────────────────
                         const SizedBox(height: 25),
-
-                        if (isHost) ...[
-                          // Host: pending requests
-                          if (_pendingRequests.isNotEmpty) ...[
-                            Text(
-                              'Pending Requests (${_pendingRequests.length})',
-                              style: GoogleFonts.poppins(
-                                fontSize: AppSizes.fontSM,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSizes.paddingS),
-                            ..._pendingRequests.map((req) => Padding(
-                              padding: const EdgeInsets.only(bottom: AppSizes.paddingS),
-                              child: _PendingRequestTile(
-                                request: req,
-                                onAccept: () => _acceptRequest(req),
-                                onReject: () => _rejectRequest(req),
-                              ),
-                            )),
-                            const SizedBox(height: AppSizes.paddingS),
-                          ],
-
-                          // Host: members list
-                          Text(
-                            'Members ($_currentMembers/${widget.event.maxAttendees})',
-                            style: GoogleFonts.poppins(
-                              fontSize: AppSizes.fontSM,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
+                        Text(
+                          'Members ($memberCount/${widget.event.maxAttendees})',
+                          style: GoogleFonts.poppins(
+                            fontSize: AppSizes.fontSM,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
                           ),
-                          if (_memberNames.isNotEmpty) ...[
-                            const SizedBox(height: AppSizes.paddingS),
-                            _MemberAvatarRow(
-                              names: _memberNames,
-                              colors: _avatarColors,
-                            ),
-                          ],
-                        ] else ...[
-                          // Non-host: member count + avatar row
-                          Text(
-                            'Members ($_currentMembers/${widget.event.maxAttendees})',
-                            style: GoogleFonts.poppins(
-                              fontSize: AppSizes.fontSM,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
+                        ),
+                        if (memberNames.isNotEmpty) ...[
+                          const SizedBox(height: AppSizes.paddingS),
+                          _MemberAvatarRow(
+                            names: memberNames,
+                            colors: _avatarColors,
                           ),
-                          if (_memberNames.isNotEmpty) ...[
-                            const SizedBox(height: AppSizes.paddingS),
-                            _MemberAvatarRow(
-                              names: _memberNames,
-                              colors: _avatarColors,
-                            ),
-                          ],
                         ],
 
-                        // Event's bills card
+                        // Bills card
                         const SizedBox(height: AppSizes.paddingM),
                         const _BillsCard(),
 
@@ -266,7 +227,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ),
           ),
 
-          // ── Action button ────────────────────────────────────────────────────
+          // ── Action button ─────────────────────────────────────────────────
+          if (ap.isLoading)
+            const LinearProgressIndicator(
+              color: AppColors.primary,
+              backgroundColor: AppColors.inputFill,
+            ),
           Padding(
             padding: EdgeInsets.fromLTRB(
               AppSizes.paddingM,
@@ -277,17 +243,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _onButtonTap,
+                onPressed: ap.isLoading ? null : _onButtonTap,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
+                  disabledBackgroundColor: AppColors.inputBorder,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
                 ),
                 child: Text(
-                  _buttonLabel,
+                  buttonLabel,
                   style: GoogleFonts.poppins(
                     fontSize: AppSizes.fontML,
                     fontWeight: FontWeight.w600,
@@ -303,90 +271,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 }
 
-// ── Pending request tile ──────────────────────────────────────────────────────
-
-class _PendingRequestTile extends StatelessWidget {
-  final _JoinRequest request;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-
-  const _PendingRequestTile({
-    required this.request,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // Avatar circle
-        Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            color: Color(0xFFFFB347),
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            request.username.isNotEmpty
-                ? request.username[0].toUpperCase()
-                : '?',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w600,
-              color: AppColors.cardWhite,
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSizes.paddingS),
-
-        // Username
-        Expanded(
-          child: Text(
-            request.username,
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textDark,
-            ),
-          ),
-        ),
-
-        // Accept button (✓)
-        GestureDetector(
-          onTap: onAccept,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check, color: AppColors.cardWhite, size: 16),
-          ),
-        ),
-        const SizedBox(width: AppSizes.paddingXS),
-
-        // Reject button (✗)
-        GestureDetector(
-          onTap: onReject,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.close, color: AppColors.textDark, size: 16),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ── App bar ───────────────────────────────────────────────────────────────────
 
 class _DetailAppBar extends StatelessWidget {
@@ -397,7 +281,8 @@ class _DetailAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayTitle = memberCount.isEmpty ? title : '$title ($memberCount)';
+    final displayTitle =
+        memberCount.isEmpty ? title : '$title ($memberCount)';
     return Container(
       color: AppColors.primary,
       padding: EdgeInsets.only(
@@ -412,7 +297,8 @@ class _DetailAppBar extends StatelessWidget {
           children: [
             GestureDetector(
               onTap: () => context.pop(),
-              child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+              child:
+                  const Icon(Icons.arrow_back, color: AppColors.cardWhite),
             ),
             const SizedBox(width: AppSizes.paddingM),
             Expanded(
@@ -446,7 +332,8 @@ class _CoverImage extends StatelessWidget {
         height: AppSizes.coverImageHeight,
         width: double.infinity,
         color: AppColors.inputFill,
-        child: const Icon(Icons.image_outlined, color: AppColors.inputBorder, size: 48),
+        child: const Icon(Icons.image_outlined,
+            color: AppColors.inputBorder, size: 48),
       );
     }
     return SizedBox(
@@ -458,7 +345,8 @@ class _CoverImage extends StatelessWidget {
         errorBuilder: (_, __, ___) => Container(
           height: AppSizes.coverImageHeight,
           color: AppColors.inputFill,
-          child: const Icon(Icons.broken_image_outlined, color: AppColors.inputBorder, size: 48),
+          child: const Icon(Icons.broken_image_outlined,
+              color: AppColors.inputBorder, size: 48),
         ),
         loadingBuilder: (_, child, progress) => progress == null
             ? child
@@ -466,7 +354,8 @@ class _CoverImage extends StatelessWidget {
                 height: AppSizes.coverImageHeight,
                 color: AppColors.inputFill,
                 child: const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                      color: AppColors.primary, strokeWidth: 2),
                 ),
               ),
       ),
@@ -531,7 +420,9 @@ class _MemberAvatarRow extends StatelessWidget {
             Positioned(
               left: i * (_size - _overlap),
               child: _AvatarCircle(
-                label: visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
+                label: visible[i].isNotEmpty
+                    ? visible[i][0].toUpperCase()
+                    : '?',
                 color: colors[i % colors.length],
               ),
             ),

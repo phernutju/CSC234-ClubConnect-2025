@@ -3,15 +3,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/category_model.dart';
 import '../models/event_model.dart';
+import '../models/message_model.dart';
 import '../services/event_service.dart';
 
 class EventProvider extends ChangeNotifier {
   final EventService _service;
   List<EventModel> events = [];
+  List<MessageModel> eventMessages = [];
   bool isLoading = false;
   String? error;
 
   StreamSubscription<List<EventModel>>? _eventsSub;
+  StreamSubscription<List<MessageModel>>? _eventMessagesSub;
+  final Map<String, String> _nameCache = {};
 
   EventProvider({EventService? service})
       : _service = service ?? EventService();
@@ -38,6 +42,67 @@ class EventProvider extends ChangeNotifier {
     _eventsSub = null;
     notifyListeners();
   }
+
+  // ── Event chat ─────────────────────────────────────────────────────────────
+
+  String displayNameOf(String uid) => _nameCache[uid] ?? '';
+
+  Future<void> fetchDisplayName(String uid) async {
+    if (_nameCache.containsKey(uid)) return;
+    _nameCache[uid] = '';
+    try {
+      _nameCache[uid] = await _service.getUserDisplayName(uid);
+    } catch (_) {
+      _nameCache[uid] = 'User';
+    }
+    notifyListeners();
+  }
+
+  void loadEventMessages(String communityId, String eventId) {
+    _eventMessagesSub?.cancel();
+    _eventMessagesSub =
+        _service.getEventMessages(communityId, eventId).listen(
+      (list) {
+        eventMessages = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  void clearEventMessages() {
+    eventMessages = [];
+    _eventMessagesSub?.cancel();
+    _eventMessagesSub = null;
+    notifyListeners();
+  }
+
+  Future<void> sendEventMessage(
+    String communityId,
+    String eventId, {
+    required String text,
+    String imageURL = '',
+    String? replyToId,
+    String? replyToSenderName,
+    String? replyToText,
+  }) =>
+      _run(() => _service.sendEventMessage(
+            communityId,
+            eventId,
+            text: text,
+            imageURL: imageURL,
+            replyToId: replyToId,
+            replyToSenderName: replyToSenderName,
+            replyToText: replyToText,
+          ));
+
+  Future<void> sendEventImageMessage(
+          String communityId, String eventId, Uint8List bytes) =>
+      _run(() => _service.sendEventImageMessage(communityId, eventId,
+          bytes: bytes));
 
   // ── Event actions ──────────────────────────────────────────────────────────
 
@@ -92,6 +157,7 @@ class EventProvider extends ChangeNotifier {
   @override
   void dispose() {
     _eventsSub?.cancel();
+    _eventMessagesSub?.cancel();
     super.dispose();
   }
 }

@@ -15,7 +15,6 @@ class CategoryService {
   }
 
   Future<List<CategoryModel>> getDefaultCategories() async {
-    print("Fetching default categories...");
     final snap = await _db
         .collection(_col)
         .where('isDefault', isEqualTo: true)
