@@ -48,12 +48,6 @@ class ClubCard extends StatelessWidget {
               description: description,
               memberCount: memberCount,
             )),
-
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: AppColors.primary,
-            ),
           ],
         ),
       ),
@@ -104,8 +98,9 @@ class _ClubInfo extends StatelessWidget {
           name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.title(
-            fontSize: AppSizes.fontM,
+          style: AppTextStyles.poppins(
+            fontSize: AppSizes.fontML,
+            fontWeight: FontWeight.w600,
             color: AppColors.textDark,
           ),
         ),
@@ -115,21 +110,31 @@ class _ClubInfo extends StatelessWidget {
           description,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontXS,
+          style: AppTextStyles.poppins(
+            fontSize: AppSizes.fontS,
             color: AppColors.textGray,
-            height: 1.4,
-          ),
+          ).copyWith(height: 1.4),
         ),
         const SizedBox(height: 4),
 
-        Text(
-          memberCount,
-          style: AppTextStyles.body(
-            fontSize: AppSizes.fontXS,
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                memberCount,
+                style: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontXS,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward,
+              size: 16,
+              color: AppColors.primary,
+            ),
+          ],
         ),
       ],
     );

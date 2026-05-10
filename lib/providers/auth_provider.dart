@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 
 enum OtpState { idle, sendingOtp, codeSent, verifying, verified, error }
@@ -9,6 +10,7 @@ class AppAuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
 
   User? user;
+  String? role;
   bool isLoading = false;
 
   OtpState _otpState = OtpState.idle;
@@ -32,8 +34,26 @@ class AppAuthProvider extends ChangeNotifier {
   AppAuthProvider() {
     _authService.authStateChanges.listen((u) {
       user = u;
-      notifyListeners();
+      if (u != null) {
+        _fetchRole(u.uid);
+      } else {
+        role = null;
+        notifyListeners();
+      }
     });
+  }
+
+  Future<void> _fetchRole(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      role = (doc.data()?['role'] as String?) ?? 'user';
+    } catch (_) {
+      role = 'user';
+    }
+    notifyListeners();
   }
 
   void setEmailPassword(String email, String password) {
@@ -43,7 +63,6 @@ class AppAuthProvider extends ChangeNotifier {
 
   void setPhoneNumber(String phonenum) {
     _phone = formatPhoneNumber(phonenum);
-    print('Formatted phone: $_phone');
   }
   String formatPhoneNumber(String phone) {
   // Remove any spaces or dashes

@@ -50,6 +50,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final notifProvider = context.watch<NotificationProvider>();
     final mutedIds = context.watch<CommunityProvider>().mutedCommunityNames;
     final userId = context.read<AppAuthProvider>().user?.uid ?? '';
+    final mutedNames = context.watch<CommunityProvider>().mutedCommunityNames;
 
     final visible = notifProvider.notifications
         .where((n) => !mutedIds.contains(n.communityId))

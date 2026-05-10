@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
+import '../constants/app_constants.dart';
 import '../models/review_model.dart';
 import '../models/user_model.dart';
 import '../services/profile_service.dart';
+import '../services/user_service.dart';
 
 class ProfileProvider extends ChangeNotifier {
   final ProfileService _service;
@@ -16,6 +18,54 @@ class ProfileProvider extends ChangeNotifier {
   bool isLoading = false;
   String? error;
 
+  // ── Local UI state (HEAD-branch screens) ─────────────────────────────────
+  String _username = 'Username';
+  String _bio = AppStrings.profileBio;
+  Uint8List? _avatarBytes;
+  Uint8List? _coverBytes;
+  final Set<String> _selectedInterests = {};
+
+  String get username => _username;
+  String get bio => _bio;
+  Uint8List? get avatarBytes => _avatarBytes;
+  Uint8List? get coverBytes => _coverBytes;
+  Set<String> get selectedInterests => Set.unmodifiable(_selectedInterests);
+
+  void saveProfile({required String username, required String bio, Set<String>? interests}) {
+    _username = username.isEmpty ? 'Username' : username;
+    _bio = bio.isEmpty ? _bio : bio;
+    if (interests != null) { _selectedInterests..clear()..addAll(interests); }
+    UserService.updateProfile(username: _username, bio: _bio, interests: Set.unmodifiable(_selectedInterests));
+    notifyListeners();
+  }
+
+  void saveInterests(Set<String> interests) {
+    _selectedInterests..clear()..addAll(interests);
+    UserService.updateProfile(username: _username, bio: _bio, interests: Set.unmodifiable(_selectedInterests));
+    notifyListeners();
+  }
+
+  void updateAvatar(Uint8List bytes) {
+    _avatarBytes = bytes;
+    UserService.updateAvatar(bytes);
+    notifyListeners();
+  }
+
+  void updateCover(Uint8List bytes) {
+    _coverBytes = bytes;
+    UserService.updateCover(bytes);
+    notifyListeners();
+  }
+
+  void logout() {
+    _username = 'Username';
+    _bio = AppStrings.profileBio;
+    _avatarBytes = null;
+    _coverBytes = null;
+    _selectedInterests.clear();
+    notifyListeners();
+  }
+
   ProfileProvider({ProfileService? service})
       : _service = service ?? ProfileService();
 
@@ -23,6 +73,11 @@ class ProfileProvider extends ChangeNotifier {
 
   Future<void> loadProfile(String userId) => _run(() async {
         profile = await _service.getUserProfile(userId);
+        if (profile != null && _selectedInterests.isEmpty) {
+          _selectedInterests
+            ..clear()
+            ..addAll(profile!.interests);
+        }
       });
 
   Future<void> loadViewedProfile(String userId) => _run(() async {
@@ -66,7 +121,7 @@ class ProfileProvider extends ChangeNotifier {
           score: score,
           comment: comment,
         );
-        reviewsResult = await _service.getReviews(targetUserId);
+        viewedReviewsResult = await _service.getReviews(targetUserId);
       });
 
   Future<void> updateReview(

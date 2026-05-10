@@ -24,6 +24,9 @@ class MessageInputBar extends StatelessWidget {
   /// Called when the user taps the ✕ on the reply preview strip.
   final VoidCallback? onCancelReply;
 
+  /// When false, the input and send button are disabled (e.g., user is banned).
+  final bool enabled;
+
   const MessageInputBar({
     super.key,
     required this.controller,
@@ -32,13 +35,14 @@ class MessageInputBar extends StatelessWidget {
     this.replyToName,
     this.replyToText,
     this.onCancelReply,
+    this.enabled = true,
   });
 
   Future<void> _pickImage() async {
+    if (!enabled) return;
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      // readAsBytes() works on both mobile and Flutter Web
       final bytes = await picked.readAsBytes();
       onImagePicked(bytes);
     }
@@ -82,21 +86,21 @@ class MessageInputBar extends StatelessWidget {
               // Pill-shaped text field
               Expanded(
                 child: Container(
-                  height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.cardWhite,
+                    color: enabled ? AppColors.cardWhite : AppColors.inputFill,
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
                   ),
                   child: TextField(
                     controller: controller,
+                    enabled: enabled,
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
-                      hintText: AppStrings.chatInputHint,
+                      hintText: enabled ? AppStrings.chatInputHint : 'You are restricted from sending messages',
                       hintStyle: AppTextStyles.body(color: AppColors.textGray),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.paddingM,
-                        vertical: 0,
+                        vertical: 12,
                       ),
                     ),
                   ),
@@ -106,10 +110,10 @@ class MessageInputBar extends StatelessWidget {
 
               // Send button
               GestureDetector(
-                onTap: onSend,
-                child: const Icon(
+                onTap: enabled ? onSend : null,
+                child: Icon(
                   Icons.send,
-                  color: AppColors.cardWhite,
+                  color: enabled ? AppColors.cardWhite : AppColors.cardWhite.withValues(alpha: 0.4),
                   size: AppSizes.iconSize,
                 ),
               ),

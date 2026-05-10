@@ -14,10 +14,24 @@ import '../features/home/screens/my_profile_screen.dart';
 import '../features/home/screens/other_profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
+import '../features/community/screens/edit_community_screen.dart';
+import '../features/community/screens/events_screen.dart';
+import '../features/community/screens/create_event_screen.dart';
+import '../features/community/screens/event_detail_screen.dart';
+import '../features/community/screens/event_chat_screen.dart';
+import '../features/community/screens/edit_event_screen.dart';
+import '../models/event_model.dart';
+import '../models/event_chat_args.dart';
+import '../models/event_detail_args.dart';
+import '../features/admin/screens/admin_reports_screen.dart';
+import '../features/admin/screens/admin_report_detail_screen.dart';
 import '../models/chat_args.dart';
+import '../models/community_model.dart';
 import '../models/profile_args.dart';
+import '../models/report_model.dart';
 import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
+import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';
 
 GoRouter createAppRouter(AppAuthProvider authProvider) {
@@ -42,8 +56,12 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       return '/login';
     }
 
-    if (signedIn && location == '/') {
+    if (signedIn && isAuthRoute) {
       return '/home';
+    }
+
+    if (signedIn && location.startsWith('/admin')) {
+      if (authProvider.role != 'admin') return '/home';
     }
 
     return null;
@@ -81,7 +99,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       ),
       GoRoute(
         path: '/category',
-        builder: (context, state) => const CategoryScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CategoryScreen(displayName: extra?['displayName'] as String?);
+        },
       ),
 
       // ── Main-app shell (bottom nav shared across these three routes) ─────────
@@ -119,6 +140,79 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         path: '/create-community',
         builder: (context, state) => const CreateCommunityScreen(),
       ),
+      GoRoute(
+        path: '/edit-community',
+        builder: (context, state) {
+          final community = state.extra as CommunityModel?;
+          if (community == null) return const SizedBox.shrink();
+          return EditCommunityScreen(community: community);
+        },
+      ),
+      GoRoute(
+        path: '/events',
+        builder: (context, state) {
+          final args = state.extra as ChatArgs?;
+          return EventsScreen(
+            communityId: args?.communityId ?? '',
+            communityName: args?.communityName ?? AppStrings.chatCommunityName,
+            memberCount: args?.memberCount ?? '',
+          );
+        },
+      ),
+      GoRoute(
+        path: '/create-event',
+        builder: (context, state) {
+          final communityId = state.extra as String? ?? '';
+          return CreateEventScreen(communityId: communityId);
+        },
+      ),
+      GoRoute(
+        path: '/edit-event',
+        builder: (context, state) {
+          final event = state.extra as EventModel?;
+          if (event == null) return const SizedBox.shrink();
+          return EditEventScreen(event: event);
+        },
+      ),
+      GoRoute(
+        path: '/event-detail',
+        builder: (context, state) {
+          final args = state.extra as EventDetailArgs?;
+          if (args == null) return const SizedBox.shrink();
+          return EventDetailScreen(
+              event: args.event, communityId: args.communityId);
+        },
+      ),
+      GoRoute(
+        path: '/event-chat',
+        builder: (context, state) {
+          final args = state.extra as EventChatArgs?;
+          if (args == null) return const SizedBox.shrink();
+          return EventChatScreen(
+            event: args.event,
+            memberCount: args.memberCount,
+            communityId: args.communityId,
+          );
+        },
+      ),
+
+      // ── Admin routes ──────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const AdminReportsScreen(),
+      ),
+      GoRoute(
+        path: '/admin-reports',
+        builder: (context, state) => const AdminReportsScreen(),
+      ),
+      GoRoute(
+        path: '/admin-report-detail',
+        builder: (context, state) {
+          final report = state.extra as AdminReportModel;
+          return AdminReportDetailScreen(report: report);
+        },
+      ),
+
       GoRoute(
         path: '/other-profile',
         builder: (context, state) {

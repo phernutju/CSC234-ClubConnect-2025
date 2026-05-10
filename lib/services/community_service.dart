@@ -278,6 +278,17 @@ class CommunityService {
     await batch.commit();
   }
 
+  Future<void> kickMember(String communityId, String userId) async {
+    _requireAuth();
+    final batch = _db.batch();
+    batch.delete(_members(communityId).doc(userId));
+    batch.update(_communities.doc(communityId), {
+      'memberCount': FieldValue.increment(-1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
   Stream<List<MemberModel>> getMembers(String communityId) {
     return _members(communityId).snapshots().map(
       (snap) => snap.docs
@@ -327,6 +338,11 @@ class CommunityService {
     String communityId, {
     required String text,
     String imageURL = '',
+    String? replyToId,
+    String? replyToSenderName,
+    String? replyToText,
+    String? replyToSenderId,
+    List<String> mentions = const [],
   }) async {
     final user = _requireAuth();
     await _requireMemberDoc(communityId, user.uid);
@@ -342,7 +358,44 @@ class CommunityService {
       'imageURL': imageURL,
       'timestamp': FieldValue.serverTimestamp(),
       'seenBy': [user.uid],
+      if (replyToId != null) 'replyToId': replyToId,
+      if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
+      if (replyToText != null) 'replyToText': replyToText,
+      if (mentions.isNotEmpty) 'mentions': mentions,
     });
+
+    final needsNotification =
+        (replyToSenderId != null && replyToSenderId != user.uid) ||
+            mentions.any((uid) => uid != user.uid);
+
+    if (needsNotification) {
+      final communityDoc = await _communities.doc(communityId).get();
+      final communityName =
+          communityDoc.data()?['communityName'] as String? ?? '';
+      final senderName = await getUserDisplayName(user.uid);
+
+      if (replyToSenderId != null && replyToSenderId != user.uid) {
+        await _notifications.createNotification(replyToSenderId, {
+          'communityId': communityId,
+          'mentionedBy': user.uid,
+          'title': senderName,
+          'description':
+              '$senderName replied to your message in $communityName',
+          'type': 'reply',
+        });
+      }
+
+      for (final uid in mentions) {
+        if (uid == user.uid) continue;
+        await _notifications.createNotification(uid, {
+          'communityId': communityId,
+          'mentionedBy': user.uid,
+          'title': senderName,
+          'description': '$senderName mentioned you in $communityName',
+          'type': 'mention',
+        });
+      }
+    }
   }
 
   Future<void> sendImageMessage(

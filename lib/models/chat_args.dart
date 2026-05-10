@@ -1,3 +1,5 @@
+/// Payload passed via GoRouter `extra` when navigating to `/chat`.
+/// Holds the minimum info the chat screen needs to identify and display the community.
 class ChatArgs {
   final String communityId;
   final String communityName;

@@ -31,6 +31,13 @@ class StorageService {
     }
   }
 
+  Future<String> uploadEventImage(Uint8List bytes, String communityId) async {
+    final name = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final ref = _storage.ref().child('event_covers/$communityId/$name');
+    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
+
   Future<String> uploadUserAvatar(Uint8List bytes, String userId) async {
     final ref = _storage.ref().child('user_avatars/$userId/avatar.jpg');
     await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));

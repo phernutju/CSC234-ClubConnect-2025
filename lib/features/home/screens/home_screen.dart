@@ -22,7 +22,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
-  String? _selectedCategory; // null = All
+  String _searchQuery = '';
+  String? _selectedCategory;
 
   @override
   void initState() {
@@ -85,6 +86,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<CommunityModel> _filtered(List<CommunityModel> list) {
+    if (_searchQuery.isEmpty) return list;
+    final q = _searchQuery.toLowerCase();
+    return list
+        .where((c) =>
+            c.communityName.toLowerCase().contains(q) ||
+            c.description.toLowerCase().contains(q))
+        .toList();
+  }
+
   void _goToChat(CommunityModel community) {
     context.push(
       '/chat',
@@ -112,7 +123,14 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: AppSizes.paddingL),
               _WelcomeHeading(),
               const SizedBox(height: AppSizes.paddingM),
-              _SearchRow(onCreateTap: () => context.push('/create-community')),
+              _SearchRow(
+                onCreateTap: () => context.push('/create-community'),
+                onChanged: (q) => setState(() => _searchQuery = q),
+              ),
+              if (userInterests.isNotEmpty) ...[
+                const SizedBox(height: AppSizes.paddingM),
+                _CategoryRow(interests: userInterests),
+              ],  
               const SizedBox(height: AppSizes.paddingM),
               HomeTabBar(
                 selectedIndex: _selectedTab,
@@ -121,8 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   final provider = context.read<CommunityProvider>();
                   if (i == 1) {
                     provider.loadMyCommunities();
-                  } else if (_selectedCategory != null) {
-                    provider.loadCommunitiesByCategory(_selectedCategory!);
                   } else {
                     provider.loadCommunities();
                   }
@@ -134,8 +150,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                     : _TabContent(
                         selectedTab: _selectedTab,
-                        communities: _selectedTab == 1 ? cp.myCommunities : cp.communities,
-                        myCommunities: cp.myCommunities,
+                        communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
+                        myCommunities: _filtered(cp.myCommunities),
                         selectedCategory: _selectedCategory,
                         onCategoryChanged: _selectCategory,
                         onJoinTap: _showJoinFlow,
@@ -156,7 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
 class _WelcomeHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final name = context.watch<AppAuthProvider>().user?.displayName ?? 'there';
+    final firestoreName = context.watch<ProfileProvider>().profile?.displayName ?? '';
+    final authName = context.watch<AppAuthProvider>().user?.displayName ?? '';
+    final name = firestoreName.isNotEmpty ? firestoreName
+        : authName.isNotEmpty ? authName
+        : 'there';
     return Text(
       '${AppStrings.homeWelcome}$name',
       style: AppTextStyles.title(color: AppColors.textDark),
@@ -166,8 +186,9 @@ class _WelcomeHeading extends StatelessWidget {
 
 class _SearchRow extends StatelessWidget {
   final VoidCallback onCreateTap;
+  final ValueChanged<String> onChanged;
 
-  const _SearchRow({required this.onCreateTap});
+  const _SearchRow({required this.onCreateTap, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -185,13 +206,23 @@ class _SearchRow extends StatelessWidget {
                 const SizedBox(width: AppSizes.paddingM),
                 const Icon(Icons.search, color: AppColors.textGray, size: 18),
                 const SizedBox(width: AppSizes.paddingS),
-                Text(
-                  AppStrings.homeSearchHint,
-                  style: AppTextStyles.body(
-                    color: AppColors.textGray,
-                    fontSize: AppSizes.fontM,
+                Expanded(
+                  child: TextField(
+                    onChanged: onChanged,
+                    decoration: InputDecoration(
+                      hintText: AppStrings.homeSearchHint,
+                      hintStyle: AppTextStyles.body(
+                        color: AppColors.textGray,
+                        fontSize: AppSizes.fontM,
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: AppTextStyles.body(fontSize: AppSizes.fontM),
                   ),
                 ),
+                const SizedBox(width: AppSizes.paddingS),
               ],
             ),
           ),
@@ -218,10 +249,43 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
+/// Horizontal scrollable row showing the user's interests from sign-up.
+class _CategoryRow extends StatelessWidget {
+  final List<String> interests;
+
+  static const List<Color> _colors = [
+    AppColors.categoryGreen,
+    AppColors.categoryBlue,
+    AppColors.categoryPurple,
+  ];
+
+  const _CategoryRow({required this.interests});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          for (int i = 0; i < interests.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSizes.paddingS),
+            CategoryTag(
+              label: interests[i],
+              color: _colors[i % _colors.length],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _TabContent extends StatelessWidget {
   final int selectedTab;
   final List<CommunityModel> communities;
   final List<CommunityModel> myCommunities;
+
   final String? selectedCategory;
   final ValueChanged<String> onCategoryChanged;
   final void Function(CommunityModel) onJoinTap;
@@ -232,11 +296,11 @@ class _TabContent extends StatelessWidget {
     required this.selectedTab,
     required this.communities,
     required this.myCommunities,
-    required this.selectedCategory,
-    required this.onCategoryChanged,
     required this.onJoinTap,
     required this.onDirectTap,
     required this.userInterests,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
   });
 
   @override
@@ -286,75 +350,10 @@ class _MyClubList extends StatelessWidget {
                     : c.description,
                 memberCount:
                     '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-                    
-                coverImageUrl: c.coverImageURL.isEmpty ? null : "",
+                coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
                 onTap: () => onTap(c),
               ))
           .toList(),
-    );
-  }
-}
-
-class _DiscoverTab extends StatelessWidget {
-  final List<CommunityModel> communities;
-  final String? selectedCategory;
-  final ValueChanged<String> onCategoryChanged;
-  final void Function(CommunityModel) onTap;
-  final List<String> userInterests;
-
-  const _DiscoverTab({
-    required this.communities,
-    required this.selectedCategory,
-    required this.onCategoryChanged,
-    required this.onTap,
-    required this.userInterests,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = selectedCategory == null
-        ? communities
-        : communities
-            .where((c) => c.tags.any((t) => t.name == selectedCategory))
-            .toList();
-
-    // Define colors for categories
-    final categoryColors = [
-      AppColors.categoryGreen,
-      AppColors.categoryBlue,
-      AppColors.categoryPurple,
-    ];
-
-    return ListView(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: userInterests.asMap().entries.map((entry) {
-            final index = entry.key;
-            final interest = entry.value;
-            final color = categoryColors[index % categoryColors.length];
-            return _SelectableCategory(
-              label: interest,
-              color: color,
-              isSelected: selectedCategory == interest,
-              onTap: () => onCategoryChanged(interest),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: AppSizes.paddingM),
-        if (filtered.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppSizes.paddingXL),
-              child: Text(
-                'No communities found',
-                style: AppTextStyles.body(color: AppColors.textGray),
-              ),
-            ),
-          )
-        else
-          ..._buildCommunityCards(filtered, onTap),
-      ],
     );
   }
 }
@@ -382,6 +381,72 @@ class _SelectableCategory extends StatelessWidget {
             )
           : null,
       child: CategoryTag(label: label, color: color, onTap: onTap),
+    );
+  }
+}
+
+class _DiscoverTab extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final String? selectedCategory;
+  final ValueChanged<String> onCategoryChanged;
+  final void Function(CommunityModel) onTap;
+  final List<String> userInterests;
+
+  const _DiscoverTab({
+    required this.communities,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
+    required this.onTap,
+    required this.userInterests,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = selectedCategory == null
+        ? communities
+        : communities
+            .where((c) => c.tags.any((t) => t.name == selectedCategory))
+            .toList();
+
+    const categoryColors = [
+      AppColors.categoryGreen,
+      AppColors.categoryBlue,
+      AppColors.categoryPurple,
+    ];
+
+    return ListView(
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              for (int i = 0; i < userInterests.length; i++) ...[
+                if (i > 0) const SizedBox(width: AppSizes.paddingS),
+                _SelectableCategory(
+                  label: userInterests[i],
+                  color: categoryColors[i % categoryColors.length],
+                  isSelected: selectedCategory == userInterests[i],
+                  onTap: () => onCategoryChanged(userInterests[i]),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSizes.paddingM),
+        if (filtered.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSizes.paddingXL),
+              child: Text(
+                'No communities found',
+                style: AppTextStyles.body(color: AppColors.textGray),
+              ),
+            ),
+          )
+        else
+          ..._buildCommunityCards(filtered, onTap),
+      ],
     );
   }
 }

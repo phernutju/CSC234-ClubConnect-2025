@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../widgets/step_progress_bar.dart';
-import '../widgets/auth_text_field.dart';
 import '../widgets/primary_button.dart';
-import '../../../providers/auth_provider.dart';
-import 'package:provider/provider.dart';
-
-/// Step 2 of 4 in the registration flow.
-/// Collects the user's phone number before sending an OTP SMS.
+import '../../../providers/auth_provider.dart'; 
 class VerifyPhoneScreen extends StatefulWidget {
   const VerifyPhoneScreen({super.key});
 
@@ -18,11 +15,26 @@ class VerifyPhoneScreen extends StatefulWidget {
 
 class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   final _phoneController = TextEditingController();
+  String? _phoneError;
 
   @override
   void dispose() {
     _phoneController.dispose();
     super.dispose();
+  }
+
+  bool _validate() {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
+      setState(() => _phoneError = 'Phone number is required');
+      return false;
+    }
+    if (phone.length < 9 || phone.length > 10) {
+      setState(() => _phoneError = 'Enter a valid 9–10 digit phone number');
+      return false;
+    }
+    setState(() => _phoneError = null);
+    return true;
   }
 
   void _onNext() {
@@ -37,95 +49,124 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
+        minimum: const EdgeInsets.only(top: 16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppSizes.paddingM),
-
-              // Step indicator: 2 of 4 filled
+              const SizedBox(height: 48),
               const StepProgressBar(currentStep: 2),
               const SizedBox(height: AppSizes.paddingL),
 
-              // Back arrow
-              _BackButton(),
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: const Icon(Icons.arrow_back, color: AppColors.textDark, size: AppSizes.iconSize),
+              ),
               const SizedBox(height: AppSizes.paddingM),
 
-              // "Verify your" (black) + "Phone Number" (coral, italic)
-              _VerifyHeading(),
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${AppStrings.verifyHeading}\n',
+                      style: AppTextStyles.title(
+                        fontSize: 36.0,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    TextSpan(
+                      text: AppStrings.verifyHeadingAccent,
+                      style: AppTextStyles.title(
+                        fontSize: 36.0,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: AppSizes.paddingXL),
 
-              // Phone number input — note the coral active border
-              AuthTextField(
-                label: AppStrings.verifyPhoneLabel,
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                borderColor: AppColors.primary,
+              Text(
+                AppStrings.verifyPhoneLabel,
+                style: AppTextStyles.body(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.textDark,
+                ),
               ),
               const SizedBox(height: AppSizes.paddingS),
 
-              // Helper text below the phone field
+              SizedBox(
+                height: AppSizes.inputHeight,
+                child: TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: AppTextStyles.body(
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textDark,
+                  ),
+                  decoration: const InputDecoration(
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(30)),
+                      borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(30)),
+                      borderSide: BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(30)),
+                      borderSide: BorderSide(color: Colors.red, width: 1.5),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(30)),
+                      borderSide: BorderSide(color: Colors.red, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingM,
+                      vertical: AppSizes.paddingM,
+                    ),
+                  ),
+                ),
+              ),
+
+              if (_phoneError != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _phoneError!,
+                  style: AppTextStyles.body(
+                    fontSize: AppSizes.fontXS,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: AppSizes.paddingS),
+
               Text(
                 AppStrings.verifyHint,
                 style: AppTextStyles.body(
                   fontSize: AppSizes.fontXS,
+                  fontWeight: FontWeight.w400,
                   color: AppColors.textGray,
                   height: 1.5,
                 ),
               ),
 
-              const Spacer(),
-
-              // Next button pinned to the bottom
-              PrimaryButton(
-                label: AppStrings.verifyNext,
-                onPressed: _onNext,
-              ),
               const SizedBox(height: AppSizes.paddingXL),
+
+              PrimaryButton(label: AppStrings.verifyNext, onPressed: _onNext),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-class _BackButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.pop(),
-      child: const Icon(
-        Icons.arrow_back,
-        color: AppColors.textDark,
-        size: AppSizes.iconSize,
-      ),
-    );
-  }
-}
-
-/// "Verify your" (bold black) with "Phone Number" (italic coral) on next line.
-class _VerifyHeading extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          AppStrings.verifyHeading,
-          style: AppTextStyles.title(color: AppColors.textDark),
-        ),
-        Text(
-          AppStrings.verifyHeadingAccent,
-          style: AppTextStyles.title(
-            fontStyle: FontStyle.italic,
-            color: AppColors.primary,
-          ),
-        ),
-      ],
     );
   }
 }

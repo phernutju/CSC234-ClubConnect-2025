@@ -9,6 +9,8 @@ import 'providers/community_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/category_provider.dart';
+import 'providers/attendee_provider.dart';
+import 'providers/event_provider.dart';
 import 'providers/rating_provider.dart';
 import 'providers/report_provider.dart';
 import 'router/app_router.dart';
@@ -33,9 +35,12 @@ class ClubConnectApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => ReviewProvider()),
+        ChangeNotifierProvider(create: (_) => RatingProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => ReportProvider()),
+        ChangeNotifierProvider(create: (_) => EventProvider()),
+        ChangeNotifierProvider(create: (_) => AttendeeProvider()),
+        ChangeNotifierProvider(create: (_) => RatingProvider()),
       ],
       child: MaterialApp.router(
         title: 'ClubConnect',

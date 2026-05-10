@@ -8,12 +8,13 @@ class EventModel {
   final String title;
   final String description;   // user puts location info here naturally
   final String? imageUrl;     // optional cover photo
+  final Timestamp createdAt;
   final String createdBy;
   final List<String> attendees;
   final List<CategoryModel> tags;
   final String roomId;        // links to Room (type: event) which has createdAt
   final int? maxAttendees;    // null = unlimited
-  final Timestamp date;       // event start
+  final Timestamp startDate;       // event start
   final Timestamp endDate;    // event end — Room uses this as expiresAt
 
   EventModel({
@@ -21,10 +22,11 @@ class EventModel {
     required this.title,
     required this.description,
     required this.createdBy,
+    required this.createdAt,
     required this.attendees,
     required this.tags,
     required this.roomId,
-    required this.date,
+    required this.startDate,
     required this.endDate,
     this.imageUrl,
     this.maxAttendees,
@@ -34,7 +36,7 @@ class EventModel {
 
   EventStatus get status {
     final now = DateTime.now();
-    if (now.isBefore(date.toDate())) return EventStatus.upcoming;
+    if (now.isBefore(startDate.toDate())) return EventStatus.upcoming;
     if (now.isAfter(endDate.toDate())) return EventStatus.ended;
     return EventStatus.ongoing;
   }
@@ -61,12 +63,13 @@ class EventModel {
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       imageUrl: json['imageUrl'] as String?,
+      createdAt: json['createdAt'] ?? Timestamp.now(),
       createdBy: json['createdBy'] ?? '',
       attendees: List<String>.from(json['attendees'] ?? []),
       tags: (json['tags'] as List<dynamic>?)?.map((t) => CategoryModel.fromMap(t)).toList() ?? [],
       roomId: json['roomId'] ?? '',
       maxAttendees: json['maxAttendees'] as int?,
-      date: json['date'] ?? Timestamp.now(),
+      startDate: json['startDate'] ?? Timestamp.now(),
       endDate: json['endDate'] ?? json['expiresAt'] ?? Timestamp.now(),
     );
   }
@@ -81,7 +84,7 @@ class EventModel {
     'tags': tags.map((tag) => tag.toJson()).toList(),
     'roomId': roomId,
     'maxAttendees': maxAttendees,
-    'date': date,
+    'startDate': startDate,
     'endDate': endDate,
   };
 
@@ -103,12 +106,13 @@ class EventModel {
       description: description,
       imageUrl: imageUrl ?? this.imageUrl,
       createdBy: createdBy,
+      createdAt: createdAt ?? this.createdAt,
       attendees: attendees ?? this.attendees,
       tags: tags,
       roomId: roomId ?? this.roomId,
       maxAttendees: maxAttendees ?? this.maxAttendees,
-      date: date,
-      endDate: endDate,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
     );
   }
 }

@@ -1,3 +1,5 @@
+import '../../../models/report_model.dart' as fs;
+
 class ContextMessage {
   final String name;
   final String message;
@@ -12,7 +14,7 @@ class ContextMessage {
   });
 }
 
-class ReportModel {
+class AdminReportModel {
   final String id;
   final String aiDetectedLabel;
   final String category;
@@ -27,8 +29,9 @@ class ReportModel {
   final double threatScore;
   final String source;
   final List<ContextMessage> contextMessages;
+  final String targetUserId;
 
-  const ReportModel({
+  const AdminReportModel({
     required this.id,
     required this.aiDetectedLabel,
     required this.category,
@@ -43,6 +46,7 @@ class ReportModel {
     required this.threatScore,
     required this.source,
     required this.contextMessages,
+    this.targetUserId = '',
   });
 
   String get severityLabel {
@@ -52,10 +56,56 @@ class ReportModel {
     if (max >= 0.4) return 'MEDIUM';
     return 'LOW';
   }
+
+  factory AdminReportModel.fromReportModel(fs.ReportModel r) {
+    String timeAgo(DateTime dt) {
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 60) return '${diff.inMinutes} m';
+      if (diff.inHours < 24) return '${diff.inHours} h';
+      return '${diff.inDays} d';
+    }
+
+    String categoryLabel(fs.ReportReason reason) {
+      switch (reason) {
+        case fs.ReportReason.hate_speech: return 'Hate Speech';
+        case fs.ReportReason.harassment: return 'Harassment';
+        case fs.ReportReason.scam: return 'Scam';
+        case fs.ReportReason.threat: return 'Threat';
+        case fs.ReportReason.other: return 'Other';
+      }
+    }
+
+    String sourceLabel(fs.ReportSource src) {
+      switch (src) {
+        case fs.ReportSource.ai_detected: return 'AI Detect';
+        case fs.ReportSource.user_ai_detected: return 'AI Detect + User';
+        case fs.ReportSource.user: return 'User Report';
+      }
+    }
+
+    final reason = r.reason;
+    return AdminReportModel(
+      id: r.reportId.isNotEmpty ? r.reportId : 'R-???',
+      aiDetectedLabel: r.source != fs.ReportSource.user ? 'AI detected' : 'User report',
+      category: categoryLabel(reason),
+      reportedText: '"${r.messageText}"',
+      username: r.targetUserId,
+      userDescription: 'Reported user',
+      groupName: r.communityId,
+      timeAgo: timeAgo(r.createdAt),
+      hateSpeechScore: reason == fs.ReportReason.hate_speech ? 0.8 : 0.1,
+      harassmentScore: reason == fs.ReportReason.harassment ? 0.8 : 0.1,
+      profanityScore: 0.0,
+      threatScore: reason == fs.ReportReason.threat ? 0.8 : 0.0,
+      source: sourceLabel(r.source),
+      contextMessages: [],
+      targetUserId: r.targetUserId,
+    );
+  }
 }
 
-final List<ReportModel> mockReports = const [
-  ReportModel(
+final List<AdminReportModel> mockReports = const [
+  AdminReportModel(
     id: 'R-001',
     aiDetectedLabel: 'AI detected',
     category: 'Hate Speech',
@@ -76,7 +126,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'username1', message: 'shitty ass gamepaly go to hell ggez', time: '10:36', isReported: true),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-002',
     aiDetectedLabel: 'AI detected',
     category: 'Harassment',
@@ -96,7 +146,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'Player1', message: 'That is really rude...', time: '14:22', isReported: false),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-003',
     aiDetectedLabel: 'AI detected',
     category: 'Spam',
@@ -116,7 +166,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'Moderator1', message: 'Please stop spamming', time: '09:11', isReported: false),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-004',
     aiDetectedLabel: 'AI detected',
     category: 'Threat',
@@ -137,7 +187,7 @@ final List<ReportModel> mockReports = const [
       ContextMessage(name: 'Admin', message: 'This will be reported', time: '11:03', isReported: false),
     ],
   ),
-  ReportModel(
+  AdminReportModel(
     id: 'R-005',
     aiDetectedLabel: 'AI detected',
     category: 'Hate Speech',

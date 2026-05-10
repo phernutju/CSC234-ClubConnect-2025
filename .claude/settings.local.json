@@ -10,7 +10,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(claude doctor *)",
       "Bash(Get-Content *)",
-      "PowerShell(claude doctor *)"
+      "PowerShell(claude doctor *)",
+      "Bash(flutter pub *)",
+      "PowerShell(Get-Command *)"
     ]
   }
 }

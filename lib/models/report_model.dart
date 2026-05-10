@@ -1,5 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class ContextMessage {
+  final String name;
+  final String message;
+  final String time;
+  final bool isReported;
+
+  const ContextMessage({
+    required this.name,
+    required this.message,
+    required this.time,
+    required this.isReported,
+  });
+}
+
 enum ReportStatus { pending, reviewed, resolved, dismissed }
 enum ReportReason { hate_speech, scam, harassment, threat, other }
 enum ReportTargetType { message, post, user }

@@ -187,6 +187,7 @@ class ProfileService {
 
   /// Fetch just the community name from a community ID.
   Future<String?> getCommunityName(String communityId) async {
+    if (communityId.isEmpty) return null;
     final doc = await _communities.doc(communityId).get();
     if (!doc.exists) return null;
     return doc.data()?['communityName'] as String?;
@@ -217,8 +218,8 @@ class ProfileService {
     return user;
   }
 
-  Future<void> _requireAdmin(String uid) async {
-    final doc = await _users.doc(uid).get();
+  Future<void> _requireAdmin(String uid) async {    
+    final doc = await _users.doc(uid).get();  
     if (doc.data()?['role'] != 'admin') throw Exception('Permission denied');
   }
 
