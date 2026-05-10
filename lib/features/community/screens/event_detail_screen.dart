@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_chat_args.dart';
@@ -123,7 +122,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('d MMMM yyyy  hh:mm a').format(widget.event.date);
+    final dateStr = widget.event.formattedDateRange;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isHost = _isHost;
 

@@ -565,6 +565,10 @@ class AppStrings {
   static const String createEventDateHint    = 'DD/MM/YYYY';
   static const String createEventTime        = 'TIME';
   static const String createEventTimeHint    = '00:00 AM';
+  static const String createEventStartDate   = 'Start Date';
+  static const String createEventEndDate     = 'End Date';
+  static const String createEventStartTime   = 'Start Time';
+  static const String createEventEndTime     = 'End Time';
   static const String createEventLocation    = 'Location';
   static const String createEventLocationHint = "Enter Event's location";
   static const String createEventDetail      = 'Event Detail';

@@ -9,9 +9,7 @@ import '../../../models/event_model.dart';
 
 class EditEventScreen extends StatefulWidget {
   final EventModel event;
-
   const EditEventScreen({super.key, required this.event});
-
   @override
   State<EditEventScreen> createState() => _EditEventScreenState();
 }
@@ -22,8 +20,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
   final _locationController = TextEditingController();
   final _detailController   = TextEditingController();
 
-  DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
   int _memberLimit = 0;
   Uint8List? _coverBytes;
   String _existingCoverUrl = '';
@@ -40,13 +40,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
     _hostNameController.text = widget.event.hostName;
     _locationController.text = widget.event.location;
     _detailController.text   = widget.event.detail;
-    _selectedDate            = widget.event.date;
-    _selectedTime            = TimeOfDay(
-      hour: widget.event.date.hour,
-      minute: widget.event.date.minute,
-    );
-    _memberLimit        = widget.event.memberLimit;
-    _existingCoverUrl   = widget.event.coverImageUrl;
+    _startDate        = widget.event.startDate;
+    _endDate          = widget.event.endDate;
+    _startTime        = widget.event.startTime;
+    _endTime          = widget.event.endTime;
+    _memberLimit      = widget.event.memberLimit;
+    _existingCoverUrl = widget.event.coverImageUrl;
   }
 
   @override
@@ -69,72 +68,82 @@ class _EditEventScreenState extends State<EditEventScreen> {
     setState(() => _coverBytes = bytes);
   }
 
-  Future<void> _pickDate() async {
+  ThemeData _datePickerTheme(BuildContext ctx) => Theme.of(ctx).copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFFFF6B4A),
+          onPrimary: Colors.white,
+          surface: Colors.white,
+          onSurface: Color(0xFF212121),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B4A)),
+        ),
+      );
+
+  ThemeData _timePickerTheme(BuildContext ctx) => Theme.of(ctx).copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFFFF6B4A),
+          onPrimary: Colors.white,
+          surface: Colors.white,
+          onSurface: Colors.black,
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B4A)),
+        ),
+        timePickerTheme: TimePickerThemeData(
+          backgroundColor: Colors.white,
+          dialBackgroundColor: const Color(0xFFF5F5F5),
+          dayPeriodColor: WidgetStateColor.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? const Color(0xFFFF6B4A) : Colors.white),
+          dayPeriodTextColor: WidgetStateColor.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? Colors.white : Colors.black),
+        ),
+      );
+
+  Future<void> _pickStartDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? now,
+      initialDate: _startDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFFFF6B4A),
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: Color(0xFF212121),
-          ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFFF6B4A),
-            ),
-          ),
-        ),
-        child: child!,
-      ),
+      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) setState(() => _startDate = picked);
   }
 
-  Future<void> _pickTime() async {
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate ?? now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
+    );
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
+  Future<void> _pickStartTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
+      initialTime: _startTime ?? TimeOfDay.now(),
       initialEntryMode: TimePickerEntryMode.input,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFFFF6B4A),
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: Colors.black,
-          ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFFF6B4A),
-            ),
-          ),
-          timePickerTheme: TimePickerThemeData(
-            backgroundColor: Colors.white,
-            dialBackgroundColor: const Color(0xFFF5F5F5),
-            dayPeriodColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected)
-                ? const Color(0xFFFF6B4A)
-                : Colors.white,
-            ),
-            dayPeriodTextColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected)
-                ? Colors.white
-                : Colors.black,
-            ),
-          ),
-        ),
-        child: child!,
-      ),
+      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
     );
-    if (picked != null) setState(() => _selectedTime = picked);
+    if (picked != null) setState(() => _startTime = picked);
+  }
+
+  Future<void> _pickEndTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _endTime ?? _startTime ?? TimeOfDay.now(),
+      initialEntryMode: TimePickerEntryMode.input,
+      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
+    );
+    if (picked != null) setState(() => _endTime = picked);
   }
 
   void _onSave() {
@@ -143,7 +152,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       _showSnack(AppStrings.createEventErrName);
       return;
     }
-    if (_selectedDate == null) {
+    if (_startDate == null) {
       _showSnack(AppStrings.createEventErrDate);
       return;
     }
@@ -204,43 +213,51 @@ class _EditEventScreenState extends State<EditEventScreen> {
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
-                        // ── Date & Time ──────────────────────────────────────
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _FieldLabel(AppStrings.createEventDate),
-                                  _PickerField(
-                                    icon: Icons.calendar_month_outlined,
-                                    text: _selectedDate != null
-                                        ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
-                                        : AppStrings.createEventDateHint,
-                                    isPlaceholder: _selectedDate == null,
-                                    onTap: _pickDate,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: AppSizes.paddingM),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _FieldLabel(AppStrings.createEventTime),
-                                  _PickerField(
-                                    icon: Icons.access_time_outlined,
-                                    text: _selectedTime != null
-                                        ? _selectedTime!.format(context)
-                                        : AppStrings.createEventTimeHint,
-                                    isPlaceholder: _selectedTime == null,
-                                    onTap: _pickTime,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        // ── Start Date ───────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventStartDate),
+                        _PickerField(
+                          icon: Icons.calendar_month_outlined,
+                          text: _startDate != null
+                              ? DateFormat('dd/MM/yyyy').format(_startDate!)
+                              : AppStrings.createEventDateHint,
+                          isPlaceholder: _startDate == null,
+                          onTap: _pickStartDate,
+                        ),
+                        const SizedBox(height: AppSizes.paddingM),
+
+                        // ── End Date ─────────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventEndDate),
+                        _PickerField(
+                          icon: Icons.calendar_month_outlined,
+                          text: _endDate != null
+                              ? DateFormat('dd/MM/yyyy').format(_endDate!)
+                              : AppStrings.createEventDateHint,
+                          isPlaceholder: _endDate == null,
+                          onTap: _pickEndDate,
+                        ),
+                        const SizedBox(height: AppSizes.paddingM),
+
+                        // ── Start Time ───────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventStartTime),
+                        _PickerField(
+                          icon: Icons.access_time_outlined,
+                          text: _startTime != null
+                              ? _startTime!.format(context)
+                              : AppStrings.createEventTimeHint,
+                          isPlaceholder: _startTime == null,
+                          onTap: _pickStartTime,
+                        ),
+                        const SizedBox(height: AppSizes.paddingM),
+
+                        // ── End Time ─────────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventEndTime),
+                        _PickerField(
+                          icon: Icons.access_time_outlined,
+                          text: _endTime != null
+                              ? _endTime!.format(context)
+                              : AppStrings.createEventTimeHint,
+                          isPlaceholder: _endTime == null,
+                          onTap: _pickEndTime,
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 

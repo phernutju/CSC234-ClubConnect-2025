@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_model.dart';
@@ -192,7 +191,7 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLine = DateFormat('d MMMM yyyy  hh:mm a').format(event.date);
+    final dateLine = event.formattedDateRange;
 
     return Container(
       decoration: BoxDecoration(
