@@ -14,6 +14,8 @@ class UserModel {
   final List<String> mutedCommunities;
   final bool isBanned;
   final String? banReason;
+  final Timestamp? banExpiresAt;
+  final String? durationLabel;
 
   const UserModel({
     required this.uid,
@@ -29,6 +31,8 @@ class UserModel {
     required this.mutedCommunities,
     this.isBanned = false,
     this.banReason,
+    this.banExpiresAt,
+    this.durationLabel,
   });
 
  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -45,6 +49,8 @@ class UserModel {
   mutedCommunities: List<String>.from(json['mutedCommunities'] ?? []),
   isBanned: (json['isBanned'] as bool?) ?? false,
   banReason: json['banReason'] as String?,
+  banExpiresAt: json['banExpiresAt'] as Timestamp?,
+  durationLabel: json['durationLabel'] as String?,
 );
 
   Map<String, dynamic> toJson() => {
@@ -61,5 +67,7 @@ class UserModel {
         'mutedCommunities': mutedCommunities,
         'isBanned': isBanned,
         if (banReason != null) 'banReason': banReason,
+        if (banExpiresAt != null) 'banExpiresAt': banExpiresAt,
+        if (durationLabel != null) 'durationLabel': durationLabel,
       };
 }

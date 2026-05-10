@@ -25,6 +25,7 @@ import '../models/event_chat_args.dart';
 import '../models/event_detail_args.dart';
 import '../features/admin/screens/admin_reports_screen.dart';
 import '../features/admin/screens/admin_report_detail_screen.dart';
+import '../features/auth/screens/banned_screen.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
@@ -57,6 +58,14 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
     }
 
     if (signedIn && isAuthRoute) {
+      return '/home';
+    }
+
+    if (signedIn && authProvider.isBanned && location != '/banned') {
+      return '/banned';
+    }
+
+    if (signedIn && !authProvider.isBanned && location == '/banned') {
       return '/home';
     }
 
@@ -211,6 +220,11 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           final report = state.extra as AdminReportModel;
           return AdminReportDetailScreen(report: report);
         },
+      ),
+
+      GoRoute(
+        path: '/banned',
+        builder: (context, state) => const BannedScreen(),
       ),
 
       GoRoute(

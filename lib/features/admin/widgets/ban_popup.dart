@@ -53,7 +53,7 @@ class _BanPopupState extends State<BanPopup> {
 
     setState(() => _isBanning = true);
     try {
-      await UserService.banUser(widget.report.targetUserId, description);
+      await UserService.banUser(widget.report.targetUserId, description, _selectedDuration ?? 'Permanently');
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(

@@ -29,29 +29,46 @@ class UserService {
   /// TODO: PUT /api/users/me/cover
   static Future<void> updateCover(Uint8List bytes) async {}
 
-  /// Sets isBanned = true and records the reason on the user document.
-  /// Also sends a "restriction" notification to the banned user.
-  static Future<void> banUser(String userId, String reason) async {
+  static Timestamp? _expiresAt(String durationLabel) {
+    final now = DateTime.now();
+    switch (durationLabel) {
+      case '1 hours':  return Timestamp.fromDate(now.add(const Duration(hours: 1)));
+      case '6 hours':  return Timestamp.fromDate(now.add(const Duration(hours: 6)));
+      case '12 hours': return Timestamp.fromDate(now.add(const Duration(hours: 12)));
+      case '24 hours': return Timestamp.fromDate(now.add(const Duration(hours: 24)));
+      case '7 Days':   return Timestamp.fromDate(now.add(const Duration(days: 7)));
+      case '1 Month':  return Timestamp.fromDate(now.add(const Duration(days: 30)));
+      default:         return null; // Permanently
+    }
+  }
+
+  static Future<void> banUser(String userId, String reason, String durationLabel) async {
     final current = _auth.currentUser;
     if (current == null) throw Exception('Not authenticated');
 
-    await _users.doc(userId).update({
+    final expiresAt = _expiresAt(durationLabel);
+    final isPermanent = expiresAt == null;
+
+    final data = <String, dynamic>{
       'isBanned': true,
       'banReason': reason,
+      'durationLabel': durationLabel,
       'bannedAt': FieldValue.serverTimestamp(),
       'bannedBy': current.uid,
-    });
+      'banExpiresAt': expiresAt ?? FieldValue.delete(),
+    };
+    await _users.doc(userId).update(data);
 
+    final durationText = isPermanent ? 'permanently' : 'for $durationLabel';
     await _notifications.createNotification(userId, {
       'communityId': '',
       'mentionedBy': current.uid,
       'title': 'You have been restricted',
-      'description': reason.isNotEmpty ? reason : 'You have been restricted from the platform.',
+      'description': 'Your account has been restricted $durationText. Reason: ${reason.isNotEmpty ? reason : 'Violation of community guidelines'}',
       'type': 'restriction',
     });
   }
 
-  /// Sets isBanned = false and clears the ban reason.
   static Future<void> unbanUser(String userId) async {
     final current = _auth.currentUser;
     if (current == null) throw Exception('Not authenticated');
@@ -59,6 +76,8 @@ class UserService {
     await _users.doc(userId).update({
       'isBanned': false,
       'banReason': FieldValue.delete(),
+      'durationLabel': FieldValue.delete(),
+      'banExpiresAt': FieldValue.delete(),
       'bannedAt': FieldValue.delete(),
       'bannedBy': FieldValue.delete(),
     });

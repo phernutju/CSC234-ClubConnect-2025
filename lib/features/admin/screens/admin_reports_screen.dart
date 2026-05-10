@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../models/report_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/report_provider.dart';
+import '../../../services/user_service.dart';
 import '../models/report_model.dart';
 import 'admin_report_detail_screen.dart';
 
@@ -219,6 +220,8 @@ class AdminReportsScreen extends StatelessWidget {
                                     ],
                                   ),
                                 ),
+                                if (r.targetUserId.isNotEmpty)
+                                  _UnbanButton(userId: r.targetUserId),
                               ],
                             ),
                           ],
@@ -254,6 +257,67 @@ class AdminReportsScreen extends StatelessWidget {
                     color: const Color(0xFFFF6B4A))),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _UnbanButton extends StatefulWidget {
+  final String userId;
+  const _UnbanButton({required this.userId});
+
+  @override
+  State<_UnbanButton> createState() => _UnbanButtonState();
+}
+
+class _UnbanButtonState extends State<_UnbanButton> {
+  bool _loading = false;
+
+  Future<void> _onUnban() async {
+    setState(() => _loading = true);
+    try {
+      await UserService.unbanUser(widget.userId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User has been unbanned.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to unban: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _loading ? null : _onUnban,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F5E9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF4CAF50)),
+        ),
+        child: _loading
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4CAF50)),
+              )
+            : Text(
+                'Unban',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF2E7D32),
+                ),
+              ),
       ),
     );
   }
