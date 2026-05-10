@@ -99,7 +99,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                   Icons.add,
                   color: widget.enabled
                       ? AppColors.cardWhite
-                      : AppColors.cardWhite.withOpacity(0.4),
+                      : AppColors.cardWhite.withValues(alpha: 0.4),
                   size: AppSizes.iconSize,
                 ),
               ),
@@ -142,7 +142,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                   Icons.send,
                   color: widget.enabled
                       ? AppColors.cardWhite
-                      : AppColors.cardWhite.withOpacity(0.4),
+                      : AppColors.cardWhite.withValues(alpha: 0.4),
                   size: AppSizes.iconSize,
                 ),
               ),

@@ -223,7 +223,7 @@ class _HostCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  community.createdBy ?? 'null',
+                  community.createdBy,
                   style: AppTextStyles.poppins(
                     fontSize: AppSizes.fontXII,
                     color: AppColors.textDark,

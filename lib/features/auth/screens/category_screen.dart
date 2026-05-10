@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
 import '../widgets/step_progress_bar.dart';
-import '../widgets/primary_button.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/category_provider.dart';
 import 'package:provider/provider.dart';
@@ -146,16 +145,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
 }
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-class _BackButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.pop(),
-      child: const Icon(Icons.arrow_back, color: AppColors.textDark),
-    );
-  }
-}
 
 class _CategoryChipGrid extends StatelessWidget {
   final List<String> categories;

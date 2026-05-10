@@ -43,7 +43,7 @@ class _ReportUserModalState extends State<ReportUserModal> {
 
   ReportReason _reasonToEnum(String label) {
     switch (label) {
-      case 'Hate Speech': return ReportReason.hate_speech;
+      case 'Hate Speech': return ReportReason.hateSpeech;
       case 'Harassment':  return ReportReason.harassment;
       case 'Threat':      return ReportReason.threat;
       case 'Scam':        return ReportReason.scam;
@@ -262,7 +262,7 @@ class _ReportUserModalState extends State<ReportUserModal> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.reportAccent,
                           disabledBackgroundColor:
-                              AppColors.reportAccent.withOpacity(0.6),
+                              AppColors.reportAccent.withValues(alpha: 0.6),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius:
@@ -305,7 +305,7 @@ class _ReportUserModalState extends State<ReportUserModal> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isSubmitting
-                        ? AppColors.reportAccent.withOpacity(0.6)
+                        ? AppColors.reportAccent.withValues(alpha: 0.6)
                         : AppColors.reportAccent,
                   ),
                   child: const Icon(

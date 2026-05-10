@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/auth_service.dart';
 import '../../../services/google_auth_service.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/google_sign_in_button.dart';

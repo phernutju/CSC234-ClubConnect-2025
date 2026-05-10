@@ -244,23 +244,6 @@ class _BanPopupState extends State<BanPopup> {
   }
 }
 
-class _BanIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      '.claude/traffic.png',
-      width: 64,
-      height: 64,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const Icon(
-        Icons.block,
-        color: Colors.red,
-        size: 64,
-      ),
-    );
-  }
-}
-
 class _ReportInfoCard extends StatelessWidget {
   final AdminReportModel report;
   const _ReportInfoCard({required this.report});

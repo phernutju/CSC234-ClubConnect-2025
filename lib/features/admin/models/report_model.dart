@@ -67,7 +67,7 @@ class AdminReportModel {
 
     String categoryLabel(fs.ReportReason reason) {
       switch (reason) {
-        case fs.ReportReason.hate_speech: return 'Hate Speech';
+        case fs.ReportReason.hateSpeech: return 'Hate Speech';
         case fs.ReportReason.harassment: return 'Harassment';
         case fs.ReportReason.scam: return 'Scam';
         case fs.ReportReason.threat: return 'Threat';
@@ -77,8 +77,8 @@ class AdminReportModel {
 
     String sourceLabel(fs.ReportSource src) {
       switch (src) {
-        case fs.ReportSource.ai_detected: return 'AI Detect';
-        case fs.ReportSource.user_ai_detected: return 'AI Detect + User';
+        case fs.ReportSource.aiDetected: return 'AI Detect';
+        case fs.ReportSource.userAiDetected: return 'AI Detect + User';
         case fs.ReportSource.user: return 'User Report';
       }
     }
@@ -93,7 +93,7 @@ class AdminReportModel {
       userDescription: 'Reported user',
       groupName: r.communityId,
       timeAgo: timeAgo(r.createdAt),
-      hateSpeechScore: reason == fs.ReportReason.hate_speech ? 0.8 : 0.1,
+      hateSpeechScore: reason == fs.ReportReason.hateSpeech ? 0.8 : 0.1,
       harassmentScore: reason == fs.ReportReason.harassment ? 0.8 : 0.1,
       profanityScore: 0.0,
       threatScore: reason == fs.ReportReason.threat ? 0.8 : 0.0,

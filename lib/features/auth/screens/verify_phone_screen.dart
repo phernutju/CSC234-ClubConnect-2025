@@ -23,20 +23,6 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
     super.dispose();
   }
 
-  bool _validate() {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      setState(() => _phoneError = 'Phone number is required');
-      return false;
-    }
-    if (phone.length < 9 || phone.length > 10) {
-      setState(() => _phoneError = 'Enter a valid 9–10 digit phone number');
-      return false;
-    }
-    setState(() => _phoneError = null);
-    return true;
-  }
-
   void _onNext() {
     final provider = context.read<AppAuthProvider>();
     provider.setPhoneNumber(_phoneController.text);

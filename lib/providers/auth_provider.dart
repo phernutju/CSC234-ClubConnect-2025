@@ -114,7 +114,7 @@ class AppAuthProvider extends ChangeNotifier {
 
     // Replace leading 0 with +66
     if (phone.startsWith('0')) {
-      phone = '+66' + phone.substring(1);
+      phone = '+66${phone.substring(1)}';
     }
 
     return phone; // +6680000000

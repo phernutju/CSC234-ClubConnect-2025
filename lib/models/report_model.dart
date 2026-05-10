@@ -15,9 +15,9 @@ class ContextMessage {
 }
 
 enum ReportStatus { pending, reviewed, resolved, dismissed }
-enum ReportReason { hate_speech, scam, harassment, threat, other }
+enum ReportReason { hateSpeech, scam, harassment, threat, other }
 enum ReportTargetType { message, post, user }
-enum ReportSource { user, ai_detected, user_ai_detected }
+enum ReportSource { user, aiDetected, userAiDetected }
 
 class ReportModel {
   final String reportId;

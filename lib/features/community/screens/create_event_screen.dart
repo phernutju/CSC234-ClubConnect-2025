@@ -139,6 +139,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      final ep = context.read<EventProvider>();
+
       String coverImageUrl = '';
       if (_coverBytes != null) {
         coverImageUrl = await StorageService()
@@ -154,7 +156,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         time.minute,
       );
 
-      await context.read<EventProvider>().createEvent(
+      await ep.createEvent(
             roomId: widget.communityId,
             communityId: widget.communityId,
             title: name,
@@ -163,17 +165,18 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             description: _detailController.text.trim(),
             maxAttendees: _memberLimit,
             imageUrl: coverImageUrl,
-            tags: List<CategoryModel>.empty(), // TODO: Add category selection  
+            tags: List<CategoryModel>.empty(), // TODO: Add category selection
             endDate: Timestamp.fromDate(fullDate.add(const Duration(hours: 2))), // Default to 2-hour duration
           );
 
-      if (!mounted) return;
-      final ep = context.read<EventProvider>();
-      if (ep.error != null) {
-        _showSnack(ep.error!);
-      } else {
-        _showSnack(AppStrings.createEventSuccess);
-        context.pop();
+      if (mounted) {
+        final errorMsg = ep.error;
+        if (errorMsg != null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.createEventSuccess)));
+          context.pop();
+        }
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -312,7 +315,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             onPressed: _isSubmitting ? null : _onCreate,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
+                              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(AppSizes.radiusPill),

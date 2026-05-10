@@ -29,7 +29,6 @@ import '../features/auth/screens/banned_screen.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
-import '../models/report_model.dart';
 import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
 import '../features/admin/models/report_model.dart';

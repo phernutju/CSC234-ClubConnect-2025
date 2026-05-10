@@ -36,7 +36,6 @@ class EventService {
   // ── Events ─────────────────────────────────────────────────────────────────
 
   Stream<List<EventModel>> getEvents(String communityId) {
-    final events = _events(communityId);  
     return _events(communityId)
         .orderBy('startDate', descending: false)
         .snapshots()

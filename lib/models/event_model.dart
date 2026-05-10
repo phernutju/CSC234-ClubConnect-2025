@@ -106,13 +106,13 @@ class EventModel {
       description: description,
       imageUrl: imageUrl ?? this.imageUrl,
       createdBy: createdBy,
-      createdAt: createdAt ?? this.createdAt,
+      createdAt: createdAt,
       attendees: attendees ?? this.attendees,
       tags: tags,
       roomId: roomId ?? this.roomId,
       maxAttendees: maxAttendees ?? this.maxAttendees,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      startDate: startDate,
+      endDate: endDate,
     );
   }
 }
