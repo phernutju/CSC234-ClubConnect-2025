@@ -1,6 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../models/report_model.dart';
+import '../../../services/report_service.dart';
 import '../../../services/user_service.dart';
 import '../models/report_model.dart';
 
@@ -54,6 +57,15 @@ class _BanPopupState extends State<BanPopup> {
     setState(() => _isBanning = true);
     try {
       await UserService.banUser(widget.report.targetUserId, description, _selectedDuration ?? 'Permanently');
+      // Update report status
+      try {
+        final adminUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        await ReportService().updateReportStatus(
+          widget.report.id,
+          ReportStatus.banned,
+          adminUid,
+        );
+      } catch (_) {}
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(

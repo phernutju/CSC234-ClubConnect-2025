@@ -19,6 +19,7 @@ class CommunityProvider extends ChangeNotifier {
   bool isLoading = false;
   bool isUploading = false;
   String? error;
+  String? violationWarning;
 
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
   StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
@@ -234,7 +235,13 @@ class CommunityProvider extends ChangeNotifier {
         .catchError((e) {
       // ignore: avoid_print
       print('[PROVIDER] catchError fired: $e');
-      error = e.toString();
+      if (e is ContentViolationException && !e.isMuteBlock && e.violationCount >= 3) {
+        final remaining = 5 - e.violationCount;
+        violationWarning = 'Warning: $remaining more violation${remaining == 1 ? '' : 's'} will result in an admin ban review.';
+      } else {
+        violationWarning = null;
+      }
+      error = e is ContentViolationException ? e.message : e.toString();
       notifyListeners();
     });
     return Future.value();

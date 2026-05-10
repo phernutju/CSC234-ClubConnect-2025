@@ -44,6 +44,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Ban state
   bool _isBanned = false;
+  bool _isMuted = false;
   StreamSubscription<DocumentSnapshot>? _banSub;
 
   // Mention autocomplete
@@ -69,6 +70,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       final cp = context.read<CommunityProvider>();
       _provider = cp;
+      _provider!.addListener(_onProviderChange);
       if (widget.communityId.isEmpty) {
         setState(() => _isInitializing = false);
         return;
@@ -92,6 +94,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted && snap.exists) {
         setState(() {
           _isBanned = (snap.data()?['isBanned'] as bool?) ?? false;
+          _isMuted = (snap.data()?['isMuted'] as bool?) ?? false;
         });
       }
     });
@@ -99,12 +102,30 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _provider?.removeListener(_onProviderChange);
     _banSub?.cancel();
     _provider?.clearActiveCommunity();
     _inputController.removeListener(_onTextChanged);
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onProviderChange() {
+    final warning = _provider?.violationWarning;
+    if (warning != null && mounted) {
+      _provider?.violationWarning = null; // clear before showing
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(warning),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      });
+    }
   }
 
   // ── Mention detection ────────────────────────────────────────────────────────
@@ -202,6 +223,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendTextMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSending || _isBanned) return;
+    if (_isMuted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You have been restricted from sending messages.')),
+      );
+      return;
+    }
 
     final replySnapshot = _replyingTo;
     final mentionUids = List<String>.from(_pendingMentions.values);

@@ -14,7 +14,7 @@ class ContextMessage {
   });
 }
 
-enum ReportStatus { pending, reviewed, resolved, dismissed }
+enum ReportStatus { pending, urgent, reviewed, resolved, dismissed, banned }
 enum ReportReason { hateSpeech, scam, harassment, threat, other }
 enum ReportTargetType { message, post, user }
 enum ReportSource { user, aiDetected, userAiDetected }

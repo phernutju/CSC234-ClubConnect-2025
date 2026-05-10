@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/report_model.dart';
+import 'ai_service.dart';
 
 class ReportService {
   final FirebaseFirestore _db;
@@ -67,9 +68,57 @@ class ReportService {
     });
   }
 
+  Future<int> submitAiViolation({
+    required String userId,
+    required String communityId,
+    required String messageId,
+    required String messageText,
+    required ModerationResult result,
+  }) async {
+    final userRef = _db.collection('users').doc(userId);
+    int newCount = 0;
+
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(userRef);
+      final current = (snap.data()?['violationCount'] as int?) ?? 0;
+      newCount = current + 1;
+      final updates = <String, dynamic>{'violationCount': newCount};
+      if (newCount >= 5) updates['isMuted'] = true;
+      tx.update(userRef, updates);
+    });
+
+    ReportReason reason = ReportReason.other;
+    final rules = result.violatedRules;
+    if (rules.contains(4)) {
+      reason = ReportReason.threat;
+    } else if (rules.contains(5) || rules.contains(2) || rules.contains(3)) {
+      reason = ReportReason.hateSpeech;
+    }
+
+    final status = newCount >= 4 ? ReportStatus.urgent : ReportStatus.pending;
+    final reportRef = _reports.doc();
+    await reportRef.set({
+      'reportId': reportRef.id,
+      'reporterId': 'system',
+      'targetUserId': userId,
+      'communityId': communityId,
+      'messageId': messageId,
+      'messageText': messageText,
+      'reason': reason.name,
+      'targetType': ReportTargetType.message.name,
+      'source': ReportSource.aiDetected.name,
+      'status': status.name,
+      'description': result.reason,
+      'violationCount': newCount,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    return newCount;
+  }
+
   Stream<List<ReportModel>> streamPendingReports() {
     return _reports
-        .where('status', isEqualTo: ReportStatus.pending.name)
+        .where('status', whereIn: [ReportStatus.pending.name, ReportStatus.urgent.name])
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(

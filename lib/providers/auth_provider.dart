@@ -21,6 +21,7 @@ class AppAuthProvider extends ChangeNotifier {
   User? user;
   String? role;
   bool isBanned = false;
+  bool isMuted = false;
   String? banReason;
   DateTime? banExpiresAt;
   String? durationLabel;
@@ -52,6 +53,7 @@ class AppAuthProvider extends ChangeNotifier {
       } else {
         role = null;
         isBanned = false;
+        isMuted = false;
         banReason = null;
         banExpiresAt = null;
         durationLabel = null;
@@ -92,9 +94,11 @@ class AppAuthProvider extends ChangeNotifier {
         banExpiresAt = expiresTs?.toDate();
         durationLabel = data['durationLabel'] as String?;
       }
+      isMuted = (data['isMuted'] as bool?) ?? false;
     } catch (_) {
       role = 'user';
       isBanned = false;
+      isMuted = false;
     }
     notifyListeners();
   }

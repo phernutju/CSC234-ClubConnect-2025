@@ -132,7 +132,7 @@ class AdminReportsScreen extends StatelessWidget {
                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE8DFD8),
+                          color: r.status == 'urgent' ? const Color(0xFFFFE5E5) : const Color(0xFFE8DFD8),
                           borderRadius: BorderRadius.circular(24),
                         ),
                         child: Column(
@@ -159,6 +159,18 @@ class AdminReportsScreen extends StatelessWidget {
                                         fontSize: 10,
                                         fontWeight: FontWeight.w400,
                                         color: Colors.black)),
+                                if (r.status == 'urgent')
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFF4444),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text('URGENT',
+                                        style: GoogleFonts.poppins(
+                                            fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                                  ),
                                 const Spacer(),
                                 Text(r.timeAgo,
                                     style: GoogleFonts.poppins(

@@ -8,13 +8,22 @@ import '../models/message_model.dart';
 import '../models/rule_model.dart';
 import 'ai_service.dart';
 import 'notification_service.dart';
+import 'report_service.dart';
 import 'storage_service.dart';
+
+class ContentViolationException implements Exception {
+  final String message;
+  final int violationCount; // -1 = muted block, 1-N = violation count
+  const ContentViolationException(this.message, {this.violationCount = 0});
+  bool get isMuteBlock => violationCount == -1;
+}
 
 class CommunityService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final StorageService _storage;
   final NotificationService _notifications;
+  final ReportService _reportService;
 
   static const _allowedCommunityFields = {
     'communityName',
@@ -32,7 +41,8 @@ class CommunityService {
   })  : _db = db ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
         _storage = storage ?? StorageService(),
-        _notifications = notifications ?? NotificationService();
+        _notifications = notifications ?? NotificationService(),
+        _reportService = ReportService();
 
   // ── Collection refs ────────────────────────────────────────────────────────
 
@@ -354,6 +364,17 @@ class CommunityService {
       throw ArgumentError('Message must have text or an image');
     }
 
+    // Check if user is muted before adding message
+    if (trimmed.isNotEmpty) {
+      final userDoc = await _db.collection('users').doc(user.uid).get();
+      if ((userDoc.data()?['isMuted'] as bool?) == true) {
+        throw const ContentViolationException(
+          'You have been restricted from sending messages.',
+          violationCount: -1,
+        );
+      }
+    }
+
     final ref = await _messages(communityId).add({
       'senderId': user.uid,
       'text': trimmed,
@@ -369,9 +390,18 @@ class CommunityService {
     if (trimmed.isNotEmpty) {
       final result = await GeminiService.moderateMessage(trimmed, rules: rules);
       if (result.isViolating) {
+        final count = await _reportService.submitAiViolation(
+          userId: user.uid,
+          communityId: communityId,
+          messageId: ref.id,
+          messageText: trimmed,
+          result: result,
+        );
         await ref.delete();
-        throw Exception(
-            'Message failed to send. This content goes against our community standards.');
+        throw ContentViolationException(
+          'Message failed to send. This content goes against our community standards.',
+          violationCount: count,
+        );
       }
     }
 
