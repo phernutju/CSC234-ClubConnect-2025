@@ -7,12 +7,14 @@ import '../models/member_model.dart';
 import '../models/message_model.dart';
 import '../models/rule_model.dart';
 import 'ai_service.dart';
+import 'notification_service.dart';
 import 'storage_service.dart';
 
 class CommunityService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final StorageService _storage;
+  final NotificationService _notifications;
 
   static const _allowedCommunityFields = {
     'communityName',
@@ -22,10 +24,15 @@ class CommunityService {
     'rules',
   };
 
-  CommunityService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
-    : _db = db ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance,
-      _storage = storage ?? StorageService();
+  CommunityService({
+    FirebaseFirestore? db,
+    FirebaseAuth? auth,
+    StorageService? storage,
+    NotificationService? notifications,
+  })  : _db = db ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        _storage = storage ?? StorageService(),
+        _notifications = notifications ?? NotificationService();
 
   // ── Collection refs ────────────────────────────────────────────────────────
 
@@ -225,6 +232,12 @@ class CommunityService {
       throw Exception('Already a member of this community');
     }
 
+    final communityDoc = await _communities.doc(communityId).get();
+    final communityName =
+        communityDoc.data()?['communityName'] as String? ?? '';
+    final createdById =
+        communityDoc.data()?['createdById'] as String?;
+
     final batch = _db.batch();
     batch.set(memberRef, {
       'joinedAt': FieldValue.serverTimestamp(),
@@ -235,6 +248,17 @@ class CommunityService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
+
+    if (createdById != null && createdById != user.uid) {
+      final joinerName = await getUserDisplayName(user.uid);
+      await _notifications.createNotification(createdById, {
+        'communityId': communityId,
+        'mentionedBy': user.uid,
+        'title': joinerName,
+        'description': '$joinerName joined $communityName',
+        'type': 'join',
+      });
+    }
   }
 
   Future<void> leaveCommunity(String communityId) async {
@@ -319,6 +343,8 @@ class CommunityService {
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
+    String? replyToSenderId,
+    List<String> mentions = const [],
   }) async {
     final user = _requireAuth();
     await _requireMemberDoc(communityId, user.uid);
@@ -337,6 +363,7 @@ class CommunityService {
       if (replyToId != null) 'replyToId': replyToId,
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
+      if (mentions.isNotEmpty) 'mentions': mentions,
     });
 
     if (trimmed.isNotEmpty) {
@@ -345,6 +372,39 @@ class CommunityService {
         await ref.delete();
         throw Exception(
             'Message failed to send. This content goes against our community standards.');
+      }
+    }
+
+    final needsNotification =
+        (replyToSenderId != null && replyToSenderId != user.uid) ||
+            mentions.any((uid) => uid != user.uid);
+
+    if (needsNotification) {
+      final communityDoc = await _communities.doc(communityId).get();
+      final communityName =
+          communityDoc.data()?['communityName'] as String? ?? '';
+      final senderName = await getUserDisplayName(user.uid);
+
+      if (replyToSenderId != null && replyToSenderId != user.uid) {
+        await _notifications.createNotification(replyToSenderId, {
+          'communityId': communityId,
+          'mentionedBy': user.uid,
+          'title': senderName,
+          'description':
+              '$senderName replied to your message in $communityName',
+          'type': 'reply',
+        });
+      }
+
+      for (final uid in mentions) {
+        if (uid == user.uid) continue;
+        await _notifications.createNotification(uid, {
+          'communityId': communityId,
+          'mentionedBy': user.uid,
+          'title': senderName,
+          'description': '$senderName mentioned you in $communityName',
+          'type': 'mention',
+        });
       }
     }
   }

@@ -40,18 +40,26 @@ class _RateUserModalState extends State<RateUserModal> {
   }
 
   /// Saves the rating to [ProfileProvider] and closes the modal.
-  void _onPost() {
+  Future<void> _onPost() async {
     if (_stars == 0) return;
     final comment = _commentController.text.trim().isNotEmpty
         ? _commentController.text.trim()
         : '${'★' * _stars}${'☆' * (5 - _stars)}';
-    context.read<ProfileProvider>().createReview(
-      widget.userId,
-      communityId: widget.communityId,
-      score: _stars.toDouble(),
-      comment: comment,
-    );
-    Navigator.of(context).pop();
+    try {
+      await context.read<ProfileProvider>().createReview(
+        widget.userId,
+        communityId: widget.communityId,
+        score: _stars.toDouble(),
+        comment: comment,
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit review: $e')),
+        );
+      }
+    }
   }
 
   @override

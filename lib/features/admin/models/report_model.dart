@@ -1,3 +1,5 @@
+import '../../../models/report_model.dart' as fs;
+
 class ContextMessage {
   final String name;
   final String message;
@@ -27,6 +29,7 @@ class AdminReportModel {
   final double threatScore;
   final String source;
   final List<ContextMessage> contextMessages;
+  final String targetUserId;
 
   const AdminReportModel({
     required this.id,
@@ -43,6 +46,7 @@ class AdminReportModel {
     required this.threatScore,
     required this.source,
     required this.contextMessages,
+    this.targetUserId = '',
   });
 
   String get severityLabel {
@@ -51,6 +55,52 @@ class AdminReportModel {
     if (max >= 0.7) return 'HIGH';
     if (max >= 0.4) return 'MEDIUM';
     return 'LOW';
+  }
+
+  factory AdminReportModel.fromReportModel(fs.ReportModel r) {
+    String timeAgo(DateTime dt) {
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 60) return '${diff.inMinutes} m';
+      if (diff.inHours < 24) return '${diff.inHours} h';
+      return '${diff.inDays} d';
+    }
+
+    String categoryLabel(fs.ReportReason reason) {
+      switch (reason) {
+        case fs.ReportReason.hate_speech: return 'Hate Speech';
+        case fs.ReportReason.harassment: return 'Harassment';
+        case fs.ReportReason.scam: return 'Scam';
+        case fs.ReportReason.threat: return 'Threat';
+        case fs.ReportReason.other: return 'Other';
+      }
+    }
+
+    String sourceLabel(fs.ReportSource src) {
+      switch (src) {
+        case fs.ReportSource.ai_detected: return 'AI Detect';
+        case fs.ReportSource.user_ai_detected: return 'AI Detect + User';
+        case fs.ReportSource.user: return 'User Report';
+      }
+    }
+
+    final reason = r.reason;
+    return AdminReportModel(
+      id: r.reportId.isNotEmpty ? r.reportId : 'R-???',
+      aiDetectedLabel: r.source != fs.ReportSource.user ? 'AI detected' : 'User report',
+      category: categoryLabel(reason),
+      reportedText: '"${r.messageText}"',
+      username: r.targetUserId,
+      userDescription: 'Reported user',
+      groupName: r.communityId,
+      timeAgo: timeAgo(r.createdAt),
+      hateSpeechScore: reason == fs.ReportReason.hate_speech ? 0.8 : 0.1,
+      harassmentScore: reason == fs.ReportReason.harassment ? 0.8 : 0.1,
+      profanityScore: 0.0,
+      threatScore: reason == fs.ReportReason.threat ? 0.8 : 0.0,
+      source: sourceLabel(r.source),
+      contextMessages: [],
+      targetUserId: r.targetUserId,
+    );
   }
 }
 

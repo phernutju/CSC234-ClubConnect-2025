@@ -127,10 +127,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 onCreateTap: () => context.push('/create-community'),
                 onChanged: (q) => setState(() => _searchQuery = q),
               ),
-              // if (userInterests.isNotEmpty) ...[
-              //   const SizedBox(height: AppSizes.paddingM),
-              //   _CategoryRow(interests: userInterests),
-              // ],
+              if (userInterests.isNotEmpty) ...[
+                const SizedBox(height: AppSizes.paddingM),
+                _CategoryRow(interests: userInterests),
+              ],
               const SizedBox(height: AppSizes.paddingM),
               HomeTabBar(
                 selectedIndex: _selectedTab,
@@ -139,8 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   final provider = context.read<CommunityProvider>();
                   if (i == 1) {
                     provider.loadMyCommunities();
-                  } else if (_selectedCategory != null) {
-                    provider.loadCommunitiesByCategory(_selectedCategory!);
                   } else {
                     provider.loadCommunities();
                   }
@@ -153,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : _TabContent(
                         selectedTab: _selectedTab,
                         communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
-                        myCommunities: cp.myCommunities,
+                        myCommunities: _filtered(cp.myCommunities),
                         selectedCategory: _selectedCategory,
                         onCategoryChanged: _selectCategory,
                         onJoinTap: _showJoinFlow,
@@ -287,6 +285,7 @@ class _TabContent extends StatelessWidget {
   final int selectedTab;
   final List<CommunityModel> communities;
   final List<CommunityModel> myCommunities;
+
   final String? selectedCategory;
   final ValueChanged<String> onCategoryChanged;
   final void Function(CommunityModel) onJoinTap;
@@ -297,11 +296,11 @@ class _TabContent extends StatelessWidget {
     required this.selectedTab,
     required this.communities,
     required this.myCommunities,
-    required this.selectedCategory,
-    required this.onCategoryChanged,
     required this.onJoinTap,
     required this.onDirectTap,
     required this.userInterests,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
   });
 
   @override
@@ -409,8 +408,7 @@ class _DiscoverTab extends StatelessWidget {
             .where((c) => c.tags.any((t) => t.name == selectedCategory))
             .toList();
 
-    // Define colors for categories
-    final categoryColors = [
+    const categoryColors = [
       AppColors.categoryGreen,
       AppColors.categoryBlue,
       AppColors.categoryPurple,
@@ -418,19 +416,22 @@ class _DiscoverTab extends StatelessWidget {
 
     return ListView(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: userInterests.asMap().entries.map((entry) {
-            final index = entry.key;
-            final interest = entry.value;
-            final color = categoryColors[index % categoryColors.length];
-            return _SelectableCategory(
-              label: interest,
-              color: color,
-              isSelected: selectedCategory == interest,
-              onTap: () => onCategoryChanged(interest),
-            );
-          }).toList(),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              for (int i = 0; i < userInterests.length; i++) ...[
+                if (i > 0) const SizedBox(width: AppSizes.paddingS),
+                _SelectableCategory(
+                  label: userInterests[i],
+                  color: categoryColors[i % categoryColors.length],
+                  isSelected: selectedCategory == userInterests[i],
+                  onTap: () => onCategoryChanged(userInterests[i]),
+                ),
+              ],
+            ],
+          ),
         ),
         const SizedBox(height: AppSizes.paddingM),
         if (filtered.isEmpty)

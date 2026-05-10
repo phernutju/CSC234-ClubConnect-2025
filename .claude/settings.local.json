@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-<<<<<<< HEAD
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gammy\\\\OneDrive\\\\Desktop\\\\Project\\\\Flutter_2\\\\CSC234-ClubConnect-2025\" -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
@@ -11,16 +10,13 @@
       "mcp__ide__getDiagnostics",
       "Bash(claude doctor *)",
       "Bash(Get-Content *)",
-      "PowerShell(claude doctor *)"
-=======
+      "PowerShell(claude doctor *)",
+      "Bash(flutter pub *)",
+      "PowerShell(Get-Command *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse)",
       "Bash(Select-Object -First 100)",
       "Bash(Format-Table FullName)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse -Depth 3 | Select-Object -ExpandProperty FullName | ForEach-Object {$_ -replace [regex]::Escape\\(\"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\"\\), \"\"} | Sort-Object)",
-      "Bash(flutter pub *)",
-      "PowerShell(Get-Command *)",
-      "Bash(flutter analyze *)"
->>>>>>> origin/frontend-event
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse -Depth 3 | Select-Object -ExpandProperty FullName | ForEach-Object {$_ -replace [regex]::Escape\\(\"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\"\\), \"\"} | Sort-Object)"
     ]
   }
 }

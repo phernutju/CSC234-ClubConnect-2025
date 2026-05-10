@@ -19,6 +19,11 @@ class AppAuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
 
   User? user;
+  String? role;
+  bool isBanned = false;
+  String? banReason;
+  DateTime? banExpiresAt;
+  String? durationLabel;
   bool isLoading = false;
 
   OtpState _otpState = OtpState.idle;
@@ -42,8 +47,56 @@ class AppAuthProvider extends ChangeNotifier {
   AppAuthProvider() {
     _auth.authStateChanges().listen((u) {
       user = u;
-      notifyListeners();
+      if (u != null) {
+        _fetchRole(u.uid);
+      } else {
+        role = null;
+        isBanned = false;
+        banReason = null;
+        banExpiresAt = null;
+        durationLabel = null;
+        notifyListeners();
+      }
     });
+  }
+
+  Future<void> _fetchRole(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = doc.data() ?? {};
+      role = (data['role'] as String?) ?? 'user';
+
+      final bannedInDb = (data['isBanned'] as bool?) ?? false;
+      final expiresTs = data['banExpiresAt'] as Timestamp?;
+
+      if (bannedInDb && expiresTs != null && expiresTs.toDate().isBefore(DateTime.now())) {
+        // Ban expired — auto-unban
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+          'isBanned': false,
+          'banReason': FieldValue.delete(),
+          'durationLabel': FieldValue.delete(),
+          'banExpiresAt': FieldValue.delete(),
+          'bannedAt': FieldValue.delete(),
+          'bannedBy': FieldValue.delete(),
+        });
+        isBanned = false;
+        banReason = null;
+        banExpiresAt = null;
+        durationLabel = null;
+      } else {
+        isBanned = bannedInDb;
+        banReason = data['banReason'] as String?;
+        banExpiresAt = expiresTs?.toDate();
+        durationLabel = data['durationLabel'] as String?;
+      }
+    } catch (_) {
+      role = 'user';
+      isBanned = false;
+    }
+    notifyListeners();
   }
 
   void setEmailPassword(String email, String password) {

@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/auth_provider.dart';
 import '../widgets/step_progress_bar.dart';
 
 class SetProfileScreen extends StatefulWidget {
@@ -103,9 +105,12 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
 
   void _onNext() {
     if (_validate()) {
+      final displayName = _displayNameController.text.trim();
+      final bio = _aboutMeController.text.trim();
+      context.read<AppAuthProvider>().setExtraInfo('', displayName, bio);
       context.push(
         '/category',
-        extra: {'displayName': _displayNameController.text.trim()},
+        extra: {'displayName': displayName},
       );
     }
   }

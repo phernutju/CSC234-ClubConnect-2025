@@ -12,6 +12,7 @@ class MessageModel {
   final String? replyToId;
   final String? replyToSenderName;
   final String? replyToText;
+  final List<String> mentions;
 
   MessageModel({
     required this.id,
@@ -25,6 +26,7 @@ class MessageModel {
     this.replyToId,
     this.replyToSenderName,
     this.replyToText,
+    this.mentions = const [],
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
@@ -41,6 +43,7 @@ class MessageModel {
       replyToId: json['replyToId'] as String?,
       replyToSenderName: json['replyToSenderName'] as String?,
       replyToText: json['replyToText'] as String?,
+      mentions: List<String>.from(json['mentions'] ?? []),
     );
   }
 
@@ -71,6 +74,7 @@ class MessageModel {
       if (replyToId != null) 'replyToId': replyToId,
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
+      if (mentions.isNotEmpty) 'mentions': mentions,
     };
   }
 }

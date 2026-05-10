@@ -22,11 +22,14 @@ import '../features/community/screens/event_chat_screen.dart';
 import '../features/community/screens/edit_event_screen.dart';
 import '../models/event_model.dart';
 import '../models/event_chat_args.dart';
+import '../models/event_detail_args.dart';
 import '../features/admin/screens/admin_reports_screen.dart';
 import '../features/admin/screens/admin_report_detail_screen.dart';
+import '../features/auth/screens/banned_screen.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
+import '../models/report_model.dart';
 import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
 import '../features/admin/models/report_model.dart';
@@ -56,6 +59,18 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
 
     if (signedIn && isAuthRoute) {
       return '/home';
+    }
+
+    if (signedIn && authProvider.isBanned && location != '/banned') {
+      return '/banned';
+    }
+
+    if (signedIn && !authProvider.isBanned && location == '/banned') {
+      return '/home';
+    }
+
+    if (signedIn && location.startsWith('/admin')) {
+      if (authProvider.role != 'admin') return '/home';
     }
 
     return null;
@@ -93,7 +108,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       ),
       GoRoute(
         path: '/category',
-        builder: (context, state) => const CategoryScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CategoryScreen(displayName: extra?['displayName'] as String?);
+        },
       ),
 
       // ── Main-app shell (bottom nav shared across these three routes) ─────────
@@ -168,9 +186,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       GoRoute(
         path: '/event-detail',
         builder: (context, state) {
-          final event = state.extra as EventModel?;
-          if (event == null) return const SizedBox.shrink();
-          return EventDetailScreen(event: event);
+          final args = state.extra as EventDetailArgs?;
+          if (args == null) return const SizedBox.shrink();
+          return EventDetailScreen(
+              event: args.event, communityId: args.communityId);
         },
       ),
       GoRoute(
@@ -181,6 +200,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           return EventChatScreen(
             event: args.event,
             memberCount: args.memberCount,
+            communityId: args.communityId,
           );
         },
       ),
@@ -200,6 +220,11 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           final report = state.extra as AdminReportModel;
           return AdminReportDetailScreen(report: report);
         },
+      ),
+
+      GoRoute(
+        path: '/banned',
+        builder: (context, state) => const BannedScreen(),
       ),
 
       GoRoute(

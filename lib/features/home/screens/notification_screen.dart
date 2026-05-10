@@ -1,44 +1,58 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/notification_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
+import '../../../providers/notification_provider.dart';
 import '../widgets/notification_item.dart';
 
-/// Inbox screen — groups notifications by recency and skips muted communities.
-/// Shows empty state until backend data is connected.
-class NotificationScreen extends StatelessWidget {
+class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
-  // TESTING ONLY — replace with real data source when backend is connected.
-  static const List<NotificationModel> _allNotifications = [];
+  @override
+  State<NotificationScreen> createState() => _NotificationScreenState();
+}
 
-  /// Returns a human-readable time-group label for a notification's timestamp.
-  static String _groupLabel(DateTime timestamp) {
-    final diff = DateTime.now().difference(timestamp);
+class _NotificationScreenState extends State<NotificationScreen> {
+  String? _watchedUserId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final userId =
+        context.read<AppAuthProvider>().user?.uid;
+    if (userId != null && userId != _watchedUserId) {
+      _watchedUserId = userId;
+      context.read<NotificationProvider>().watchNotifications(userId);
+    }
+  }
+
+  static String _groupLabel(Timestamp ts) {
+    final diff = DateTime.now().difference(ts.toDate());
     if (diff.inHours < 1) return AppStrings.inboxRecent;
     if (diff.inHours < 24) return '${diff.inHours}${AppStrings.inboxHrsAgo}';
     return '${diff.inDays}${AppStrings.inboxDaysAgo}';
   }
 
-  /// Groups [notifications] by their time label, preserving insertion order.
   static Map<String, List<NotificationModel>> _groupByTime(
       List<NotificationModel> notifications) {
     final grouped = <String, List<NotificationModel>>{};
     for (final n in notifications) {
-      final label = _groupLabel(n.timestamp);
-      grouped.putIfAbsent(label, () => []).add(n);
+      grouped.putIfAbsent(_groupLabel(n.createdAt), () => []).add(n);
     }
     return grouped;
   }
 
   @override
   Widget build(BuildContext context) {
-    final mutedNames = context.watch<CommunityProvider>().mutedCommunityNames;
+    final notifProvider = context.watch<NotificationProvider>();
+    final mutedIds = context.watch<CommunityProvider>().mutedCommunityNames;
+    final userId = context.read<AppAuthProvider>().user?.uid ?? '';
 
-    // Filter out notifications from muted communities
-    final visible = _allNotifications
-        .where((n) => !mutedNames.contains(n.communityName))
+    final visible = notifProvider.notifications
+        .where((n) => !mutedIds.contains(n.communityId))
         .toList();
 
     return Scaffold(
@@ -47,37 +61,55 @@ class NotificationScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Page title ────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.only(
                 top: AppSizes.paddingL,
                 left: AppSizes.paddingL,
                 right: AppSizes.paddingL,
               ),
-              child: Text(
-                AppStrings.inboxTitle,
-                style: AppTextStyles.title(
-                  fontSize: 32.0,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textDark,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    AppStrings.inboxTitle,
+                    style: AppTextStyles.title(
+                      fontSize: 32.0,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  if (notifProvider.unreadCount > 0)
+                    TextButton(
+                      onPressed: () =>
+                          notifProvider.markAllAsRead(userId),
+                      child: Text(
+                        'Mark all read',
+                        style: AppTextStyles.body(
+                          fontSize: AppSizes.fontXS,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 
-            // Divider below title
             const SizedBox(height: AppSizes.paddingM),
             Container(
               height: AppSizes.inboxDividerWidth,
-              color: AppColors.rateCardBorder, // #E8DFD8
+              color: AppColors.rateCardBorder,
             ),
 
-            // ── Content ───────────────────────────────────────────────────
             Expanded(
-              child: visible.isEmpty
-                  ? const _EmptyState()
-                  : _NotificationList(
-                      grouped: _groupByTime(visible),
-                    ),
+              child: notifProvider.isLoading && visible.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : visible.isEmpty
+                      ? const _EmptyState()
+                      : _NotificationList(
+                          grouped: _groupByTime(visible),
+                          userId: userId,
+                        ),
             ),
           ],
         ),
@@ -86,9 +118,6 @@ class NotificationScreen extends StatelessWidget {
   }
 }
 
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-/// Shown when there are no notifications.
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
@@ -99,18 +128,18 @@ class _EmptyState extends StatelessWidget {
         AppStrings.inboxEmpty,
         style: AppTextStyles.body(
           fontSize: AppSizes.fontSM,
-          color: AppColors.fieldPlaceholder, // #BABABA
+          color: AppColors.fieldPlaceholder,
         ),
       ),
     );
   }
 }
 
-/// Scrollable list of grouped notifications.
 class _NotificationList extends StatelessWidget {
   final Map<String, List<NotificationModel>> grouped;
+  final String userId;
 
-  const _NotificationList({required this.grouped});
+  const _NotificationList({required this.grouped, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -134,9 +163,14 @@ class _NotificationList extends StatelessWidget {
             _SectionHeader(label: label),
             ...items.map(
               (n) => NotificationItem(
-                senderName: n.senderName,
-                communityName: n.communityName,
-                body: n.messageSnippet,
+                title: n.title,
+                body: n.description,
+                isRead: n.isRead,
+                onTap: n.isRead
+                    ? null
+                    : () => context
+                        .read<NotificationProvider>()
+                        .markAsRead(userId, n.id),
               ),
             ),
           ],
@@ -146,7 +180,6 @@ class _NotificationList extends StatelessWidget {
   }
 }
 
-/// Coral time-group header (e.g. "Recent", "2 hrs ago").
 class _SectionHeader extends StatelessWidget {
   final String label;
   const _SectionHeader({required this.label});

@@ -214,6 +214,8 @@ class CommunityProvider extends ChangeNotifier {
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
+    String? replyToSenderId,
+    List<String> mentions = const [],
   }) {
     error = null;
     notifyListeners();
@@ -226,6 +228,8 @@ class CommunityProvider extends ChangeNotifier {
           replyToId: replyToId,
           replyToSenderName: replyToSenderName,
           replyToText: replyToText,
+          replyToSenderId: replyToSenderId,
+          mentions: mentions,
         )
         .catchError((e) {
       // ignore: avoid_print

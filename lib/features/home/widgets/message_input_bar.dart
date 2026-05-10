@@ -57,6 +57,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
   }
 
   Future<void> _pickImage() async {
+    if (!widget.enabled) return;
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
@@ -109,7 +110,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.cardWhite,
+                    color: widget.enabled ? AppColors.cardWhite : AppColors.inputFill,
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
                   ),
                   child: TextField(
@@ -142,7 +143,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                   Icons.send,
                   color: widget.enabled
                       ? AppColors.cardWhite
-                      : AppColors.cardWhite.withOpacity(0.4),
+                      : AppColors.cardWhite.withValues(alpha: 0.4),
                   size: AppSizes.iconSize,
                 ),
               ),

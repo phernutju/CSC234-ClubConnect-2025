@@ -34,7 +34,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
     final tags = _selected.toList();
     final provider = context.read<AppAuthProvider>();
     provider.setInterests(tags);
-    await provider.signUp();
+    try {
+      await provider.signUp();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign up failed: $e')),
+      );
+      return;
+    }
     if (!mounted) return;
     context.go('/home');
   }
@@ -111,7 +119,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     if (catProvider.isLoading) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    print(catProvider.error);
                     if (catProvider.error != null) {
                       return Center(
                         child: Text(

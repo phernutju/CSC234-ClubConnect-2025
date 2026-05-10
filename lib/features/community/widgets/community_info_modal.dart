@@ -105,7 +105,7 @@ class CommunityInfoModal extends StatelessWidget {
                           '/other-profile',
                           extra: ProfileArgs(
                             userId: community.createdBy,
-                            username: community.createdBy,
+                            username: '',
                             communityName: community.communityName,
                           ),
                         );
@@ -148,8 +148,8 @@ class CommunityInfoModal extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -174,8 +174,7 @@ class _CoverArea extends StatelessWidget {
       height: AppSizes.communityInfoCoverHeight,
       width: double.infinity,
       child: imageUrl != null
-          ? Image.network(imageUrl!, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill))
+          ? Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill))
           : Container(color: AppColors.inputFill),
     );
   }
@@ -190,7 +189,7 @@ class _HostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const filledStars = 0;
+    final filledStars = 0;
 
     return Container(
       width: double.infinity,
@@ -224,7 +223,7 @@ class _HostCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  community.createdBy,
+                  community.createdBy ?? 'null',
                   style: AppTextStyles.poppins(
                     fontSize: AppSizes.fontXII,
                     color: AppColors.textDark,
