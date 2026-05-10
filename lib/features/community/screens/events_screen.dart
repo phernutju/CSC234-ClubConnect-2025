@@ -46,7 +46,7 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     final ep = context.watch<EventProvider>();
-
+    print(ep);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(

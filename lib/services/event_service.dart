@@ -14,19 +14,20 @@ class EventService {
   // ── Collection refs ────────────────────────────────────────────────────────
 
   CollectionReference<Map<String, dynamic>> _events(String communityId) =>
-      _db.collection('community').doc(communityId).collection('events');
+      _db.collection('communities').doc(communityId).collection('events');
 
   // ── Events ─────────────────────────────────────────────────────────────────
 
   Stream<List<EventModel>> getEvents(String communityId) {
+    final events = _events(communityId);  
     return _events(communityId)
-        .orderBy('date', descending: false)
+        .orderBy('startDate', descending: false)
         .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((doc) => EventModel.fromDoc(doc))
-              .toList(),
-        );
+        .map((snap) {
+      print(
+          'EventService.getEvents - snapshot received with ${snap.docs.length} docs');
+      return snap.docs.map((doc) => EventModel.fromDoc(doc)).toList();
+    });
   }
 
   Future<void> createEvent({
@@ -40,22 +41,33 @@ class EventService {
     String? imageUrl,
     int? maxAttendees,
   }) async {
-    final user = _requireAuth();
-    final eventRef = _events(communityId).doc();
-    final createdAt = FieldValue.serverTimestamp();
-    await eventRef.set({
-      'title': title,
-      'description': description,
-      'imageUrl': imageUrl,
-      'createdAt': createdAt,
-      'createdBy': user.uid,
-      'attendees': [user.uid],
-      'tags': tags.map((t) => t.toJson()).toList(),
-      'roomId': roomId,
-      'maxAttendees': maxAttendees,
-      'startDate': startDate,
-      'endDate': endDate,
-    });
+    try {
+      final user = _requireAuth();
+      final eventRef = _events(communityId).doc();
+      final createdAt = FieldValue.serverTimestamp();
+
+      await eventRef.set({
+        'title': title,
+        'description': description,
+        'imageUrl': imageUrl,
+        'createdAt': createdAt,
+        'createdBy': user.uid,
+        'attendees': [user.uid],
+        'tags': tags.map((t) => t.toJson()).toList(),
+        'roomId': roomId,
+        'maxAttendees': maxAttendees,
+        'startDate': startDate,
+        'endDate': endDate,
+      });
+    } on FirebaseException catch (e) {
+      throw Exception(
+        'Firebase error while creating event: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Unexpected error while creating event: $e',
+      );
+    }
   }
 
   Future<void> joinEvent(String communityId, String eventId) async {
@@ -67,7 +79,8 @@ class EventService {
 
     final event = EventModel.fromDoc(doc);
     if (event.isFull) throw Exception('Event is full');
-    if (event.isAttending(user.uid)) throw Exception('Already attending this event');
+    if (event.isAttending(user.uid))
+      throw Exception('Already attending this event');
 
     await eventRef.update({
       'attendees': FieldValue.arrayUnion([user.uid]),
@@ -82,7 +95,8 @@ class EventService {
     if (!doc.exists) throw Exception('Event not found');
 
     final event = EventModel.fromDoc(doc);
-    if (!event.isAttending(user.uid)) throw Exception('Not attending this event');
+    if (!event.isAttending(user.uid))
+      throw Exception('Not attending this event');
 
     await eventRef.update({
       'attendees': FieldValue.arrayRemove([user.uid]),

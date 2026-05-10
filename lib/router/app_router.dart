@@ -30,7 +30,7 @@ import '../models/profile_args.dart';
 import '../models/report_model.dart';
 import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
-import '../features/admin//models/report_model.dart';
+import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';
 
 GoRouter createAppRouter(AppAuthProvider authProvider) {
