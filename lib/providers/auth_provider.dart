@@ -124,9 +124,11 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   Future<void> signUp() async {
-    isLoading = true;
-    notifyListeners();
+  isLoading = true;
+  notifyListeners();
+  try {
     if (_email == null || _password == null || _displayName == null) {
+      print('Signup data missing: email=$_email, password=${_password != null ? '***' : null}, displayName=$_displayName');
       throw Exception('Missing required signup data');
     }
     await _authService.signUp(
@@ -138,11 +140,15 @@ class AppAuthProvider extends ChangeNotifier {
       bio: _bio ?? '',
       photoURL: _photoURL ?? '',
     );
+    _clearSignupData();
+  } catch (e) {
+    debugPrint('SignUp error: $e');
+    rethrow;
+  } finally {
     isLoading = false;
     notifyListeners();
-    _clearSignupData();
   }
-
+}
   Future<void> signIn({
     required String email,
     required String password,

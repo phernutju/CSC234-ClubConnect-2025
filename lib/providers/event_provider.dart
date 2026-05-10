@@ -110,6 +110,7 @@ class EventProvider extends ChangeNotifier {
     required String communityId,
     required String title,
     required String description,
+    required String location,
     required List<CategoryModel> tags,
     required Timestamp startDate,
     required Timestamp endDate,
@@ -121,6 +122,7 @@ class EventProvider extends ChangeNotifier {
             communityId: communityId,
             title: title,
             description: description,
+            location: location,
             tags: tags,
             startDate: startDate,
             endDate: endDate,
@@ -137,6 +139,11 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> deleteEvent(String communityId, String eventId) =>
       _run(() => _service.deleteEvent(communityId, eventId));
+
+  Future<void> deleteEventMessage(
+          String communityId, String eventId, String messageId) =>
+      _run(() =>
+          _service.deleteEventMessage(communityId, eventId, messageId));
 
   // ── Helper ─────────────────────────────────────────────────────────────────
 

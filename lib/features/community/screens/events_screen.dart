@@ -7,6 +7,7 @@ import '../../../constants/app_constants.dart';
 import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/event_provider.dart';
+import '../../../providers/profile_provider.dart';
 
 class EventsScreen extends StatefulWidget {
   final String communityId;
@@ -161,7 +162,7 @@ class _EventList extends StatelessWidget {
       itemCount: events.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) =>
-          _EventCard(event: events[index], communityId: communityId),
+          _EventCard(event: events[index], communityId: communityId , currentMembers: events[index].attendeeCount),
     );
   }
 }
@@ -282,14 +283,23 @@ class _EventCard extends StatelessWidget {
                 const SizedBox(height: 2),
 
                 // Host name
-                if (event.createdBy?.isNotEmpty == true)
-                  Text(
-                    'by ${event.createdBy}',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppSizes.fontXS,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF837A7A),
-                    ),
+                if (event.createdBy.isNotEmpty)
+                  FutureBuilder(
+                    future: context.read<ProfileProvider>().fetchUserById(event.createdBy),
+                    builder: (context, snapshot) {
+                      final hostLabel = snapshot.hasData
+                          ? snapshot.data!.displayName
+                          : event.createdBy;
+
+                      return Text(
+                        'by $hostLabel',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppSizes.fontXS,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF837A7A),
+                        ),
+                      );
+                    },
                   ),
                 const SizedBox(height: AppSizes.paddingS),
 

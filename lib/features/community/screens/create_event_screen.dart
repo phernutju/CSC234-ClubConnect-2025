@@ -159,7 +159,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             communityId: widget.communityId,
             title: name,
             startDate: Timestamp.fromDate(fullDate),
-            //location: _locationController.text.trim(),
+            location: _locationController.text.trim(),
             description: _detailController.text.trim(),
             maxAttendees: _memberLimit,
             imageUrl: coverImageUrl,

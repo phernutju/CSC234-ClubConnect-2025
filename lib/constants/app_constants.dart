@@ -411,6 +411,7 @@ class AppStrings {
   static const String chatCopy          = 'Copy';
   static const String chatReply         = 'Reply';
   static const String chatReport        = 'Report';
+  static const String chatDelete        = 'Delete';
   static const String chatImageMessage    = '[Image]'; // fallback text for image-only messages
   static const String warningText         = 'Message failed to send. This content goes against our community standards. Repeated offenses will result in a ban. ';
   static const String warningReviewRules  = 'Review rules';

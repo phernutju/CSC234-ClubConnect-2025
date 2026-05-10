@@ -49,6 +49,7 @@ class EventService {
     required String communityId,
     required String title,
     required String description,
+    required String location,
     required List<CategoryModel> tags,
     required Timestamp startDate,
     required Timestamp endDate,
@@ -64,6 +65,7 @@ class EventService {
       await eventRef.set({
         'title': title,
         'description': description,
+        'location': location,
         'imageUrl': imageUrl,
         'createdAt': createdAt,
         'createdBy': user.uid,

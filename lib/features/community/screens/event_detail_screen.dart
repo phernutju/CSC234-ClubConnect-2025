@@ -171,7 +171,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           const SizedBox(height: 14),
                           _IconRow(
                               icon: Icons.location_on,
-                              text: widget.event.description),
+                              text: widget.event.location),
                         ],
 
                         // Event Detail section
@@ -240,29 +240,69 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               AppSizes.paddingM,
               bottomPad > 0 ? bottomPad : AppSizes.paddingL,
             ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: ap.isLoading ? null : _onButtonTap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  disabledBackgroundColor: AppColors.inputBorder,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+            child: Column(
+              children: [
+                if (!isHost && ap.isAttending) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: ap.isLoading ? null : _goToChat,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: AppColors.inputBorder,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSizes.radiusPill),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppSizes.paddingM),
+                      ),
+                      child: Text(
+                        'Go to Chat',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppSizes.fontML,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.cardWhite,
+                        ),
+                      ),
+                    ),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
-                ),
-                child: Text(
-                  buttonLabel,
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontML,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.cardWhite,
+                  const SizedBox(height: AppSizes.paddingS),
+                ],
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: ap.isLoading ? null : _onButtonTap,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (!isHost && ap.isAttending)
+                          ? AppColors.cardWhite
+                          : AppColors.primary,
+                      foregroundColor: (!isHost && ap.isAttending)
+                          ? AppColors.primary
+                          : AppColors.cardWhite,
+                      disabledBackgroundColor: AppColors.inputBorder,
+                      elevation: 0,
+                      side: (!isHost && ap.isAttending)
+                          ? const BorderSide(color: AppColors.primary)
+                          : BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSizes.radiusPill),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: AppSizes.paddingM),
+                    ),
+                    child: Text(
+                      buttonLabel,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppSizes.fontML,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ],

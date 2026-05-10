@@ -16,6 +16,7 @@ class ChatMessage {
   final bool isSent;        // true = current user's message (right side)
   final bool isFlagged;     // true = content was flagged by moderation
   final String senderName;
+  final DateTime timestamp;
   final String time;        // displayed as "HH:mm"
   final String? readCount;  // e.g. "Read 3" — only used for sent messages
   final String? replyToName;
@@ -28,6 +29,7 @@ class ChatMessage {
     required this.isSent,
     this.isFlagged = false,
     required this.senderName,
+    required this.timestamp,
     required this.time,
     this.readCount,
     this.replyToName,

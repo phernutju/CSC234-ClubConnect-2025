@@ -354,6 +354,16 @@ class CommunityService {
     });
   }
 
+  Future<void> deleteMessage(String communityId, String messageId) async {
+    final user = _requireAuth();
+    final doc = await _messages(communityId).doc(messageId).get();
+    if (!doc.exists) throw Exception('Message not found');
+    if (doc.data()?['senderId'] != user.uid) {
+      throw Exception('Can only delete your own messages');
+    }
+    await _messages(communityId).doc(messageId).delete();
+  }
+
   // ── Users ──────────────────────────────────────────────────────────────────
 
   Future<String> getUserDisplayName(String uid) async {

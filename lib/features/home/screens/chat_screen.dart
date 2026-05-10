@@ -107,6 +107,7 @@ class _ChatScreenState extends State<ChatScreen> {
       isSent: isSent,
       senderName: senderName,
       senderId: m.senderId,
+      timestamp: m.timestamp,
       time: _formatTime(m.timestamp),
       readCount: isSent ? 'Read ${m.seenBy.length}' : null,
       replyToName: m.replyToSenderName,
@@ -197,6 +198,9 @@ class _ChatScreenState extends State<ChatScreen> {
         communityId: widget.communityId,
         messageId: message.id,
       ),
+      onDelete: () => context
+          .read<CommunityProvider>()
+          .deleteMessage(widget.communityId, message.id),
     );
   }
 
@@ -404,16 +408,16 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    final items = _buildItems(uiMessages);
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSizes.paddingM),
-      itemCount: uiMessages.length + 1, // +1 for the date separator
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return const _DateSeparator(label: AppStrings.chatToday);
-        }
-        final message = uiMessages[index - 1];
+        final item = items[index];
+        if (item is String) return _DateSeparator(label: item);
+        final message = item as ChatMessage;
         return MessageBubble(
           message: message,
           onLongPress: (pos) => _onLongPressMessage(message, pos),
@@ -489,6 +493,35 @@ class _ChatAppBar extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _dateLabel(DateTime date) {
+  final now = DateTime.now();
+  if (_isSameDay(date, now)) return 'Today';
+  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (date.year == now.year) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
+  }
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+List<Object> _buildItems(List<ChatMessage> messages) {
+  final items = <Object>[];
+  DateTime? lastDate;
+  for (final msg in messages) {
+    if (lastDate == null || !_isSameDay(lastDate, msg.timestamp)) {
+      items.add(_dateLabel(msg.timestamp));
+      lastDate = msg.timestamp;
+    }
+    items.add(msg);
+  }
+  return items;
 }
 
 /// Centered date label (e.g. "Today") between message groups.

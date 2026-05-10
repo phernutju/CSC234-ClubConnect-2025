@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../services/google_auth_service.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/google_sign_in_button.dart';
@@ -68,7 +70,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
   void _onNext() {
     if (_validate()) {
-      // TODO: create account on backend
+      context.read<AppAuthProvider>().setEmailPassword(
+            _emailController.text.trim(),
+            _passwordController.text,
+          );
       context.push('/verify-phone');
     }
   }

@@ -7,6 +7,7 @@ class EventModel {
   final String id;
   final String title;
   final String description;   // user puts location info here naturally
+  final String location;
   final String? imageUrl;     // optional cover photo
   final Timestamp createdAt;
   final String createdBy;
@@ -16,6 +17,7 @@ class EventModel {
   final int? maxAttendees;    // null = unlimited
   final Timestamp startDate;       // event start
   final Timestamp endDate;    // event end — Room uses this as expiresAt
+  final EventStatus status;
 
   EventModel({
     required this.id,
@@ -25,8 +27,10 @@ class EventModel {
     required this.createdAt,
     required this.attendees,
     required this.tags,
+    required this.location,
     required this.roomId,
     required this.startDate,
+    required this.status,
     required this.endDate,
     this.imageUrl,
     this.maxAttendees,
@@ -34,12 +38,7 @@ class EventModel {
 
   // ─── Derived Getters ───────────────────────────
 
-  EventStatus get status {
-    final now = DateTime.now();
-    if (now.isBefore(startDate.toDate())) return EventStatus.upcoming;
-    if (now.isAfter(endDate.toDate())) return EventStatus.ended;
-    return EventStatus.ongoing;
-  }
+
 
   bool get isFull =>
       maxAttendees != null && attendees.length >= maxAttendees!;
@@ -71,6 +70,11 @@ class EventModel {
       maxAttendees: json['maxAttendees'] as int?,
       startDate: json['startDate'] ?? Timestamp.now(),
       endDate: json['endDate'] ?? json['expiresAt'] ?? Timestamp.now(),
+      status: EventStatus.values.firstWhere(
+        (s) => s.toString() == json['status'],
+        orElse: () => EventStatus.upcoming,
+      ),
+      location: json['location'] ?? '',
     );
   }
 
@@ -86,6 +90,7 @@ class EventModel {
     'maxAttendees': maxAttendees,
     'startDate': startDate,
     'endDate': endDate,
+    'status': status.toString().split('.').last,
   };
 
   Map<String, dynamic> toFirestore() {
@@ -113,6 +118,8 @@ class EventModel {
       maxAttendees: maxAttendees ?? this.maxAttendees,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      location: location ?? this.location,
+      status: status ?? this.status,
     );
   }
 }

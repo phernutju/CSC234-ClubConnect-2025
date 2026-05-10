@@ -95,7 +95,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       ),
       GoRoute(
         path: '/category',
-        builder: (context, state) => const CategoryScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CategoryScreen(displayName: extra?['displayName'] as String?);
+        },
       ),
 
       // ── Main-app shell (bottom nav shared across these three routes) ─────────

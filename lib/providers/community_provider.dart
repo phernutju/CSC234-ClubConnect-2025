@@ -241,6 +241,9 @@ class CommunityProvider extends ChangeNotifier {
   Future<void> markMessageSeen(String communityId, String messageId) =>
       _run(() => _service.markMessageSeen(communityId, messageId));
 
+  Future<void> deleteMessage(String communityId, String messageId) =>
+      _run(() => _service.deleteMessage(communityId, messageId));
+
   // ── Helper ─────────────────────────────────────────────────────────────────
 
   Future<void> _run(Future<void> Function() action) async {

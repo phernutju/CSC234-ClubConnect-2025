@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -43,8 +42,8 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageBytes: community.coverImageURL.isNotEmpty
-                    ? Uint8List.fromList(community.coverImageURL.codeUnits)
+                _CoverArea(imageUrl: community.coverImageURL.isNotEmpty
+                    ? community.coverImageURL
                     : null),
                 Positioned(
                   top: AppSizes.paddingS,
@@ -159,16 +158,20 @@ class CommunityInfoModal extends StatelessWidget {
 
 /// Grey placeholder or community cover photo (H167).
 class _CoverArea extends StatelessWidget {
-  final Uint8List? imageBytes;
-  const _CoverArea({this.imageBytes});
+  final String? imageUrl;
+  const _CoverArea({this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: AppSizes.communityInfoCoverHeight,
       width: double.infinity,
-      child: imageBytes != null
-          ? Image.memory(imageBytes!, fit: BoxFit.cover)
+      child: imageUrl != null
+          ? Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill),
+            )
           : Container(color: AppColors.inputFill),
     );
   }
