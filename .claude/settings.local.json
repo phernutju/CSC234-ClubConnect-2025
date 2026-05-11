@@ -8,7 +8,9 @@
       "Bash(flutter pub *)",
       "PowerShell(Get-Command *)",
       "Bash(flutter analyze *)",
-      "Bash(xargs cat -n)"
+      "Bash(xargs cat -n)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }

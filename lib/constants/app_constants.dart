@@ -150,8 +150,12 @@ class AppColors {
   static const Color kickButton        = Color(0xFFFF4444);
   static const Color kickModalCircle   = Color(0xFFFFEEEE);
   static const Color kickModalNameGray = Color(0xFF888888);
-  static const Color kickModalNo       = Color(0xFFF2F2F2);
+  static const Color kickModalNo       = Color(0xFF888888);
   static const Color kickModalYes      = Color(0xFFFF4444);
+
+  // System message pill
+  static const Color systemPillBg   = Color(0x14000000); // rgba(0,0,0, ~8%)
+  static const Color systemPillText = Color(0xFF666666);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -322,6 +326,11 @@ class AppSizes {
   static const double memberOnlineDotSize =  9.0;
   static const double memberKickBtnSize   = 32.0;
   static const double memberKickBtnRadius =  8.0;
+
+  // System message pill
+  static const double systemPillPadH    = 14.0;
+  static const double systemPillPadV    =  6.0;
+  static const double systemPillMarginV =  4.0;
 }
 
 // ─── String Constants ─────────────────────────────────────────────────────────

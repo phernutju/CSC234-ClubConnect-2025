@@ -24,6 +24,12 @@ import '../models/event_model.dart';
 import '../models/event_chat_args.dart';
 import '../features/admin/screens/admin_reports_screen.dart';
 import '../features/admin/screens/admin_report_detail_screen.dart';
+import '../features/community/screens/bill_summary_screen.dart';
+import '../features/community/screens/bill_payment_screen.dart';
+import '../features/community/screens/payment_success_screen.dart';
+import '../features/community/screens/create_bill_screen.dart';
+import '../models/bill_payment_args.dart';
+import '../models/bill_data.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
@@ -181,6 +187,58 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           return EventChatScreen(
             event: args.event,
             memberCount: args.memberCount,
+          );
+        },
+      ),
+
+      // ── Bill / payment flow ───────────────────────────────────────────────────
+      GoRoute(
+        path: '/create-bill',
+        builder: (context, state) {
+          final args = state.extra as Map<String, dynamic>;
+          return CreateBillScreen(
+            eventName: args['eventName'] as String,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/bill-summary',
+        builder: (context, state) {
+          final billData = state.extra as BillData;
+          return BillSummaryScreen(billData: billData);
+        },
+      ),
+      GoRoute(
+        path: '/bill-payment',
+        pageBuilder: (context, state) {
+          final args = state.extra as BillPaymentArgs?;
+          if (args == null) return const NoTransitionPage(child: SizedBox.shrink());
+          return CustomTransitionPage(
+            child: BillPaymentScreen(args: args),
+            transitionsBuilder: (_, animation, __, child) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              child: child,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/payment-success',
+        pageBuilder: (context, state) {
+          final args = state.extra as BillPaymentArgs?;
+          if (args == null) return const NoTransitionPage(child: SizedBox.shrink());
+          return CustomTransitionPage(
+            child: PaymentSuccessScreen(args: args),
+            transitionsBuilder: (_, animation, __, child) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              child: child,
+            ),
           );
         },
       ),

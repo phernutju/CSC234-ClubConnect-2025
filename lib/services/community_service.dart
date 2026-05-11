@@ -224,6 +224,8 @@ class CommunityService {
       throw Exception('Already a member of this community');
     }
 
+    final displayName = await getUserDisplayName(user.uid);
+
     final batch = _db.batch();
     batch.set(memberRef, {
       'joinedAt': FieldValue.serverTimestamp(),
@@ -232,6 +234,14 @@ class CommunityService {
     batch.update(_communities.doc(communityId), {
       'memberCount': FieldValue.increment(1),
       'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(_messages(communityId).doc(), {
+      'senderId': 'system',
+      'isSystem': true,
+      'text': '$displayName joined the group',
+      'imageURL': '',
+      'timestamp': FieldValue.serverTimestamp(),
+      'seenBy': [],
     });
     await batch.commit();
   }
