@@ -127,10 +127,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 onCreateTap: () => context.push('/create-community'),
                 onChanged: (q) => setState(() => _searchQuery = q),
               ),
-              if (userInterests.isNotEmpty) ...[
-                const SizedBox(height: AppSizes.paddingM),
-                _CategoryRow(interests: userInterests),
-              ],
               const SizedBox(height: AppSizes.paddingM),
               HomeTabBar(
                 selectedIndex: _selectedTab,
