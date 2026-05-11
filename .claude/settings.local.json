@@ -20,7 +20,8 @@
       "Bash(dir *)",
       "WebFetch(domain:api.github.com)",
       "Bash(curl -s \"https://api.github.com/repos/phernutju/CSC234-ClubConnect-2025/git/trees/frontend-smartBill?recursive=1\")",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl *)"
     ]
   }
 }
