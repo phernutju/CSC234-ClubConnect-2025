@@ -23,7 +23,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   final List<TextEditingController> _rulesControllers = [TextEditingController()];
 
   Uint8List? _coverImageBytes;
-  final Set<String> _selectedCategories = {};
+  String? _selectedCategory;
 
   String? _nameError;
   String? _aboutError;
@@ -90,7 +90,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     setState(() {
       _nameError     = name.isEmpty     ? 'Please enter a community name'          : null;
       _aboutError    = about.isEmpty    ? 'Please tell us about your community'    : null;
-      _categoryError = _selectedCategories.isEmpty ? 'Please select a category'     : null;
+      _categoryError = _selectedCategory == null ? 'Please select a category'     : null;
       _rulesError    = !hasRule         ? 'Please add at least one community rule' : null;
     });
 
@@ -111,7 +111,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     await context.read<CommunityProvider>().addCommunity(
           communityName: name,
           description: about,
-          category: _selectedCategories.toList(),
+          category: _selectedCategory != null ? [_selectedCategory!] : [],
           coverImageBytes: _coverImageBytes,
           rules: rules,
         );
@@ -168,14 +168,10 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       const _SectionLabel(label: AppStrings.createCategoryLabel),
                       const SizedBox(height: AppSizes.paddingS),
                       _CategoryEditRow(
-                        selected: _selectedCategories,
+                        selected: _selectedCategory,
                         onToggle: (cat) => setState(() {
-                          if (_selectedCategories.contains(cat)) {
-                            _selectedCategories.remove(cat);
-                          } else {
-                            _selectedCategories.add(cat);
-                            _categoryError = null;
-                          }
+                          _selectedCategory = _selectedCategory == cat ? null : cat;
+                          if (_selectedCategory != null) _categoryError = null;
                         }),
                         errorText: _categoryError,
                       ),
@@ -395,12 +391,10 @@ class _FormField extends StatelessWidget {
   }
 }
 
-// ── Category row (chips + popup) ──────────────────────────────────────────────
+// ── Category row (single chip preview + popup) ────────────────────────────────
 
-/// Same design as the interests row on Edit Profile: shows first 3 selected
-/// categories as coral chips, plus a "+" button that opens [CategoryPickerPopup].
 class _CategoryEditRow extends StatelessWidget {
-  final Set<String> selected;
+  final String? selected;
   final void Function(String) onToggle;
   final String? errorText;
 
@@ -419,15 +413,15 @@ class _CategoryEditRow extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => CategoryPickerPopup(
-        selectedInterests: selected,
+        selectedInterests: selected != null ? {selected!} : {},
         onToggle: onToggle,
+        singleSelect: true,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final preview = selected.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -435,13 +429,12 @@ class _CategoryEditRow extends StatelessWidget {
           spacing: AppSizes.paddingS,
           runSpacing: AppSizes.paddingS,
           children: [
-            ...preview.map(
-              (cat) => InterestChip(
-                label: cat,
+            if (selected != null)
+              InterestChip(
+                label: selected!,
                 selected: true,
-                onTap: () => onToggle(cat),
+                onTap: () => onToggle(selected!),
               ),
-            ),
             GestureDetector(
               onTap: () => _openPopup(context),
               child: Container(

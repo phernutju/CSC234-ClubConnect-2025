@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
-import '../models/category_model.dart';
 import '../models/review_model.dart';
 import '../models/user_model.dart';
 import '../services/category_service.dart';
@@ -17,7 +16,7 @@ class ProfileProvider extends ChangeNotifier {
   String? error;
 
   // Populated once by loadCategories(); drives the category selection popup.
-  List<CategoryModel> categories = [];
+  List<String> categories = [];
   bool _categoriesLoaded = false;
 
   // ── Local UI state (HEAD-branch screens) ─────────────────────────────────

@@ -181,6 +181,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
     setState(() => _isSubmitting = true);
 
+    final hostName =
+        context.read<AppAuthProvider>().user?.displayName ?? '';
+    final ep = context.read<EventProvider>();
+
     try {
       String coverImageUrl = '';
       if (_coverBytes != null) {
@@ -201,10 +205,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         et.hour, et.minute,
       );
 
-      final hostName =
-          context.read<AppAuthProvider>().user?.displayName ?? '';
-
-      await context.read<EventProvider>().createEvent(
+      await ep.createEvent(
             widget.communityId,
             title: _nameController.text.trim(),
             hostName: hostName,
@@ -218,7 +219,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           );
 
       if (!mounted) return;
-      final ep = context.read<EventProvider>();
       if (ep.error != null) {
         _showSnack(ep.error!);
       } else {
@@ -441,7 +441,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             onPressed: _isSubmitting ? null : _onCreate,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
+                              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(AppSizes.radiusPill),

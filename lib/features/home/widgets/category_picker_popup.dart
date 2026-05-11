@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
-import '../../../models/category_model.dart';
 import '../../../services/category_service.dart';
 import 'interest_chip.dart';
 
@@ -9,15 +8,16 @@ import 'interest_chip.dart';
 /// parent's state stays in sync without a separate "confirm" step.
 class CategoryPickerPopup extends StatefulWidget {
   final Set<String> selectedInterests;
-
-  /// Called with the category name each time the user taps a chip.
-  /// Parent is responsible for add/remove logic in its own state.
   final void Function(String) onToggle;
+
+  /// When true, selecting a chip deselects any previously selected chip.
+  final bool singleSelect;
 
   const CategoryPickerPopup({
     super.key,
     required this.selectedInterests,
     required this.onToggle,
+    this.singleSelect = false,
   });
 
   @override
@@ -29,16 +29,12 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
   // without waiting for the parent widget tree to rebuild.
   late Set<String> _localSelected;
 
-  // Fetch categories once when the popup opens; reuse the same Future on rebuild.
-  late final Future<List<CategoryModel>> _categoriesFuture;
+  late final Future<List<String>> _categoriesFuture;
 
   @override
   void initState() {
     super.initState();
     _localSelected = Set<String>.from(widget.selectedInterests);
-    // CategoryService maps each Firestore doc in the 'categories' collection
-    // to a CategoryModel(id, name) — only docs with a non-empty 'name' field
-    // are included.
     _categoriesFuture = CategoryService().getCategories();
   }
 
@@ -47,11 +43,10 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
       if (_localSelected.contains(name)) {
         _localSelected.remove(name);
       } else {
+        if (widget.singleSelect) _localSelected.clear();
         _localSelected.add(name);
       }
     });
-    // Propagate to parent immediately — parent calls setState to keep its
-    // _selectedInterests and the 3-chip preview row in sync.
     widget.onToggle(name);
   }
 
@@ -105,19 +100,35 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
 
             // Category chips — built from Firestore data
             Expanded(
-              child: FutureBuilder<List<CategoryModel>>(
+              child: FutureBuilder<List<String>>(
                 future: _categoriesFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    );
                   }
-                  // On Firestore error or empty collection, fall back to the
-                  // hardcoded interest list so the user always sees options.
-                  final List<String> names =
-                      (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty)
-                          ? AppStrings.interestOptions
-                          : snapshot.data!.map((cat) => cat.name).toList();
-
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSizes.paddingL),
+                        child: Text(
+                          'Could not load categories.\n${snapshot.error}',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.body(color: AppColors.textGray),
+                        ),
+                      ),
+                    );
+                  }
+                  final names = snapshot.data ?? [];
+                  if (names.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No categories found in Firestore.',
+                        style: AppTextStyles.body(color: AppColors.textGray),
+                      ),
+                    );
+                  }
                   return SingleChildScrollView(
                     controller: scrollController,
                     padding: const EdgeInsets.all(AppSizes.paddingL),

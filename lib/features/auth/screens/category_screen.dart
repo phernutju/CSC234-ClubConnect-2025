@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
+import '../../../services/category_service.dart';
+import '../../home/widgets/interest_chip.dart';
 import '../widgets/step_progress_bar.dart';
 
 class CategoryScreen extends StatefulWidget {
@@ -15,24 +17,8 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   final Set<String> _selected = {};
-
-  static const List<Map<String, String>> _categories = [
-    {'emoji': '🏸', 'label': 'Badminton'},
-    {'emoji': '🏃', 'label': 'Running'},
-    {'emoji': '🧁', 'label': 'Baking'},
-    {'emoji': '🧗', 'label': 'Climbing'},
-    {'emoji': '🧘', 'label': 'Yoga'},
-    {'emoji': '🚴', 'label': 'Cycling'},
-    {'emoji': '⚽', 'label': 'Football'},
-    {'emoji': '🍳', 'label': 'Home cooking'},
-    {'emoji': '🍷', 'label': 'Wine'},
-    {'emoji': '🥗', 'label': 'Vegan'},
-    {'emoji': '💻', 'label': 'Coding'},
-    {'emoji': '🚀', 'label': 'Startups'},
-    {'emoji': '🔧', 'label': 'Hardware'},
-    {'emoji': '✍️', 'label': 'Writing'},
-    {'emoji': '🎨', 'label': 'Design'},
-  ];
+  late final Future<List<String>> _categoriesFuture =
+      CategoryService().getCategories();
 
   void _toggleCategory(String label) {
     setState(() {
@@ -45,7 +31,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   void _onGetStarted() {
-    // TODO: save selected categories
     context.push('/community-standards');
   }
 
@@ -116,84 +101,54 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: AppSizes.paddingL),
 
               Expanded(
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _categories.map((cat) {
-                      final label    = cat['label']!;
-                      final emoji    = cat['emoji']!;
-                      final isActive = _selected.contains(label);
-                      return _CategoryChip(
-                        emoji: emoji,
-                        label: label,
-                        isSelected: isActive,
-                        onTap: () => _toggleCategory(label),
+                child: FutureBuilder<List<String>>(
+                  future: _categoriesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppColors.primary),
                       );
-                    }).toList(),
-                  ),
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSizes.paddingL),
+                          child: Text(
+                            'Could not load categories.\n${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.body(color: AppColors.textGray),
+                          ),
+                        ),
+                      );
+                    }
+                    final names = snapshot.data ?? [];
+                    if (names.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No categories found.\nCheck the "categories" collection and field name.',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.body(color: AppColors.textGray),
+                        ),
+                      );
+                    }
+                    return SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: names
+                            .map((name) => InterestChip(
+                                  label: name,
+                                  selected: _selected.contains(name),
+                                  onTap: () => _toggleCategory(name),
+                                ))
+                            .toList(),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  final String emoji;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _CategoryChip({
-    required this.emoji,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF000000) : Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: isSelected
-              ? null
-              : Border.all(color: const Color(0xFFDDDDDD), width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: GoogleFonts.roboto(fontSize: 15)),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.roboto(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
-              ),
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 4),
-              const Text(
-                '✓',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ],
         ),
       ),
     );
