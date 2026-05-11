@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../services/storage_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,7 +22,6 @@ class CreateEventScreen extends StatefulWidget {
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
   final _nameController     = TextEditingController();
-  final _hostNameController = TextEditingController();
   final _locationController = TextEditingController();
   final _detailController   = TextEditingController();
   final _memberController   = TextEditingController(text: '0');
@@ -32,6 +32,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   TimeOfDay? _endTime;
   Uint8List? _coverBytes;
   bool _isSubmitting = false;
+  /// Controls whether the event is publicly visible to all community members.
+  bool _isPublished = false;
+
+  // ── Per-field inline error messages — null = no error ────────────────────
+  String? _nameError;
+  String? _startDateError;
+  String? _locationError;
+  String? _detailError;
+  String? _membersError;
 
   static const int _nameMax   = 50;
   static const int _detailMax = 500;
@@ -39,7 +48,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _hostNameController.dispose();
     _locationController.dispose();
     _detailController.dispose();
     _memberController.dispose();
@@ -100,7 +108,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       lastDate: DateTime(now.year + 5),
       builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
     );
-    if (picked != null) setState(() => _startDate = picked);
+    if (picked != null) {
+      setState(() {
+        _startDate = picked;
+        _startDateError = null; // clear error once a date is picked
+      });
+    }
   }
 
   Future<void> _pickEndDate() async {
@@ -135,18 +148,43 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (picked != null) setState(() => _endTime = picked);
   }
 
+  /// Checks all required fields; populates per-field errors and returns false
+  /// when at least one field is invalid.
+  bool _validate() {
+    final nameErr = _nameController.text.trim().isEmpty
+        ? AppStrings.createEventErrName : null;
+    final dateErr = _startDate == null
+        ? AppStrings.createEventErrDate : null;
+    final locationErr = _locationController.text.trim().isEmpty
+        ? AppStrings.createEventErrLocation : null;
+    final detailErr = _detailController.text.trim().isEmpty
+        ? AppStrings.createEventErrDetail : null;
+    final membersErr = (int.tryParse(_memberController.text) ?? 0) < 1
+        ? AppStrings.createEventErrMembers : null;
+
+    setState(() {
+      _nameError      = nameErr;
+      _startDateError = dateErr;
+      _locationError  = locationErr;
+      _detailError    = detailErr;
+      _membersError   = membersErr;
+    });
+
+    return nameErr == null &&
+        dateErr == null &&
+        locationErr == null &&
+        detailErr == null &&
+        membersErr == null;
+  }
+
   Future<void> _onCreate() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      _showSnack(AppStrings.createEventErrName);
-      return;
-    }
-    if (_startDate == null) {
-      _showSnack(AppStrings.createEventErrDate);
-      return;
-    }
+    if (!_validate()) return;
 
     setState(() => _isSubmitting = true);
+
+    final hostName =
+        context.read<AppAuthProvider>().user?.displayName ?? '';
+    final ep = context.read<EventProvider>();
 
     try {
       final ep = context.read<EventProvider>();
@@ -157,6 +195,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             .uploadEventImage(_coverBytes!, widget.communityId);
       }
 
+      final memberLimit = int.tryParse(_memberController.text) ?? 0;
       final st = _startTime ?? const TimeOfDay(hour: 0, minute: 0);
       final et = _endTime ?? st;
       final startDateTime = DateTime(
@@ -169,11 +208,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         et.hour, et.minute,
       );
 
-      final memberLimit = int.tryParse(_memberController.text) ?? 0;
 
       await ep.createEvent(
             communityId: widget.communityId,
-            title: name,
+            title: _nameController.text.trim(),
             description: _detailController.text.trim(),
             location: _locationController.text.trim(),
             tags: const [],
@@ -182,6 +220,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             roomId: widget.communityId,
             imageUrl: coverImageUrl.isEmpty ? null : coverImageUrl,
             maxAttendees: memberLimit,
+            
+            isPublished: _isPublished,
           );
 
       if (!mounted) return;
@@ -196,8 +236,61 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
   }
 
+  /// Snackbar is used only for backend errors and success — not for field validation.
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// Card placed directly above the Create button.
+  /// Toggling [_isPublished] controls whether the event appears in the feed.
+  Widget _buildPublishEventCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingS + 2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+        border: Border.all(color: const Color(0xFFE8DFD8)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Publish Event',
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontML,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Allow everyone to discover and view this event',
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSizes.paddingS),
+          // Orange when active
+          Switch(
+            value: _isPublished,
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            onChanged: (bool newValue) => setState(() => _isPublished = newValue),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -234,17 +327,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           controller: _nameController,
                           hint: AppStrings.createEventNameHint,
                           maxLength: _nameMax,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        const SizedBox(height: AppSizes.paddingM),
-
-                        // ── Host Name ──────────────────────────────────────
-                        _FieldLabel(AppStrings.createEventHostName),
-                        _LimitedTextField(
-                          controller: _hostNameController,
-                          hint: AppStrings.createEventHostNameHint,
-                          maxLength: 50,
-                          onChanged: (_) => setState(() {}),
+                          errorText: _nameError,
+                          onChanged: (_) => setState(() => _nameError = null),
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
@@ -256,6 +340,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               ? DateFormat('dd/MM/yyyy').format(_startDate!)
                               : AppStrings.createEventDateHint,
                           isPlaceholder: _startDate == null,
+                          errorText: _startDateError,
                           onTap: _pickStartDate,
                         ),
                         const SizedBox(height: AppSizes.paddingM),
@@ -302,6 +387,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           controller: _locationController,
                           icon: Icons.location_on_outlined,
                           hint: AppStrings.createEventLocationHint,
+                          errorText: _locationError,
+                          onChanged: () => setState(() => _locationError = null),
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
@@ -312,7 +399,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           hint: AppStrings.createEventDetailHint,
                           maxLength: _detailMax,
                           maxLines: 4,
-                          onChanged: (_) => setState(() {}),
+                          errorText: _detailError,
+                          onChanged: (_) => setState(() => _detailError = null),
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
@@ -322,23 +410,35 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           controller: _memberController,
                           onDecrement: () {
                             final v = int.tryParse(_memberController.text) ?? 0;
-                            if (v > 0) _memberController.text = (v - 1).toString();
+                            if (v > 0) {
+                              _memberController.text = (v - 1).toString();
+                              setState(() => _membersError = null);
+                            }
                           },
                           onIncrement: () {
                             final v = int.tryParse(_memberController.text) ?? 0;
                             _memberController.text = (v + 1).toString();
+                            setState(() => _membersError = null);
                           },
                           onChanged: (val) {
                             final parsed = int.tryParse(val);
-                            if (parsed == null || parsed < 0) {
-                              _memberController.text = '0';
+                            final normalized =
+                                (parsed == null || parsed < 0) ? '0' : parsed.toString();
+                            if (normalized != val) {
+                              _memberController.text = normalized;
                               _memberController.selection = TextSelection.collapsed(
-                                offset: _memberController.text.length,
+                                offset: normalized.length,
                               );
                             }
+                            setState(() => _membersError = null);
                           },
                         ),
+                        if (_membersError != null) _InlineError(_membersError!),
                         const SizedBox(height: AppSizes.paddingXL),
+
+                        // ── Publish Event toggle ───────────────────────────
+                        _buildPublishEventCard(),
+                        const SizedBox(height: AppSizes.paddingM),
 
                         // ── Create button ──────────────────────────────────
                         SizedBox(
@@ -497,20 +597,23 @@ class _FieldLabel extends StatelessWidget {
       child: Text(
         text,
         style: AppTextStyles.poppins(
-          fontSize: AppSizes.fontML,     // 16px
-          fontWeight: FontWeight.w600,   // SemiBold
+          fontSize: AppSizes.fontML,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 }
 
-// Text field with character counter — Poppins Light 14px hint
+/// Text field with character counter.
+/// When [errorText] is non-null the underline turns red and the error is shown
+/// inline via [InputDecoration.errorText]; the character counter is hidden.
 class _LimitedTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final int maxLength;
   final int maxLines;
+  final String? errorText;
   final ValueChanged<String>? onChanged;
 
   const _LimitedTextField({
@@ -518,6 +621,7 @@ class _LimitedTextField extends StatelessWidget {
     required this.hint,
     required this.maxLength,
     this.maxLines = 1,
+    this.errorText,
     this.onChanged,
   });
 
@@ -536,9 +640,20 @@ class _LimitedTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppTextStyles.poppins(
-              fontSize: AppSizes.fontSM,     // 14px
-              fontWeight: FontWeight.w300,   // Light
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.w300,
               color: AppColors.fieldPlaceholder,
+            ),
+            errorText: errorText,
+            errorStyle: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXS,
+              color: Colors.red,
+            ),
+            errorBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.red),
             ),
             isDense: true,
             contentPadding: const EdgeInsets.only(bottom: 4),
@@ -550,106 +665,148 @@ class _LimitedTextField extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          '${controller.text.length}/$maxLength',
-          style: AppTextStyles.poppins(
-            fontSize: AppSizes.fontXXS,
-            color: AppColors.textGray,
+        // Hide counter while an error is displayed to avoid visual clutter.
+        if (errorText == null)
+          Text(
+            '${controller.text.length}/$maxLength',
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXXS,
+              color: AppColors.textGray,
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
-// Text field with inline icon — icon and field on the same line, bottom border on the row
+/// Text field with a leading icon.
+/// When [errorText] is non-null the bottom border and icon turn red and
+/// [_InlineError] is rendered below the row.
 class _IconTextField extends StatelessWidget {
   final TextEditingController controller;
   final IconData icon;
   final String hint;
+  final String? errorText;
+  final VoidCallback? onChanged;
 
   const _IconTextField({
     required this.controller,
     required this.icon,
     required this.hint,
+    this.errorText,
+    this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.inputBorder)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18, color: AppColors.textGray),
-          const SizedBox(width: AppSizes.paddingS),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: AppTextStyles.poppins(fontSize: AppSizes.fontSM),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: AppTextStyles.poppins(
-                  fontSize: AppSizes.fontSM,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.fieldPlaceholder,
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-              ),
-            ),
+    final Color borderColor =
+        errorText != null ? Colors.red : AppColors.inputBorder;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: borderColor)),
           ),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: errorText != null ? Colors.red : AppColors.textGray,
+              ),
+              const SizedBox(width: AppSizes.paddingS),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  onChanged: onChanged != null ? (_) => onChanged!() : null,
+                  style: AppTextStyles.poppins(fontSize: AppSizes.fontSM),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: AppTextStyles.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.w300,
+                      color: AppColors.fieldPlaceholder,
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (errorText != null) _InlineError(errorText!),
+      ],
     );
   }
 }
 
-// Date / time picker row — Poppins Light 14px placeholder
+/// Date / time picker row.
+/// When [errorText] is non-null the bottom border and icon turn red and
+/// [_InlineError] is rendered below the row.
 class _PickerField extends StatelessWidget {
   final IconData icon;
   final String text;
   final bool isPlaceholder;
   final VoidCallback onTap;
+  final String? errorText;
 
   const _PickerField({
     required this.icon,
     required this.text,
     required this.isPlaceholder,
     required this.onTap,
+    this.errorText,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.inputBorder)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: AppColors.textGray),
-            const SizedBox(width: AppSizes.paddingXS),
-            Expanded(
-              child: Text(
-                text,
-                style: AppTextStyles.poppins(
-                  fontSize: AppSizes.fontSM,                                   // 14px
-                  fontWeight: isPlaceholder ? FontWeight.w300 : FontWeight.w400, // Light if placeholder
-                  color: isPlaceholder ? AppColors.fieldPlaceholder : AppColors.textDark,
-                ),
-              ),
+    final Color borderColor =
+        errorText != null ? Colors.red : AppColors.inputBorder;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: borderColor)),
             ),
-          ],
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: errorText != null ? Colors.red : AppColors.textGray,
+                ),
+                const SizedBox(width: AppSizes.paddingXS),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: AppTextStyles.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight:
+                          isPlaceholder ? FontWeight.w300 : FontWeight.w400,
+                      color: isPlaceholder
+                          ? AppColors.fieldPlaceholder
+                          : AppColors.textDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        if (errorText != null) _InlineError(errorText!),
+      ],
     );
   }
 }
@@ -722,6 +879,26 @@ class _CounterButton extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 18, color: AppColors.cardWhite),
+      ),
+    );
+  }
+}
+
+/// Red Poppins text shown directly below a field when validation fails.
+class _InlineError extends StatelessWidget {
+  final String message;
+  const _InlineError(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        message,
+        style: AppTextStyles.poppins(
+          fontSize: AppSizes.fontXS,
+          color: Colors.red,
+        ),
       ),
     );
   }

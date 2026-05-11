@@ -20,6 +20,7 @@ class EventModel {
   final Timestamp startDate;
   final Timestamp endDate;
   final EventStatus status;
+  final bool isPublished;
 
   EventModel({
     required this.id,
@@ -36,6 +37,8 @@ class EventModel {
     required this.status,
     this.imageUrl,
     this.maxAttendees,
+    
+    this.isPublished = false,
   });
 
   // ─── Derived Getters ───────────────────────────
@@ -119,6 +122,7 @@ class EventModel {
         'startDate': startDate,
         'endDate': endDate,
         'status': status.toString().split('.').last,
+        'isPublished': isPublished,
       };
 
   Map<String, dynamic> toFirestore() {

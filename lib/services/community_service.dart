@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/category_model.dart';
 import '../models/community_model.dart';
@@ -240,6 +240,22 @@ class CommunityService {
 
     updates['updatedAt'] = FieldValue.serverTimestamp();
     await _communities.doc(communityId).update(updates);
+  }
+
+  /// Permanently removes the community and its members subcollection.
+  /// Only the creator is authorised to call this.
+  Future<void> deleteCommunity(String communityId) async {
+    final user = _requireAuth();
+    await _requireCreator(communityId, user.uid);
+
+    // Fetch and batch-delete all member documents before removing the community.
+    final membersSnap = await _members(communityId).get();
+    final batch = _db.batch();
+    for (final doc in membersSnap.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(_communities.doc(communityId));
+    await batch.commit();
   }
 
   // ── Membership ─────────────────────────────────────────────────────────────

@@ -206,6 +206,13 @@ class CommunityProvider extends ChangeNotifier {
         if (activeCommunity?.id == communityId) clearActiveCommunity();
       });
 
+  Future<void> deleteCommunity(String communityId) =>
+      _run(() async {
+        await _service.deleteCommunity(communityId);
+        // Clear active community state so the UI doesn't reference a deleted doc.
+        if (activeCommunity?.id == communityId) clearActiveCommunity();
+      });
+
   Future<void> kickMember(String communityId, String userId) =>
       _run(() => _service.kickMember(communityId, userId));
 

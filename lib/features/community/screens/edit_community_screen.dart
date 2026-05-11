@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/community_model.dart';
 import '../../../models/rule_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../../../services/storage_service.dart';
 
@@ -108,6 +109,31 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
     }
   }
 
+  /// Shows a confirmation dialog; deletes the community only if the user
+  /// confirms. On success, navigates back to home.
+  Future<void> _onDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black45,
+      builder: (_) => _DeleteConfirmDialog(
+        communityName: widget.community.communityName,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await context.read<CommunityProvider>().deleteCommunity(widget.community.id);
+      if (!mounted) return;
+      // Community no longer exists — return to home.
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -159,10 +185,28 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
                       Consumer<CommunityProvider>(
-                        builder: (context, cp, _) => _SaveButton(
-                          onPressed: cp.isLoading ? null : _onSave,
-                          isLoading: cp.isLoading,
-                        ),
+                        builder: (context, cp, _) {
+                          final isHost = context.watch<AppAuthProvider>().user?.uid ==
+                              widget.community.createdBy;
+                          return Row(
+                            children: [
+                              if (isHost) ...[
+                                Expanded(
+                                  child: _DeleteCommunityButton(
+                                    onPressed: cp.isLoading ? null : _onDelete,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSizes.paddingM),
+                              ],
+                              Expanded(
+                                child: _SaveButton(
+                                  onPressed: cp.isLoading ? null : _onSave,
+                                  isLoading: cp.isLoading,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
@@ -577,6 +621,153 @@ class _RulesSectionState extends State<_RulesSection> {
 
 // ── Save button ───────────────────────────────────────────────────────────────
 
+class _DeleteCommunityButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  const _DeleteCommunityButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: AppSizes.createButtonHeight,
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.cardWhite,
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+          ),
+        ),
+        child: Text(
+          AppStrings.deleteCommunityButton,
+          style: AppTextStyles.poppins(
+            fontSize: AppSizes.fontTitle,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Confirmation dialog shown before permanently deleting a community.
+/// Returns [true] when the user taps "Delete", [false] / null on cancel.
+class _DeleteConfirmDialog extends StatelessWidget {
+  final String communityName;
+  const _DeleteConfirmDialog({required this.communityName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingL,
+          AppSizes.paddingM,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppStrings.deleteCommunityTitle,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: AppSizes.paddingXS),
+            Text(
+              'This action is permanent. All chat history and member data for "$communityName" will be gone.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontXS,
+                color: AppColors.textGray,
+              ),
+            ),
+            const SizedBox(height: AppSizes.paddingM),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _DialogButton(
+                  label: AppStrings.deleteCommunityCancel,
+                  color: AppColors.commentBody,
+                  onTap: () => Navigator.of(context).pop(false),
+                ),
+                _DialogButton(
+                  label: AppStrings.deleteCommunityConfirm,
+                  color: AppColors.alertRed,
+                  onTap: () => Navigator.of(context).pop(true),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Reusable text button used inside dialogs.
+class _DialogButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DialogButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.dialogHighlight,
+        highlightColor: AppColors.dialogHighlight,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingM,
+            vertical: AppSizes.paddingS,
+          ),
+          child: Text(
+            label,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SaveButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -585,11 +776,10 @@ class _SaveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: AppSizes.createButtonWidth,
-        height: AppSizes.createButtonHeight,
-        child: ElevatedButton(
+    return SizedBox(
+      height: AppSizes.createButtonHeight,
+      width: double.infinity,
+      child: ElevatedButton(
           onPressed: onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.reportAccent,
@@ -616,7 +806,6 @@ class _SaveButton extends StatelessWidget {
                   ),
                 ),
         ),
-      ),
     );
   }
 }

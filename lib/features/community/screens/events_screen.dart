@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/event_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../widgets/event_card.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class EventsScreen extends StatefulWidget {
   final String communityId;

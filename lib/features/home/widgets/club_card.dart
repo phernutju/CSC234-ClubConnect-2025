@@ -6,6 +6,7 @@ import 'network_image_view.dart';
 class ClubCard extends StatelessWidget {
   final String name;
   final String description;
+  final String category;
   final String memberCount;
   final String? coverImageUrl;
   final VoidCallback? onTap;
@@ -14,6 +15,7 @@ class ClubCard extends StatelessWidget {
     super.key,
     required this.name,
     required this.description,
+    required this.category,
     required this.memberCount,
     this.coverImageUrl,
     this.onTap,
@@ -43,6 +45,7 @@ class ClubCard extends StatelessWidget {
             Expanded(child: _ClubInfo(
               name: name,
               description: description,
+              category: category,
               memberCount: memberCount,
             )),
           ],
@@ -53,6 +56,34 @@ class ClubCard extends StatelessWidget {
 }
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+/// Filled coral pill badge — inline category tag shown next to community name.
+class _CategoryBadge extends StatelessWidget {
+  final String label;
+  const _CategoryBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingS,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.poppins(
+          fontSize: AppSizes.fontXXS,
+          fontWeight: FontWeight.w600,
+          color: AppColors.cardWhite,
+        ),
+      ),
+    );
+  }
+}
 
 class _ClubThumbnail extends StatelessWidget {
   final String? coverImageUrl;
@@ -78,11 +109,13 @@ class _ClubThumbnail extends StatelessWidget {
 class _ClubInfo extends StatelessWidget {
   final String name;
   final String description;
+  final String category;
   final String memberCount;
 
   const _ClubInfo({
     required this.name,
     required this.description,
+    required this.category,
     required this.memberCount,
   });
 
@@ -91,15 +124,26 @@ class _ClubInfo extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.poppins(
-            fontSize: AppSizes.fontML,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontML,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ),
+            if (category.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              _CategoryBadge(label: category),
+            ],
+          ],
         ),
         const SizedBox(height: 2),
 

@@ -9,6 +9,7 @@ import '../../../providers/category_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
+import '../widgets/category_picker_popup.dart';
 import '../widgets/view_all_reviews_modal.dart';
 import '../widgets/network_image_view.dart';
 
@@ -196,7 +197,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       const _SectionLabel(AppStrings.profileInterests),
                       const SizedBox(height: AppSizes.paddingS),
                       if (_isEditing)
-                        _InterestsGrid(
+                        _InterestsEditRow(
                           selectedInterests: _selectedInterests,
                           onToggle: (interest) => setState(() {
                             if (_selectedInterests.contains(interest)) {
@@ -554,14 +555,31 @@ class _BioField extends StatelessWidget {
   }
 }
 
-class _InterestsGrid extends StatelessWidget {
+/// Edit-mode interests row: shows first 3 selected chips + a "+" button.
+/// Tapping a chip deselects it; tapping "+" opens the full category popup.
+class _InterestsEditRow extends StatelessWidget {
   final Set<String> selectedInterests;
   final void Function(String) onToggle;
 
-  const _InterestsGrid({
+  const _InterestsEditRow({
     required this.selectedInterests,
     required this.onToggle,
   });
+
+  void _openPopup(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => CategoryPickerPopup(
+        selectedInterests: selectedInterests,
+        onToggle: onToggle,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

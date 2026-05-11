@@ -6,7 +6,9 @@ import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
+import '../../../providers/event_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../../community/widgets/event_card.dart';
 import '../widgets/home_tab_bar.dart';
 import '../widgets/club_card.dart';
 import '../widgets/category_tag.dart';
@@ -117,55 +119,62 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppSizes.paddingL),
-              _WelcomeHeading(),
-              const SizedBox(height: AppSizes.paddingM),
-              _SearchRow(
-                onCreateTap: () => context.push('/create-community'),
-                onChanged: (q) => setState(() => _searchQuery = q),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header / search / tabs — keep 24px horizontal padding
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSizes.paddingL),
+                  _WelcomeHeading(),
+                  const SizedBox(height: AppSizes.paddingM),
+                  _SearchRow(
+                    onCreateTap: () => context.push('/create-community'),
+                    onChanged: (q) => setState(() => _searchQuery = q),
+                  ),
+                  const SizedBox(height: AppSizes.paddingM),
+                  HomeTabBar(
+                    selectedIndex: _selectedTab,
+                    onTabChanged: (i) {
+                      setState(() => _selectedTab = i);
+                      if (i != 3) {
+                        final provider = context.read<CommunityProvider>();
+                        if (i == 1) {
+                          provider.loadMyCommunities();
+                        } else {
+                          provider.loadCommunities();
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: AppSizes.paddingM),
+                ],
               ),
-              const SizedBox(height: AppSizes.paddingM),
-              HomeTabBar(
-                selectedIndex: _selectedTab,
-                onTabChanged: (i) {
-                  setState(() => _selectedTab = i);
-                  final provider = context.read<CommunityProvider>();
-                  if (i == 1) {
-                    provider.loadMyCommunities();
-                  } else if (i == 2) {
-                    provider.loadTrendingCommunities();
-                  } else {
-                    provider.loadCommunities();
-                  }
-                },
-              ),
-              const SizedBox(height: AppSizes.paddingM),
-              Expanded(
-                child: cp.isLoading && cp.communities.isEmpty && _selectedTab != 2
-                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                    : _TabContent(
-                        selectedTab: _selectedTab,
-                        communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
-                        myCommunities: _filtered(cp.myCommunities),
-                        trendingCommunities: _filtered(cp.trendingCommunities),
-                        isTrendingLoading: cp.isTrendingLoading,
-                        trendingError: cp.trendingError,
-                        onRetryTrending: () =>
-                            context.read<CommunityProvider>().loadTrendingCommunities(),
-                        selectedCategory: _selectedCategory,
-                        onCategoryChanged: _selectCategory,
-                        onJoinTap: _showJoinFlow,
-                        onDirectTap: _goToChat,
-                        userInterests: userInterests,
-                      ),
-              ),
-            ],
-          ),
+            ),
+
+            // Tab content — no outer horizontal padding; each tab owns its own
+            Expanded(
+              child: _selectedTab != 3 && cp.isLoading && cp.communities.isEmpty
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  : _TabContent(
+                      selectedTab: _selectedTab,
+                      communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
+                      myCommunities: _filtered(cp.myCommunities),
+                      trendingCommunities: _filtered(cp.trendingCommunities),
+                      isTrendingLoading: cp.isTrendingLoading,
+                      trendingError: cp.trendingError,
+                      onRetryTrending: () => context.read<CommunityProvider>().loadTrendingCommunities(),
+                      onJoinTap: _showJoinFlow,
+                      onDirectTap: _goToChat,
+                      userInterests: userInterests,
+                      selectedCategory: _selectedCategory,
+                      onCategoryChanged: _selectCategory,
+                    ),
+            ),
+          ],
         ),
       ),
     );
@@ -297,6 +306,8 @@ class _TabContent extends StatelessWidget {
           onTap: onJoinTap,
           onRetry: onRetryTrending,
         );
+      case 3:
+        return const _GlobalEventsTab();
       default:
         return _DiscoverTab(
           communities: communities,
@@ -306,6 +317,60 @@ class _TabContent extends StatelessWidget {
           userInterests: userInterests,
         );
     }
+  }
+}
+
+/// Inline Events tab: loads and shows published events within the Home screen.
+class _GlobalEventsTab extends StatefulWidget {
+  const _GlobalEventsTab();
+
+  @override
+  State<_GlobalEventsTab> createState() => _GlobalEventsTabState();
+}
+
+class _GlobalEventsTabState extends State<_GlobalEventsTab> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<EventProvider>().loadPublishedEvents();
+    });
+  }
+
+  @override
+  void dispose() {
+    context.read<EventProvider>().clearPublishedEvents();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ep = context.watch<EventProvider>();
+    if (ep.publishedEvents.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_busy, size: 64,
+                color: AppColors.textGray.withValues(alpha: 0.35)),
+            const SizedBox(height: AppSizes.paddingM),
+            Text(
+              'No published events yet',
+              style: AppTextStyles.poppins(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textGray,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(AppSizes.paddingM),
+      itemCount: ep.publishedEvents.length,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
+      itemBuilder: (_, i) => EventCard(event: ep.publishedEvents[i]),
+    );
   }
 }
 
@@ -327,12 +392,12 @@ class _MyClubList extends StatelessWidget {
       );
     }
     return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
       children: communities
           .map((c) => ClubCard(
                 name: c.communityName,
-                description: c.description.isEmpty
-                    ? c.tags.map((t) => t.name).join(', ')
-                    : c.description,
+                description: c.description,
+                category: c.tags.isNotEmpty ? c.tags.first.name : '',
                 memberCount:
                     '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
                 coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
@@ -400,6 +465,7 @@ class _DiscoverTab extends StatelessWidget {
     ];
 
     return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -436,7 +502,6 @@ class _DiscoverTab extends StatelessWidget {
   }
 }
 
-
 List<Widget> _buildCommunityCards(
   List<CommunityModel> communities,
   void Function(CommunityModel) onTap,
@@ -444,8 +509,8 @@ List<Widget> _buildCommunityCards(
   return communities
       .map((c) => ClubCard(
             name: c.communityName,
-            description:
-                c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
+            description: c.description,
+            category: c.tags.isNotEmpty ? c.tags.first.name : '',
             memberCount:
                 '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
             coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
@@ -548,6 +613,7 @@ class _RankedCard extends StatelessWidget {
           description: c.description.isEmpty
               ? c.tags.map((t) => t.name).join(', ')
               : c.description,
+          category: c.tags.isNotEmpty ? c.tags.first.name : '',
           memberCount: scoreLabel,
           coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
           onTap: onTap,
