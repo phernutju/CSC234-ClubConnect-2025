@@ -24,11 +24,11 @@ class SmartBillProvider extends ChangeNotifier {
 
   // ── Streams ───────────────────────────────────────────────────────────────
 
-  void loadBill(String billId) {
+  void loadBill(String communityId, String eventId, String billId) {
     _billSub?.cancel();
     _itemsSub?.cancel();
 
-    _billSub = _service.streamBill(billId).listen(
+    _billSub = _service.streamBill(communityId, eventId, billId).listen(
       (b) {
         bill = b;
         notifyListeners();
@@ -36,7 +36,7 @@ class SmartBillProvider extends ChangeNotifier {
       onError: _onError,
     );
 
-    _itemsSub = _service.streamItems(billId).listen(
+    _itemsSub = _service.streamItems(communityId, eventId, billId).listen(
       (list) {
         items = list;
         notifyListeners();
@@ -45,19 +45,24 @@ class SmartBillProvider extends ChangeNotifier {
     );
   }
 
-  void loadBillByEvent(String eventId) {
+  void loadBillByEvent(String communityId, String eventId) {
     _billSub?.cancel();
     _itemsSub?.cancel();
 
-    _billSub = _service.streamBillByEvent(eventId).listen(
+    _billSub = _service.streamBillByEvent(communityId, eventId).listen(
       (b) {
         final prevId = bill?.id;
         bill = b;
         notifyListeners();
         if (b != null && b.id != prevId) {
           _itemsSub?.cancel();
-          _itemsSub = _service.streamItems(b.id).listen(
-            (list) { items = list; notifyListeners(); },
+          _itemsSub = _service
+              .streamItems(communityId, eventId, b.id)
+              .listen(
+            (list) {
+              items = list;
+              notifyListeners();
+            },
             onError: _onError,
           );
         } else if (b == null) {
@@ -70,9 +75,12 @@ class SmartBillProvider extends ChangeNotifier {
     );
   }
 
-  void loadMyPayment(String billId, String userId) {
+  void loadMyPayment(
+      String communityId, String eventId, String billId, String userId) {
     _paymentSub?.cancel();
-    _paymentSub = _service.streamPaymentByUser(billId, userId).listen(
+    _paymentSub = _service
+        .streamPaymentByUser(communityId, eventId, billId, userId)
+        .listen(
       (p) {
         myPayment = p;
         notifyListeners();
@@ -96,9 +104,10 @@ class SmartBillProvider extends ChangeNotifier {
   // ── Create & Publish ──────────────────────────────────────────────────────
 
   Future<SmartBillModel?> createAndPublishBill({
+    required String communityId,
+    required String eventId,
     required String hostId,
     required String name,
-    String eventId = '',
     required List<SmartBillMember> members,
     required List<SmartBillItemModel> billItems,
     Uint8List? qrImageBytes,
@@ -108,25 +117,53 @@ class SmartBillProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final total = billItems.fold(0.0, (s, i) => s + i.price);
-      var created = await _service.createBill(SmartBillModel(
-        id: '',
-        eventId: eventId,
-        name: name,
-        hostId: hostId,
-        members: members,
-        totalAmount: total,
-        status: SmartBillStatus.published,
-        createdAt: DateTime.now(),
-      ));
+      var created = await _service.createBill(
+        communityId,
+        eventId,
+        SmartBillModel(
+          id: '',
+          eventId: eventId,
+          name: name,
+          hostId: hostId,
+          members: members,
+          totalAmount: total,
+          status: SmartBillStatus.published,
+          createdAt: DateTime.now(),
+        ),
+      );
 
       if (qrImageBytes != null && qrImageBytes.isNotEmpty) {
-        final url = await _service.uploadQrImage(created.id, qrImageBytes);
+        final url = await _service.uploadQrImage(
+            communityId, eventId, created.id, qrImageBytes);
         created = created.copyWith(hostPromptPayQrUrl: url);
-        await _service.updateBill(created);
+        await _service.updateBill(communityId, eventId, created);
       }
 
       for (final item in billItems) {
-        await _service.addItem(created.id, item);
+        await _service.addItem(communityId, eventId, created.id, item);
+      }
+
+      // Compute per-member share from items and create a pending payment for each member
+      final Map<String, double> memberAmounts = {};
+      for (final item in billItems) {
+        if (item.payerIds.isEmpty) continue;
+        final share = item.price / item.payerIds.length;
+        for (final uid in item.payerIds) {
+          memberAmounts[uid] = (memberAmounts[uid] ?? 0) + share;
+        }
+      }
+      for (final member in members) {
+        await _service.createPayment(
+          communityId,
+          eventId,
+          created.id,
+          SmartPaymentModel(
+            id: member.uid,
+            userId: member.uid,
+            amountDue: memberAmounts[member.uid] ?? 0,
+            status: 'pending',
+          ),
+        );
       }
 
       bill = created;
@@ -142,7 +179,9 @@ class SmartBillProvider extends ChangeNotifier {
 
   // ── Payment ───────────────────────────────────────────────────────────────
 
-  Future<SmartPaymentModel?> submitPaymentWithSlip({
+  Future<AiVerificationResult?> submitAndVerify({
+    required String communityId,
+    required String eventId,
     required String billId,
     required String userId,
     required double amountDue,
@@ -152,8 +191,65 @@ class SmartBillProvider extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final url = await _service.uploadSlip(billId, userId, slipBytes);
+      final url = await _service.uploadSlip(
+          communityId, eventId, billId, userId, slipBytes);
+      await _service.createPayment(
+        communityId,
+        eventId,
+        billId,
+        SmartPaymentModel(
+          id: userId,
+          userId: userId,
+          amountDue: amountDue,
+          receiptUrl: url,
+          status: 'verifying',
+        ),
+      );
+      notifyListeners();
+
+      final result = await _service.verifySlip(url, amountDue);
+      lastVerification = result;
+
+      await _service.updatePayment(
+        communityId,
+        eventId,
+        billId,
+        SmartPaymentModel(
+          id: userId,
+          userId: userId,
+          amountDue: amountDue,
+          receiptUrl: url,
+          status: 'verified',
+          aiVerification: result,
+        ),
+      );
+      return result;
+    } catch (e) {
+      error = e.toString();
+      return null;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<SmartPaymentModel?> submitPaymentWithSlip({
+    required String communityId,
+    required String eventId,
+    required String billId,
+    required String userId,
+    required double amountDue,
+    required Uint8List slipBytes,
+  }) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final url = await _service.uploadSlip(
+          communityId, eventId, billId, userId, slipBytes);
       final payment = await _service.createPayment(
+        communityId,
+        eventId,
         billId,
         SmartPaymentModel(
           id: userId,

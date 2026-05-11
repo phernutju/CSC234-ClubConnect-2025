@@ -6,7 +6,6 @@ import '../../../models/smart_bill_model.dart';
 import '../../../models/smart_pay_bill_args.dart';
 import '../../../providers/smart_bill_provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../mock/mock_bill_data.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _kPrimary = Color(0xFFD85A30);
@@ -43,17 +42,17 @@ class BillSummaryScreen extends StatefulWidget {
 }
 
 class _BillSummaryScreenState extends State<BillSummaryScreen> {
-  bool _paid = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final p = context.read<SmartBillProvider>();
-      // TODO: replace with Firestore data
-      p.loadMock(mockBill: mockBill, mockItems: mockBillItems);
-      p.loadBill(widget.billId);
+      p.loadBill(widget.communityId, widget.eventId, widget.billId);
+      final uid = context.read<AppAuthProvider>().user?.uid;
+      if (uid != null && uid.isNotEmpty) {
+        p.loadMyPayment(widget.communityId, widget.eventId, widget.billId, uid);
+      }
     });
   }
 
@@ -75,9 +74,11 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     final host = bill.members.firstWhere((m) => m.uid == bill.hostId,
         orElse: () => SmartBillMember(uid: bill.hostId, name: 'Host'));
 
-    final result = await ctx.push<bool>(
+    await ctx.push<bool>(
       '/bill-payment',
       extra: SmartPayBillArgs(
+        communityId: widget.communityId,
+        eventId: widget.eventId,
         billId: bill.id,
         billName: bill.name,
         memberName: me.name,
@@ -87,10 +88,6 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
         hostName: host.name,
       ),
     );
-
-    if (result == true && mounted) {
-      setState(() => _paid = true);
-    }
   }
 
   @override
@@ -98,6 +95,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     final provider = context.watch<SmartBillProvider>();
     final bill = provider.bill;
     final items = provider.items;
+    final paymentStatus = provider.myPayment?.status;
+    final hasPaid = paymentStatus == 'verifying' || paymentStatus == 'verified';
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     if (provider.isLoading && bill == null) {
@@ -124,7 +123,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_paid) ...[
+                      if (hasPaid) ...[
                         _PaidBanner(),
                         const SizedBox(height: 12),
                       ],
@@ -140,12 +139,13 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               ),
             ],
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildFooter(bottomPad),
-          ),
+          if (!widget.isCurrentUserHost)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _buildFooter(bottomPad, hasPaid: hasPaid),
+            ),
         ],
       ),
     );
@@ -389,7 +389,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
-  Widget _buildFooter(double bottomPad) {
+  Widget _buildFooter(double bottomPad, {required bool hasPaid}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -411,16 +411,16 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: _paid ? null : () => _goToPay(context),
+              onPressed: hasPaid ? null : () => _goToPay(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _paid ? _kSuccess : _kPrimary,
+                backgroundColor: hasPaid ? _kSuccess : _kPrimary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30)),
                 elevation: 0,
               ),
               child: Text(
-                _paid
+                hasPaid
                     ? 'Slip sent — awaiting confirmation'
                     : 'Pay my share',
                 style: GoogleFonts.poppins(

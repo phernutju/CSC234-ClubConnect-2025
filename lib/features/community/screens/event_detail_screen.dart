@@ -45,7 +45,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       await _attendeeProvider!
           .checkIsAttending(widget.communityId, widget.event.id);
       if (!mounted) return;
-      context.read<SmartBillProvider>().loadBillByEvent(widget.event.id);
+      context.read<SmartBillProvider>().loadBillByEvent(widget.communityId, widget.event.id);
     });
   }
 
@@ -233,6 +233,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           communityId:  widget.communityId,
                           eventId:      widget.event.id,
                           isHost:       isHost,
+                          isAttending:  ap.isAttending,
                           onCreateBill: _onCreateBillTap,
                         ),
 
@@ -542,12 +543,14 @@ class _BillsCard extends StatelessWidget {
   final String       communityId;
   final String       eventId;
   final bool         isHost;
+  final bool         isAttending;
   final VoidCallback onCreateBill;
 
   const _BillsCard({
     required this.communityId,
     required this.eventId,
     required this.isHost,
+    required this.isAttending,
     required this.onCreateBill,
   });
 
@@ -641,6 +644,9 @@ class _BillsCard extends StatelessWidget {
         }),
       );
     }
+
+    // non-host: hide if not attending (includes loading state where isAttending is false)
+    if (!isAttending) return const SizedBox.shrink();
 
     // member + no bill: hide section
     if (!hasBill) return const SizedBox.shrink();

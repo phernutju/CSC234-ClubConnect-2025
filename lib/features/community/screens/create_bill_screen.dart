@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../models/smart_bill_model.dart';
 import '../../../providers/smart_bill_provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../mock/mock_bill_data.dart';
+import '../../../providers/attendee_provider.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _kPrimary  = Color(0xFFD85A30);
@@ -81,18 +81,21 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   void initState() {
     super.initState();
     _nameCtrl.text = widget.eventName;
-
-    // TODO: replace with Firestore data
-    _nameCtrl.text = mockBill.name;
-    _members.addAll(mockBillMembers);
-    _memberCounter = mockBillMembers.length;
-    for (final src in mockBillItems) {
-      final item = _LocalItem(id: src.id);
-      item.nameCtrl.text = src.name;
-      item.priceCtrl.text = src.price.toStringAsFixed(2);
-      item.payerIds = List<String>.from(src.payerIds);
-      _items.add(item);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final attendees = context.read<AttendeeProvider>().attendees;
+      if (attendees.isEmpty) return;
+      setState(() {
+        for (final a in attendees) {
+          _members.add(SmartBillMember(
+            uid: a.userId,
+            name: a.displayName,
+            avatarUrl: a.avatarUrl ?? '',
+          ));
+        }
+        _memberCounter = _members.length;
+      });
+    });
   }
 
   @override
@@ -258,9 +261,10 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
         .toList();
 
     final created = await provider.createAndPublishBill(
+      communityId: widget.communityId,
+      eventId: widget.eventId,
       hostId: uid,
       name: _nameCtrl.text.trim(),
-      eventId: widget.eventId,
       members: _members,
       billItems: billItems,
       qrImageBytes: _qrBytes,

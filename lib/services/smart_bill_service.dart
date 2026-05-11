@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -10,121 +9,150 @@ class SmartBillService {
 
   // ── Refs ──────────────────────────────────────────────────────────────────
 
-  CollectionReference get _bills => _db.collection('bills');
-  CollectionReference _items(String billId) =>
-      _bills.doc(billId).collection('items');
-  CollectionReference _payments(String billId) =>
-      _bills.doc(billId).collection('payments');
+  CollectionReference _billsCol(String communityId, String eventId) =>
+      _db
+          .collection('communities').doc(communityId)
+          .collection('events').doc(eventId)
+          .collection('event_bills');
+
+  CollectionReference _itemsCol(
+          String communityId, String eventId, String billId) =>
+      _billsCol(communityId, eventId).doc(billId).collection('items');
+
+  CollectionReference _paymentsCol(
+          String communityId, String eventId, String billId) =>
+      _billsCol(communityId, eventId).doc(billId).collection('payments');
 
   // ── Bill ──────────────────────────────────────────────────────────────────
 
-  Future<SmartBillModel> createBill(SmartBillModel bill) async {
-    final ref = _bills.doc();
+  Future<SmartBillModel> createBill(
+      String communityId, String eventId, SmartBillModel bill) async {
+    final ref = _billsCol(communityId, eventId).doc();
     final created = bill.copyWith(id: ref.id);
     await ref.set(created.toFirestore());
     return created;
   }
 
-  Future<SmartBillModel?> getBill(String billId) async {
-    final doc = await _bills.doc(billId).get();
+  Future<SmartBillModel?> getBill(
+      String communityId, String eventId, String billId) async {
+    final doc = await _billsCol(communityId, eventId).doc(billId).get();
     if (!doc.exists) return null;
     return SmartBillModel.fromFirestore(doc);
   }
 
-  Stream<SmartBillModel?> streamBill(String billId) => _bills
-      .doc(billId)
-      .snapshots()
-      .map((d) => d.exists ? SmartBillModel.fromFirestore(d) : null);
+  Stream<SmartBillModel?> streamBill(
+          String communityId, String eventId, String billId) =>
+      _billsCol(communityId, eventId)
+          .doc(billId)
+          .snapshots()
+          .map((d) => d.exists ? SmartBillModel.fromFirestore(d) : null);
 
-  Stream<SmartBillModel?> streamBillByEvent(String eventId) => _bills
-      .where('eventId', isEqualTo: eventId)
-      .limit(1)
-      .snapshots()
-      .map((s) => s.docs.isEmpty ? null : SmartBillModel.fromFirestore(s.docs.first));
+  Stream<SmartBillModel?> streamBillByEvent(
+          String communityId, String eventId) =>
+      _billsCol(communityId, eventId)
+          .limit(1)
+          .snapshots()
+          .map((s) =>
+              s.docs.isEmpty ? null : SmartBillModel.fromFirestore(s.docs.first));
 
-  Future<void> updateBill(SmartBillModel bill) =>
-      _bills.doc(bill.id).update(bill.toFirestore());
+  Future<void> updateBill(
+          String communityId, String eventId, SmartBillModel bill) =>
+      _billsCol(communityId, eventId)
+          .doc(bill.id)
+          .update(bill.toFirestore());
 
   // ── Items ─────────────────────────────────────────────────────────────────
 
-  Future<SmartBillItemModel> addItem(
+  Future<SmartBillItemModel> addItem(String communityId, String eventId,
       String billId, SmartBillItemModel item) async {
-    final ref = _items(billId).doc();
+    final ref = _itemsCol(communityId, eventId, billId).doc();
     final created = item.copyWith(id: ref.id);
     await ref.set(created.toFirestore());
     return created;
   }
 
-  Future<void> updateItem(String billId, SmartBillItemModel item) =>
-      _items(billId).doc(item.id).update(item.toFirestore());
+  Future<void> updateItem(String communityId, String eventId, String billId,
+          SmartBillItemModel item) =>
+      _itemsCol(communityId, eventId, billId)
+          .doc(item.id)
+          .update(item.toFirestore());
 
-  Future<void> deleteItem(String billId, String itemId) =>
-      _items(billId).doc(itemId).delete();
+  Future<void> deleteItem(String communityId, String eventId, String billId,
+          String itemId) =>
+      _itemsCol(communityId, eventId, billId).doc(itemId).delete();
 
-  Future<List<SmartBillItemModel>> getItems(String billId) async {
-    final snap = await _items(billId).get();
+  Future<List<SmartBillItemModel>> getItems(
+      String communityId, String eventId, String billId) async {
+    final snap = await _itemsCol(communityId, eventId, billId).get();
     return snap.docs
         .map((d) => SmartBillItemModel.fromFirestore(d))
         .toList();
   }
 
-  Stream<List<SmartBillItemModel>> streamItems(String billId) =>
-      _items(billId).snapshots().map((s) =>
+  Stream<List<SmartBillItemModel>> streamItems(
+          String communityId, String eventId, String billId) =>
+      _itemsCol(communityId, eventId, billId).snapshots().map((s) =>
           s.docs.map((d) => SmartBillItemModel.fromFirestore(d)).toList());
 
   // ── Payments ──────────────────────────────────────────────────────────────
 
-  Future<SmartPaymentModel> createPayment(
+  Future<SmartPaymentModel> createPayment(String communityId, String eventId,
       String billId, SmartPaymentModel payment) async {
-    final ref = _payments(billId).doc(payment.userId);
+    final ref =
+        _paymentsCol(communityId, eventId, billId).doc(payment.userId);
     await ref.set(payment.toFirestore());
     return payment.copyWith(id: ref.id);
   }
 
-  Future<void> updatePayment(
+  Future<void> updatePayment(String communityId, String eventId,
           String billId, SmartPaymentModel payment) =>
-      _payments(billId).doc(payment.id).update(payment.toFirestore());
+      _paymentsCol(communityId, eventId, billId)
+          .doc(payment.id)
+          .update(payment.toFirestore());
 
-  Future<SmartPaymentModel?> getPaymentByUser(
-      String billId, String userId) async {
-    final doc = await _payments(billId).doc(userId).get();
+  Future<SmartPaymentModel?> getPaymentByUser(String communityId,
+      String eventId, String billId, String userId) async {
+    final doc =
+        await _paymentsCol(communityId, eventId, billId).doc(userId).get();
     if (!doc.exists) return null;
     return SmartPaymentModel.fromFirestore(doc);
   }
 
-  Stream<SmartPaymentModel?> streamPaymentByUser(
-          String billId, String userId) =>
-      _payments(billId).doc(userId).snapshots().map(
-          (d) => d.exists ? SmartPaymentModel.fromFirestore(d) : null);
+  Stream<SmartPaymentModel?> streamPaymentByUser(String communityId,
+          String eventId, String billId, String userId) =>
+      _paymentsCol(communityId, eventId, billId)
+          .doc(userId)
+          .snapshots()
+          .map((d) => d.exists ? SmartPaymentModel.fromFirestore(d) : null);
 
   // ── Storage ───────────────────────────────────────────────────────────────
 
-  Future<String> uploadQrImage(String billId, Uint8List bytes) async {
-    final ref = _storage.ref('bills/$billId/qr.jpg');
-    final task = await ref.putData(
-        bytes, SettableMetadata(contentType: 'image/jpeg'));
+  Future<String> uploadQrImage(String communityId, String eventId,
+      String billId, Uint8List bytes) async {
+    final ref = _storage.ref(
+        'communities/$communityId/events/$eventId/bills/$billId/qr.jpg');
+    final task =
+        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
     return task.ref.getDownloadURL();
   }
 
-  Future<String> uploadSlip(
-      String billId, String userId, Uint8List bytes) async {
-    final ref = _storage.ref('bills/$billId/slips/$userId.jpg');
-    final task = await ref.putData(
-        bytes, SettableMetadata(contentType: 'image/jpeg'));
+  Future<String> uploadSlip(String communityId, String eventId, String billId,
+      String userId, Uint8List bytes) async {
+    final ref = _storage.ref(
+        'communities/$communityId/events/$eventId/bills/$billId/slips/$userId.jpg');
+    final task =
+        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
     return task.ref.getDownloadURL();
   }
 
   // ── AI Verification stub ──────────────────────────────────────────────────
 
-  /// Stub: simulates 2-second network delay and always returns a match.
+  // TODO: Replace with GeminiService.verifySlip() when google_generative_ai is added
   Future<AiVerificationResult> verifySlip(
       String slipUrl, double expectedAmount) async {
-    await Future.delayed(const Duration(seconds: 2));
-    final noise = 0.99 + Random().nextDouble() * 0.02;
-    final detected =
-        double.parse((expectedAmount * noise).toStringAsFixed(2));
+    await Future.delayed(const Duration(seconds: 1));
     return AiVerificationResult(
-      detectedAmount: detected,
+      detectedAmount: expectedAmount,
       expectedAmount: expectedAmount,
       recipientMatch: true,
       result: 'match',

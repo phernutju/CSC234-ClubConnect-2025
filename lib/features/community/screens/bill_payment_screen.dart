@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../../../models/smart_bill_model.dart';
 import '../../../models/smart_pay_bill_args.dart';
-import '../../../services/smart_bill_service.dart';
-import '../../../mock/mock_bill_data.dart';
+import '../../../providers/smart_bill_provider.dart';
+import '../../../providers/auth_provider.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _kPrimary = Color(0xFFD85A30);
@@ -32,10 +33,7 @@ class _BillPaymentScreenState extends State<BillPaymentScreen> {
   XFile? _slip;
   Uint8List? _slipBytes;
   bool _isVerifying = false;
-  // TODO: replace with Firestore data
-  AiVerificationResult? _verificationResult = mockVerificationResult;
-
-  final _service = SmartBillService();
+  AiVerificationResult? _verificationResult;
 
   Future<void> _pickSlip() async {
     final picked = await ImagePicker()
@@ -50,20 +48,34 @@ class _BillPaymentScreenState extends State<BillPaymentScreen> {
   }
 
   Future<void> _startVerification() async {
+    if (_slipBytes == null) return;
     setState(() {
       _step = 1;
       _isVerifying = true;
     });
     try {
-      final result = await _service.verifySlip('', widget.args.myShare);
+      final provider = context.read<SmartBillProvider>();
+      final uid = context.read<AppAuthProvider>().user?.uid ?? '';
+      final result = await provider.submitAndVerify(
+        communityId: widget.args.communityId,
+        eventId: widget.args.eventId,
+        billId: widget.args.billId,
+        userId: uid,
+        amountDue: widget.args.myShare,
+        slipBytes: _slipBytes!,
+      );
       if (mounted) {
         setState(() {
           _verificationResult = result;
           _isVerifying = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isVerifying = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isVerifying = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 
