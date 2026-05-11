@@ -7,7 +7,7 @@ import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/event_bill_provider.dart';
+import '../../../providers/smart_bill_provider.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel event;
@@ -45,7 +45,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       await _attendeeProvider!
           .checkIsAttending(widget.communityId, widget.event.id);
       if (!mounted) return;
-      context.read<BillProvider>().loadBills(widget.communityId, widget.event.id);
+      context.read<SmartBillProvider>().loadBillByEvent(widget.event.id);
     });
   }
 
@@ -122,7 +122,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final ap = context.watch<AttendeeProvider>();
-    context.watch<BillProvider>();
+    context.watch<SmartBillProvider>();
     final dateStr = widget.event.formattedDateRange;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isHost = _isHost;
@@ -230,10 +230,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         // Bills card
                         const SizedBox(height: AppSizes.paddingM),
                         _BillsCard(
-                          eventName:   widget.event.title,
-                          communityId: widget.communityId,
-                          eventId:     widget.event.id,
-                          isHost:      isHost,
+                          communityId:  widget.communityId,
+                          eventId:      widget.event.id,
+                          isHost:       isHost,
                           onCreateBill: _onCreateBillTap,
                         ),
 
@@ -540,15 +539,12 @@ class _AvatarCircle extends StatelessWidget {
 // ── Event's bills card ────────────────────────────────────────────────────────
 
 class _BillsCard extends StatelessWidget {
-  final String       eventName;
-  // replaced mock — using provider
   final String       communityId;
   final String       eventId;
   final bool         isHost;
   final VoidCallback onCreateBill;
 
   const _BillsCard({
-    required this.eventName,
     required this.communityId,
     required this.eventId,
     required this.isHost,
@@ -617,25 +613,12 @@ class _BillsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // replaced mock — using provider: check real bills from Firestore
-    final provider = context.read<BillProvider>();
-    final hasBill  = provider.bills.isNotEmpty;
+    final provider = context.watch<SmartBillProvider>();
+    final bill     = provider.bill;
+    final hasBill  = bill != null;
 
-    if (hasBill) {
-      return _card(
-        context:  context,
-        title:    "Event's bills",
-        subtitle: 'View bill summary and pay your share',
-        onTap: () => context.push('/bill-summary', extra: {
-          'communityId':       communityId,
-          'eventId':           eventId,
-          'billId':            provider.bills.first.id,
-          'isCurrentUserHost': isHost,
-        }),
-      );
-    }
-
-    if (isHost) {
+    // isHost + no bill: show Create Bill
+    if (isHost && !hasBill) {
       return _card(
         context:  context,
         title:    'Create Bill',
@@ -644,15 +627,33 @@ class _BillsCard extends StatelessWidget {
       );
     }
 
-    // Member, no bill yet — navigate to empty state
+    // isHost + has bill: show Manage Bill → BillSummaryScreen
+    if (isHost && hasBill) {
+      return _card(
+        context:  context,
+        title:    'Manage Bill',
+        subtitle: 'View and manage the bill summary',
+        onTap: () => context.push('/bill-summary', extra: {
+          'communityId':       communityId,
+          'eventId':           eventId,
+          'billId':            bill.id,
+          'isCurrentUserHost': true,
+        }),
+      );
+    }
+
+    // member + no bill: hide section
+    if (!hasBill) return const SizedBox.shrink();
+
+    // member + has bill: show View Bill → BillSummaryScreen (member view)
     return _card(
       context:  context,
-      title:    "Event's bills",
-      subtitle: 'View bill summary and pay your share',
+      title:    'View Bill',
+      subtitle: 'View the bill and pay your share',
       onTap: () => context.push('/bill-summary', extra: {
         'communityId':       communityId,
         'eventId':           eventId,
-        'billId':            '',
+        'billId':            bill.id,
         'isCurrentUserHost': false,
       }),
     );

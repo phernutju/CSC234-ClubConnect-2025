@@ -30,6 +30,7 @@ import '../features/community/screens/bill_payment_screen.dart';
 import '../features/community/screens/payment_success_screen.dart';
 import '../features/community/screens/create_bill_screen.dart';
 import '../models/bill_payment_args.dart';
+import '../models/smart_pay_bill_args.dart';
 import '../features/auth/screens/banned_screen.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
@@ -236,7 +237,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       GoRoute(
         path: '/bill-payment',
         pageBuilder: (context, state) {
-          final args = state.extra as BillPaymentArgs?;
+          final args = state.extra as SmartPayBillArgs?;
           if (args == null) return const NoTransitionPage(child: SizedBox.shrink());
           return CustomTransitionPage(
             child: BillPaymentScreen(args: args),

@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:csc234_clubconnect/models/category_model.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -148,7 +147,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
 
     setState(() => _isSubmitting = true);
-    final ep = context.read<EventProvider>();
 
     try {
       final ep = context.read<EventProvider>();

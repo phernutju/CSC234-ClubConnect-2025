@@ -1,22 +1,26 @@
-import 'dart:io';
 import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../models/smart_bill_model.dart';
+import '../../../models/smart_pay_bill_args.dart';
+import '../../../services/smart_bill_service.dart';
+import '../../../mock/mock_bill_data.dart';
 
-import '../../../constants/app_constants.dart';
-import '../../../models/bill_payment_args.dart';
-
-const _kBg = Color(0xFFFAF3F0);
-const _kCardBorder = Color(0xFFEDE5DF);
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const _kPrimary = Color(0xFFD85A30);
+const _kBg      = Color(0xFFFDF5F0);
+const _kCream   = Color(0xFFFAECE7);
+const _kBorder  = Color(0xFFF0C4B0);
+const _kDark    = Color(0xFF4A1B0C);
+const _kMuted   = Color(0xFF9A7A6A);
+const _kSuccess = Color(0xFF2E9E5B);
 
 // ── Screen ────────────────────────────────────────────────────────────────────
-
 class BillPaymentScreen extends StatefulWidget {
-  final BillPaymentArgs args;
+  final SmartPayBillArgs args;
   const BillPaymentScreen({super.key, required this.args});
 
   @override
@@ -24,147 +28,484 @@ class BillPaymentScreen extends StatefulWidget {
 }
 
 class _BillPaymentScreenState extends State<BillPaymentScreen> {
+  int _step = 0; // 0 = pay, 1 = verifying, 2 = confirmed
   XFile? _slip;
-  bool _confirming = false;
+  Uint8List? _slipBytes;
+  bool _isVerifying = false;
+  // TODO: replace with Firestore data
+  AiVerificationResult? _verificationResult = mockVerificationResult;
+
+  final _service = SmartBillService();
 
   Future<void> _pickSlip() async {
     final picked = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (picked != null) setState(() => _slip = picked);
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _slip = picked;
+        _slipBytes = bytes;
+      });
+    }
   }
 
-  void _removeSlip() => setState(() => _slip = null);
+  Future<void> _startVerification() async {
+    setState(() {
+      _step = 1;
+      _isVerifying = true;
+    });
+    try {
+      final result = await _service.verifySlip('', widget.args.myShare);
+      if (mounted) {
+        setState(() {
+          _verificationResult = result;
+          _isVerifying = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isVerifying = false);
+    }
+  }
 
-  Future<void> _confirm() async {
-    if (_slip == null || _confirming) return;
-    setState(() => _confirming = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _confirming = false);
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _PaymentSubmittedDialog(amount: widget.args.amount),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, anim) =>
+            FadeTransition(opacity: anim, child: child),
+        child: _buildCurrentStep(),
+      ),
     );
-    if (mounted) context.pop(true);
   }
+
+  Widget _buildCurrentStep() {
+    switch (_step) {
+      case 1:
+        return _Step1(
+          key: const ValueKey(1),
+          slip: _slip,
+          slipBytes: _slipBytes,
+          isVerifying: _isVerifying,
+          result: _verificationResult,
+          args: widget.args,
+          onDone: () => setState(() => _step = 2),
+        );
+      case 2:
+        return _Step2(
+          key: const ValueKey(2),
+          args: widget.args,
+          onBack: () => context.pop(true),
+        );
+      default:
+        return _Step0(
+          key: const ValueKey(0),
+          args: widget.args,
+          slip: _slip,
+          slipBytes: _slipBytes,
+          onPickSlip: _pickSlip,
+          onVerify: _startVerification,
+        );
+    }
+  }
+}
+
+// ── Step 0 — Pay ──────────────────────────────────────────────────────────────
+class _Step0 extends StatelessWidget {
+  final SmartPayBillArgs args;
+  final XFile? slip;
+  final Uint8List? slipBytes;
+  final VoidCallback onPickSlip;
+  final VoidCallback onVerify;
+
+  const _Step0({
+    super.key,
+    required this.args,
+    required this.slip,
+    required this.slipBytes,
+    required this.onPickSlip,
+    required this.onVerify,
+  });
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final args = widget.args;
-
-    return Scaffold(
-      backgroundColor: _kBg,
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              _BillAppBar(title: 'Payment'),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+    return Column(
+      children: [
+        _AppBar(
+          title: 'Pay bill',
+          subtitle: '${args.billName} · ${args.memberName}',
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding:
+                EdgeInsets.fromLTRB(16, 16, 16, bottomPad + 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Bill items section
+                _SectionLabel('BILL ITEMS'),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                    border: Border.all(color: _kBorder),
+                  ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ShareCard(args: args),
-                      const SizedBox(height: 14),
-                      _QrSection(amount: args.amount),
-                      const SizedBox(height: 14),
-                      _SlipSection(
-                        slip: _slip,
-                        onPick: _pickSlip,
-                        onRemove: _removeSlip,
-                      ),
-                      SizedBox(height: 100 + bottomPad),
-                    ],
+                    children: args.myItems.isEmpty
+                        ? [
+                            const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                  child: Text('No items',
+                                      style:
+                                          TextStyle(color: _kMuted))),
+                            )
+                          ]
+                        : args.myItems.asMap().entries.map((e) {
+                            final isLast =
+                                e.key == args.myItems.length - 1;
+                            final item = e.value;
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 12),
+                                  child: Row(children: [
+                                    Expanded(
+                                      child: Text(item.name,
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              color: _kDark)),
+                                    ),
+                                    Container(
+                                      padding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4),
+                                      decoration: BoxDecoration(
+                                          color: _kCream,
+                                          borderRadius:
+                                              BorderRadius.circular(
+                                                  20)),
+                                      child: Text(
+                                        '฿${item.myShare.toStringAsFixed(2)}',
+                                        style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _kPrimary),
+                                      ),
+                                    ),
+                                  ]),
+                                ),
+                                if (!isLast)
+                                  const Divider(
+                                      height: 1, color: _kBorder),
+                              ],
+                            );
+                          }).toList(),
                   ),
                 ),
-              ),
-            ],
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _ConfirmFooter(
-              amount: args.amount,
-              enabled: _slip != null && !_confirming,
-              loading: _confirming,
-              bottomPad: bottomPad,
-              onTap: _confirm,
+                // Your share strip
+                Container(
+                  decoration: const BoxDecoration(
+                    color: _kPrimary,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  child: Row(children: [
+                    Text('My share',
+                        style: GoogleFonts.poppins(
+                            color: Colors.white, fontSize: 14)),
+                    const Spacer(),
+                    Text('฿${args.myShare.toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
+                  ]),
+                ),
+                const SizedBox(height: 20),
+                // Scan to pay section
+                _SectionLabel('SCAN TO PAY'),
+                const SizedBox(height: 8),
+                _QrCard(
+                    qrImageUrl: args.qrImageUrl,
+                    hostName: args.hostName),
+                const SizedBox(height: 20),
+                // Upload slip section
+                _SectionLabel('UPLOAD SLIP'),
+                const SizedBox(height: 8),
+                if (slip == null)
+                  _DashedUploadBox(onTap: onPickSlip)
+                else
+                  _SlipPreviewTile(
+                    slip: slip!,
+                    slipBytes: slipBytes!,
+                    onTap: onPickSlip,
+                  ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+        _Footer(
+          label: 'Verify with AI',
+          enabled: slip != null,
+          color: _kPrimary,
+          onTap: onVerify,
+          bottomPad: bottomPad,
+        ),
+      ],
     );
   }
 }
 
-// ── Your share card ───────────────────────────────────────────────────────────
+// ── Step 1 — Verifying ────────────────────────────────────────────────────────
+class _Step1 extends StatelessWidget {
+  final XFile? slip;
+  final Uint8List? slipBytes;
+  final bool isVerifying;
+  final AiVerificationResult? result;
+  final SmartPayBillArgs args;
+  final VoidCallback onDone;
 
-class _ShareCard extends StatelessWidget {
-  final BillPaymentArgs args;
-  const _ShareCard({required this.args});
+  const _Step1({
+    super.key,
+    required this.slip,
+    required this.slipBytes,
+    required this.isVerifying,
+    required this.result,
+    required this.args,
+    required this.onDone,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: _kCardBorder, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Your share',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontXS,
-              color: AppColors.textGray,
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return Column(
+      children: [
+        _AppBar(
+          title: 'Verifying slip',
+          subtitle: 'AI is verifying your slip',
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding:
+                EdgeInsets.fromLTRB(16, 16, 16, bottomPad + 100),
+            child: Column(
+              children: [
+                // Slip preview card
+                if (slip != null && slipBytes != null)
+                  _SlipDocCard(slip: slip!, slipBytes: slipBytes!),
+                const SizedBox(height: 16),
+                // AI verification card
+                _AiVerifyCard(
+                  isVerifying: isVerifying,
+                  result: result,
+                  expectedAmount: args.myShare,
+                  hostName: args.hostName,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '฿${args.amount.toInt()}',
-            style: GoogleFonts.poppins(
-              fontSize: 36,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-              height: 1.1,
-            ),
+        ),
+        if (!isVerifying && result != null)
+          _Footer(
+            label: 'Done',
+            enabled: true,
+            color: _kSuccess,
+            onTap: onDone,
+            bottomPad: bottomPad,
           ),
-          const SizedBox(height: 6),
-          Text(
-            args.eventName,
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${args.memberIndex} of ${args.memberCount} members',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontXXS,
-              color: AppColors.textGray,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-// ── QR section ────────────────────────────────────────────────────────────────
+// ── Step 2 — Confirmed ────────────────────────────────────────────────────────
+class _Step2 extends StatelessWidget {
+  final SmartPayBillArgs args;
+  final VoidCallback onBack;
 
-class _QrSection extends StatelessWidget {
-  final double amount;
-  const _QrSection({required this.amount});
+  const _Step2({
+    super.key,
+    required this.args,
+    required this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    final now = DateTime.now();
+    final timeStr =
+        '${now.day}/${now.month}/${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    return Column(
+      children: [
+        // Green app bar
+        Container(
+          color: _kSuccess,
+          padding:
+              EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+          child: const SizedBox(
+            height: 56,
+            child: Center(
+              child: Text(
+                'Payment sent!',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+                16, 24, 16, bottomPad + 100),
+            child: Column(
+              children: [
+                // Green confirmed card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F9F0),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: const Color(0xFF86EFAC), width: 0.5),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4CAF50),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check_rounded,
+                            color: Colors.white, size: 40),
+                      ),
+                      const SizedBox(height: 14),
+                      Text('Verified!',
+                          style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: _kSuccess)),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Your payment has been confirmed',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: const Color(0xFF15803D)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Payment summary card
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _kBorder),
+                  ),
+                  child: Column(
+                    children: [
+                      _SummaryRow(
+                          label: 'Bill name',
+                          value: args.billName),
+                      const Divider(height: 1, color: _kBorder),
+                      _SummaryRow(
+                          label: 'Your share',
+                          value:
+                              '฿${args.myShare.toStringAsFixed(2)}',
+                          valueColor: _kPrimary,
+                          bold: true),
+                      const Divider(height: 1, color: _kBorder),
+                      _SummaryRow(
+                          label: 'Transfer to',
+                          value: args.hostName),
+                      const Divider(height: 1, color: _kBorder),
+                      _SummaryRow(
+                          label: 'Date & time', value: timeStr),
+                      const Divider(height: 1, color: _kBorder),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        child: Row(
+                          children: [
+                            Text('Status',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 13, color: _kMuted)),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F9F0),
+                                borderRadius:
+                                    BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: const Color(0xFF86EFAC),
+                                    width: 0.5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.check_circle,
+                                      size: 12,
+                                      color: Color(0xFF15803D)),
+                                  const SizedBox(width: 4),
+                                  Text('Confirmed',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color:
+                                              const Color(0xFF15803D))),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        _Footer(
+          label: 'Back to bill',
+          enabled: true,
+          color: _kSuccess,
+          onTap: onBack,
+          bottomPad: bottomPad,
+        ),
+      ],
+    );
+  }
+}
+
+// ── QR card ───────────────────────────────────────────────────────────────────
+class _QrCard extends StatelessWidget {
+  final String qrImageUrl;
+  final String hostName;
+
+  const _QrCard({required this.qrImageUrl, required this.hostName});
 
   @override
   Widget build(BuildContext context) {
@@ -172,187 +513,68 @@ class _QrSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: _kCardBorder, width: 0.5),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
       ),
       child: Column(
         children: [
-          Text(
-            'Scan to pay',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
-            ),
-          ),
+          Text('Scan to pay',
+              style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _kDark)),
           const SizedBox(height: 4),
-          Text(
-            'Use your banking app to scan',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontXXS,
-              color: AppColors.textGray,
-            ),
-          ),
+          Text('Use your banking app to scan the QR',
+              style: GoogleFonts.poppins(
+                  fontSize: 11, color: _kMuted)),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _kCardBorder, width: 0.5),
+          if (qrImageUrl.isEmpty)
+            Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                  color: _kCream,
+                  borderRadius: BorderRadius.circular(12)),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.qr_code_2, size: 60, color: _kBorder),
+                ],
+              ),
+            )
+          else
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                qrImageUrl,
+                width: 160,
+                height: 160,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.broken_image,
+                        size: 80, color: _kBorder),
+              ),
             ),
-            child: CustomPaint(
-              size: const Size(180, 180),
-              painter: _QrPainter('$amount'),
-            ),
-          ),
           const SizedBox(height: 12),
-          Text(
-            '',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Host — PromptPay / Bank transfer',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontXXS,
-              color: AppColors.textGray,
-            ),
-          ),
+          Text(hostName,
+              style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _kDark)),
+          Text('PromptPay / Bank transfer',
+              style: GoogleFonts.poppins(
+                  fontSize: 11, color: _kMuted)),
         ],
       ),
     );
   }
 }
 
-// ── QR painter ────────────────────────────────────────────────────────────────
-
-class _QrPainter extends CustomPainter {
-  final String seed;
-  const _QrPainter(this.seed);
-
-  static const int _cells = 21;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cell = size.width / _cells;
-    final black = Paint()..color = Colors.black;
-    final white = Paint()..color = Colors.white;
-
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), white);
-
-    void fillRect(int col, int row, [int w = 1, int h = 1]) {
-      canvas.drawRect(
-          Rect.fromLTWH(col * cell, row * cell, w * cell, h * cell), black);
-    }
-
-    void clearRect(int col, int row, [int w = 1, int h = 1]) {
-      canvas.drawRect(
-          Rect.fromLTWH(col * cell, row * cell, w * cell, h * cell), white);
-    }
-
-    void drawFinder(int ox, int oy) {
-      fillRect(ox, oy, 7, 7);
-      clearRect(ox + 1, oy + 1, 5, 5);
-      fillRect(ox + 2, oy + 2, 3, 3);
-    }
-
-    // Finder patterns
-    drawFinder(0, 0);
-    drawFinder(_cells - 7, 0);
-    drawFinder(0, _cells - 7);
-
-    // Timing strips
-    for (int i = 8; i <= _cells - 9; i++) {
-      if (i.isEven) {
-        fillRect(i, 6);
-        fillRect(6, i);
-      }
-    }
-
-    // Data modules
-    final rng = seed.codeUnits.fold(0, (h, c) => (h * 31 + c) & 0x7fffffff);
-    final reserved = _buildReserved();
-
-    for (int r = 0; r < _cells; r++) {
-      for (int c = 0; c < _cells; c++) {
-        if (reserved[r * _cells + c]) continue;
-        final idx = r * _cells + c;
-        final hash = (rng ^ (idx * 2654435761)) & 0x7fffffff;
-        if ((hash >> (idx % 23)) & 1 == 1) fillRect(c, r);
-      }
-    }
-  }
-
-  List<bool> _buildReserved() {
-    final r = List<bool>.filled(_cells * _cells, false);
-    void mark(int col, int row, [int w = 1, int h = 1]) {
-      for (int dr = 0; dr < h; dr++) {
-        for (int dc = 0; dc < w; dc++) {
-          if (row + dr < _cells && col + dc < _cells) {
-            r[(row + dr) * _cells + (col + dc)] = true;
-          }
-        }
-      }
-    }
-
-    mark(0, 0, 8, 8);
-    mark(_cells - 8, 0, 8, 8);
-    mark(0, _cells - 8, 8, 8);
-    for (int i = 6; i < _cells - 8; i++) {
-      mark(i, 6);
-      mark(6, i);
-    }
-    return r;
-  }
-
-  @override
-  bool shouldRepaint(covariant _QrPainter old) => old.seed != seed;
-}
-
-// ── Slip upload section ───────────────────────────────────────────────────────
-
-class _SlipSection extends StatelessWidget {
-  final XFile? slip;
-  final VoidCallback onPick;
-  final VoidCallback onRemove;
-  const _SlipSection({
-    required this.slip,
-    required this.onPick,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Upload payment slip',
-          style: GoogleFonts.poppins(
-            fontSize: AppSizes.fontSM,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (slip == null)
-          _UploadArea(onTap: onPick)
-        else
-          _SlipPreview(slip: slip!, onRemove: onRemove),
-      ],
-    );
-  }
-}
-
-class _UploadArea extends StatelessWidget {
+// ── Dashed upload box ─────────────────────────────────────────────────────────
+class _DashedUploadBox extends StatelessWidget {
   final VoidCallback onTap;
-  const _UploadArea({required this.onTap});
+  const _DashedUploadBox({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -360,39 +582,27 @@ class _UploadArea extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        height: 140,
+        height: 130,
         decoration: BoxDecoration(
-          color: AppColors.cardWhite,
-          borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.5),
-            width: 1.5,
-            style: BorderStyle.solid,
-          ),
+          color: _kCream,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: CustomPaint(
-          painter: _DashBorderPainter(),
+          painter: _DashBorderPainter(color: _kPrimary),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.upload_file_outlined,
-                  color: AppColors.primary, size: 32),
+              const Icon(Icons.upload_file_outlined,
+                  color: _kPrimary, size: 32),
               const SizedBox(height: 8),
-              Text(
-                'Tap to attach slip',
-                style: GoogleFonts.poppins(
-                  fontSize: AppSizes.fontSM,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
-                ),
-              ),
-              Text(
-                'JPG or PNG',
-                style: GoogleFonts.poppins(
-                  fontSize: AppSizes.fontXXS,
-                  color: AppColors.textGray,
-                ),
-              ),
+              Text('Attach transfer slip',
+                  style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _kPrimary)),
+              Text('JPG or PNG',
+                  style: GoogleFonts.poppins(
+                      fontSize: 11, color: _kMuted)),
             ],
           ),
         ),
@@ -401,126 +611,405 @@ class _UploadArea extends StatelessWidget {
   }
 }
 
-class _DashBorderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFf07050).withValues(alpha: 0.4)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    const dash = 6.0;
-    const gap = 4.0;
-    const r = AppSizes.radiusM;
-
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-          Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(r)));
-
-    _drawDashedPath(canvas, path, paint, dash, gap);
-  }
-
-  void _drawDashedPath(
-      Canvas canvas, Path path, Paint paint, double dash, double gap) {
-    final metrics = path.computeMetrics();
-    for (final m in metrics) {
-      double d = 0;
-      while (d < m.length) {
-        final end = math.min(d + dash, m.length);
-        canvas.drawPath(m.extractPath(d, end), paint);
-        d += dash + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-class _SlipPreview extends StatelessWidget {
+// ── Slip preview tile (Step 0 — after selection) ──────────────────────────────
+class _SlipPreviewTile extends StatelessWidget {
   final XFile slip;
-  final VoidCallback onRemove;
-  const _SlipPreview({required this.slip, required this.onRemove});
+  final Uint8List slipBytes;
+  final VoidCallback onTap;
+
+  const _SlipPreviewTile({
+    required this.slip,
+    required this.slipBytes,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: _kCardBorder, width: 0.5),
-      ),
-      child: Row(
-        children: [
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _kBorder),
+        ),
+        child: Row(children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 60,
-              height: 60,
-              child: kIsWeb
-                  ? Image.network(slip.path, fit: BoxFit.cover)
-                  : Image.file(File(slip.path), fit: BoxFit.cover),
-            ),
+            child: Image.memory(slipBytes,
+                width: 60, height: 60, fit: BoxFit.cover),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  slip.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontXS,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textDark,
-                  ),
-                ),
+                Text(slip.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _kDark)),
                 const SizedBox(height: 2),
-                Text(
-                  'Ready to submit',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontXXS,
-                    color: const Color(0xFF4CAF50),
-                  ),
-                ),
+                Text('Tap to change',
+                    style: GoogleFonts.poppins(
+                        fontSize: 11, color: _kSuccess)),
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onRemove,
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppColors.inputFill,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.close, size: 16, color: AppColors.textGray),
-            ),
-          ),
-        ],
+          const Icon(Icons.check_circle, color: _kSuccess, size: 20),
+        ]),
       ),
     );
   }
 }
 
-// ── Confirm footer ────────────────────────────────────────────────────────────
+// ── Slip document card (Step 1) ───────────────────────────────────────────────
+class _SlipDocCard extends StatelessWidget {
+  final XFile slip;
+  final Uint8List slipBytes;
 
-class _ConfirmFooter extends StatelessWidget {
-  final double amount;
+  const _SlipDocCard({required this.slip, required this.slipBytes});
+
+  String get _sizeLabel {
+    final kb = slipBytes.length / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+    return '${(kb / 1024).toStringAsFixed(1)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Row(children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+              color: _kCream, borderRadius: BorderRadius.circular(8)),
+          child: const Icon(Icons.image_outlined,
+              color: _kPrimary, size: 28),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(slip.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _kDark)),
+              const SizedBox(height: 2),
+              Text(_sizeLabel,
+                  style: GoogleFonts.poppins(
+                      fontSize: 11, color: _kMuted)),
+            ],
+          ),
+        ),
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E6),
+              borderRadius: BorderRadius.circular(20)),
+          child: Text('Pending',
+              style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFD97706))),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── AI verification card ──────────────────────────────────────────────────────
+class _AiVerifyCard extends StatelessWidget {
+  final bool isVerifying;
+  final AiVerificationResult? result;
+  final double expectedAmount;
+  final String hostName;
+
+  const _AiVerifyCard({
+    required this.isVerifying,
+    required this.result,
+    required this.expectedAmount,
+    required this.hostName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
+      ),
+      child: isVerifying
+          ? Column(
+              children: [
+                const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                      color: _kPrimary, strokeWidth: 3),
+                ),
+                const SizedBox(height: 14),
+                Text('AI is analysing your slip…',
+                    style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: _kDark)),
+                const SizedBox(height: 4),
+                Text('Please wait a moment',
+                    style: GoogleFonts.poppins(
+                        fontSize: 12, color: _kMuted)),
+              ],
+            )
+          : result == null
+              ? const SizedBox.shrink()
+              : Column(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                          color: Color(0xFFE8F9F0),
+                          shape: BoxShape.circle),
+                      child: const Icon(Icons.verified_user_rounded,
+                          color: _kSuccess, size: 32),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Slip verified!',
+                        style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: _kSuccess)),
+                    const SizedBox(height: 4),
+                    Text('Verified successfully',
+                        style: GoogleFonts.poppins(
+                            fontSize: 12, color: _kMuted)),
+                    const SizedBox(height: 16),
+                    const Divider(color: _kBorder),
+                    _DetailRow(
+                        label: 'Amount detected',
+                        value:
+                            '฿${result!.detectedAmount.toStringAsFixed(2)}'),
+                    _DetailRow(
+                        label: 'Expected amount',
+                        value:
+                            '฿${result!.expectedAmount.toStringAsFixed(2)}'),
+                    _DetailRow(
+                        label: 'Recipient',
+                        value: hostName,
+                        isSuccess: result!.recipientMatch),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: result!.isMatch
+                                ? const Color(0xFFE8F9F0)
+                                : const Color(0xFFFFEEEE),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: result!.isMatch
+                                  ? const Color(0xFF86EFAC)
+                                  : const Color(0xFFFF9A9A),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                result!.isMatch
+                                    ? Icons.check_circle
+                                    : Icons.cancel,
+                                size: 14,
+                                color: result!.isMatch
+                                    ? _kSuccess
+                                    : const Color(0xFFE24B4A),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                result!.isMatch ? 'Match' : 'Mismatch',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: result!.isMatch
+                                        ? _kSuccess
+                                        : const Color(0xFFE24B4A)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool? isSuccess;
+
+  const _DetailRow(
+      {required this.label, required this.value, this.isSuccess});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(children: [
+          Text(label,
+              style: GoogleFonts.poppins(
+                  fontSize: 12, color: _kMuted)),
+          const Spacer(),
+          if (isSuccess != null)
+            Icon(
+              isSuccess! ? Icons.check_circle : Icons.cancel,
+              size: 14,
+              color: isSuccess! ? _kSuccess : const Color(0xFFE24B4A),
+            ),
+          if (isSuccess != null) const SizedBox(width: 4),
+          Text(value,
+              style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _kDark)),
+        ]),
+      );
+}
+
+// ── Summary row ───────────────────────────────────────────────────────────────
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+  final bool bold;
+
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.valueColor = _kDark,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 14),
+        child: Row(children: [
+          Text(label,
+              style: GoogleFonts.poppins(
+                  fontSize: 13, color: _kMuted)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(value,
+                textAlign: TextAlign.end,
+                style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: bold
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: valueColor)),
+          ),
+        ]),
+      );
+}
+
+// ── Shared small widgets ──────────────────────────────────────────────────────
+class _AppBar extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _AppBar({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _kPrimary,
+      padding:
+          EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      child: SizedBox(
+        height: 64,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back,
+                  color: Colors.white, size: 22),
+              onPressed: () => context.pop(),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+                  Text(subtitle,
+                      style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.85)),
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(text,
+      style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: _kMuted,
+          letterSpacing: 0.9));
+}
+
+class _Footer extends StatelessWidget {
+  final String label;
   final bool enabled;
-  final bool loading;
-  final double bottomPad;
+  final Color color;
   final VoidCallback onTap;
-  const _ConfirmFooter({
-    required this.amount,
+  final double bottomPad;
+
+  const _Footer({
+    required this.label,
     required this.enabled,
-    required this.loading,
-    required this.bottomPad,
+    required this.color,
     required this.onTap,
+    required this.bottomPad,
   });
 
   @override
@@ -529,7 +1018,7 @@ class _ConfirmFooter extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          height: 32,
+          height: 28,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -540,34 +1029,25 @@ class _ConfirmFooter extends StatelessWidget {
         ),
         Container(
           color: _kBg,
-          padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad : 24),
+          padding: EdgeInsets.fromLTRB(
+              16, 0, 16, bottomPad > 0 ? bottomPad : 24),
           child: SizedBox(
             width: double.infinity,
-            height: AppSizes.buttonHeight,
+            height: 52,
             child: ElevatedButton(
               onPressed: enabled ? onTap : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
-                elevation: 0,
+                backgroundColor: color,
+                disabledBackgroundColor:
+                    color.withValues(alpha: 0.35),
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusPill)),
+                    borderRadius: BorderRadius.circular(30)),
+                elevation: 0,
               ),
-              child: loading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2.5),
-                    )
-                  : Text(
-                      'Confirm payment',
-                      style: GoogleFonts.poppins(
-                        fontSize: AppSizes.fontML,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.cardWhite,
-                      ),
-                    ),
+              child: Text(label,
+                  style: GoogleFonts.poppins(
+                      fontSize: 15, fontWeight: FontWeight.w600)),
             ),
           ),
         ),
@@ -576,126 +1056,34 @@ class _ConfirmFooter extends StatelessWidget {
   }
 }
 
-// ── Payment submitted dialog ──────────────────────────────────────────────────
-
-class _PaymentSubmittedDialog extends StatelessWidget {
-  final double amount;
-  const _PaymentSubmittedDialog({required this.amount});
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-      actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('\u{1F389}', style: TextStyle(fontSize: 40)),
-          const SizedBox(height: 12),
-          Text(
-            'Payment submitted!',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontML,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '฿${amount.toInt()}',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontXL,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF8E6),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              'Pending confirmation',
-              style: GoogleFonts.poppins(
-                fontSize: AppSizes.fontXXS,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFD97706),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Your slip has been sent to the host for confirmation.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontXXS,
-              color: AppColors.textGray,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusPill)),
-            ),
-            child: Text(
-              'Got it!',
-              style: GoogleFonts.poppins(
-                fontSize: AppSizes.fontML,
-                fontWeight: FontWeight.w600,
-                color: AppColors.cardWhite,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Shared app bar ────────────────────────────────────────────────────────────
-
-class _BillAppBar extends StatelessWidget {
-  final String title;
-  const _BillAppBar({required this.title});
+// ── Dashed border painter ─────────────────────────────────────────────────────
+class _DashBorderPainter extends CustomPainter {
+  final Color color;
+  const _DashBorderPainter({required this.color});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.primary,
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-      child: SizedBox(
-        height: AppSizes.appBarHeight,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
-              onPressed: () => context.pop(),
-            ),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: AppSizes.fontL,
-                fontWeight: FontWeight.w600,
-                color: AppColors.cardWhite,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    const dash = 6.0;
+    const gap = 4.0;
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          const Radius.circular(12)));
+    for (final m in path.computeMetrics()) {
+      double d = 0;
+      while (d < m.length) {
+        canvas.drawPath(
+            m.extractPath(d, math.min(d + dash, m.length)), paint);
+        d += dash + gap;
+      }
+    }
   }
+
+  @override
+  bool shouldRepaint(covariant _DashBorderPainter old) =>
+      old.color != color;
 }

@@ -16,7 +16,6 @@ enum OtpState { idle, sendingOtp, codeSent, verifying, verified, error }
 
 class AppAuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final AuthService _authService = AuthService();
 
   User? user;

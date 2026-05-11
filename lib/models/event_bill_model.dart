@@ -57,7 +57,7 @@ class BillParticipantModel {
   });
 
   /// Sum of all item amounts for this participant
-  double get totalOwed => items.fold(0.0, (sum, i) => sum + i.amount);
+  double get totalOwed => items.fold(0.0, (acc, i) => acc + i.amount);
 
   factory BillParticipantModel.fromMap(Map<String, dynamic> map, String id) {
     final rawItems = map['items'] as List<dynamic>? ?? [];
@@ -140,7 +140,7 @@ class EventBillModel {
 
   double get paidAmount => participants
       .where((p) => p.isPaid)
-      .fold(0.0, (sum, p) => sum + p.totalOwed);
+      .fold(0.0, (acc, p) => acc + p.totalOwed);
 
   double get remainingAmount => totalAmount - paidAmount;
 

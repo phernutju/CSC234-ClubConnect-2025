@@ -1,44 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-
-import '../../../constants/app_constants.dart';
-import '../../../models/bill_data.dart';
-import '../../../models/bill_payment_args.dart';
-import '../../../providers/event_bill_provider.dart';
+import '../../../models/smart_bill_model.dart';
+import '../../../models/smart_pay_bill_args.dart';
+import '../../../providers/smart_bill_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../mock/mock_bill_data.dart';
 
-// ── Local design tokens not in AppColors ─────────────────────────────────────
-const _kCardBorder = Color(0xFFEDE5DF);
-const _kSuccess    = Color(0xFF2E9E5B);
-const _kDanger     = Color(0xFFE24B4A);
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const _kPrimary = Color(0xFFD85A30);
+const _kBg      = Color(0xFFFDF5F0);
+const _kCream   = Color(0xFFFAECE7);
+const _kBorder  = Color(0xFFF0C4B0);
+const _kDark    = Color(0xFF4A1B0C);
+const _kMuted   = Color(0xFF9A7A6A);
+const _kSuccess = Color(0xFF2E9E5B);
 
 const _kAvatarColors = [
-  Color(0xFFFFB347), Color(0xFF77DD77), Color(0xFF89CFF0), Color(0xFFCDA4DE),
-  Color(0xFFFF9F80), Color(0xFFAEC6CF), Color(0xFFFFD1DC), Color(0xFFB5EAD7),
+  Color(0xFFFFB347), Color(0xFF77DD77), Color(0xFF89CFF0),
+  Color(0xFFCDA4DE), Color(0xFFFF9F80), Color(0xFFAEC6CF),
+  Color(0xFFFFD1DC), Color(0xFFB5EAD7),
 ];
 
-// ── Internal editable type ────────────────────────────────────────────────────
-
-class _EditableItem {
-  final String id;
-  String name;
-  double amount;
-  _EditableItem({required this.id, required this.name, required this.amount});
-}
-
-String _uid() => UniqueKey().hashCode.toRadixString(16);
-
 // ── Screen ────────────────────────────────────────────────────────────────────
-
 class BillSummaryScreen extends StatefulWidget {
-  // replaced mock — using provider
   final String communityId;
   final String eventId;
   final String billId;
-  final bool   isCurrentUserHost;
+  final bool isCurrentUserHost;
+
   const BillSummaryScreen({
     super.key,
     required this.communityId,
@@ -52,438 +43,147 @@ class BillSummaryScreen extends StatefulWidget {
 }
 
 class _BillSummaryScreenState extends State<BillSummaryScreen> {
-  String _currentUserStatus = 'unpaid';
-  bool   _showPaidBanner    = false;
-
-  // replaced mock — using provider: populated via _seedFromProvider
-  String?                    _localTitle;
-  List<BillMemberData>?      _localMembers;
-  List<List<_EditableItem>>? _memberItems;
-
-  // Mutable item list (host can edit / delete); flattened from _memberItems
-  List<_EditableItem> _items = [];
-  String? _revealedItemId;
-  String? _editingItemId;
-
-  final _editNameCtrl   = TextEditingController();
-  final _editAmountCtrl = TextEditingController();
-  final _editNameFocus  = FocusNode();
-
-  bool get _isEditing => _editingItemId != null;
+  bool _paid = false;
 
   @override
   void initState() {
     super.initState();
-    // replaced mock — using provider: fetch bill + participants from Firestore
-    if (widget.billId.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final provider = context.read<BillProvider>();
-        await provider.selectBill(
-            widget.communityId, widget.eventId, widget.billId);
-        if (!mounted) return;
-        _seedFromProvider(provider);
-      });
-    }
-  }
-
-  // replaced mock — using provider: seed local editable state from provider data
-  void _seedFromProvider(BillProvider provider) {
-    final builtMembers     = <BillMemberData>[];
-    final builtMemberItems = <List<_EditableItem>>[];
-
-    for (final p in provider.participants) {
-      final parts    = p.userName.trim().split(' ');
-      final initials = parts
-          .take(2)
-          .map((w) => w.isEmpty ? '' : w[0].toUpperCase())
-          .join();
-
-      builtMembers.add(BillMemberData(
-        name:     p.userName,
-        initials: initials,
-        role:     '',
-        isHost:   p.userId == provider.selectedBill?.createdBy,
-        status:   p.isPaid ? 'paid' : 'unpaid',
-      ));
-
-      builtMemberItems.add(
-        p.items
-            .map((i) => _EditableItem(id: _uid(), name: i.name, amount: i.amount))
-            .toList(),
-      );
-    }
-
-    setState(() {
-      _localTitle   = provider.selectedBill?.title;
-      _localMembers = builtMembers;
-      _memberItems  = builtMemberItems;
-      // Flatten for global tracking (summary total, host-edit lookup)
-      _items = builtMemberItems.expand((list) => list).toList();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final p = context.read<SmartBillProvider>();
+      // TODO: replace with Firestore data
+      p.loadMock(mockBill: mockBill, mockItems: mockBillItems);
+      p.loadBill(widget.billId);
     });
   }
 
-  @override
-  void dispose() {
-    _editNameCtrl.dispose();
-    _editAmountCtrl.dispose();
-    _editNameFocus.dispose();
-    super.dispose();
-  }
+  Future<void> _goToPay(BuildContext ctx) async {
+    final provider = ctx.read<SmartBillProvider>();
+    final bill = provider.bill;
+    if (bill == null) return;
 
-  // replaced mock — using provider
-  List<BillMemberData> get _members => _localMembers ?? [];
+    final uid = ctx.read<AppAuthProvider>().user?.uid ?? '';
+    final myShare = provider.getMemberShare(uid);
+    final myItems = provider.items
+        .where((item) => item.payerIds.contains(uid))
+        .map((item) =>
+            SmartPayBillItem(name: item.name, myShare: item.pricePerPayer))
+        .toList();
 
-  double get _total     => _items.fold(0.0, (s, i) => s + i.amount);
-  int    get _nMembers  => _members.isNotEmpty ? _members.length : 1;
-  double get _perPerson =>
-      _nMembers > 0 ? (_total / _nMembers).floorToDouble() : 0.0;
-  int    get _paidCount =>
-      _members.where((m) => m.status == 'paid').length;
+    final me = bill.members.firstWhere((m) => m.uid == uid,
+        orElse: () => SmartBillMember(uid: uid, name: 'Me'));
+    final host = bill.members.firstWhere((m) => m.uid == bill.hostId,
+        orElse: () => SmartBillMember(uid: bill.hostId, name: 'Host'));
 
-  // replaced mock — using provider: find current user's items by uid
-  double get _currentUserAmount {
-    if (_memberItems != null && _memberItems!.isNotEmpty) {
-      final uid      = context.read<AppAuthProvider>().user?.uid;
-      final provider = context.read<BillProvider>();
-      final idx = provider.participants.indexWhere((p) => p.userId == uid);
-      if (idx >= 0 && idx < _memberItems!.length) {
-        return _memberItems![idx].fold(0.0, (s, i) => s + i.amount);
-      }
-      return _memberItems!.last.fold(0.0, (s, i) => s + i.amount);
-    }
-    return _perPerson;
-  }
-
-  String get _statusLabel {
-    if (_paidCount == _members.length && _members.isNotEmpty) { return 'Done'; }
-    if (_paidCount > 0) { return 'Partial'; }
-    return 'Pending';
-  }
-
-  Color get _statusColor {
-    switch (_statusLabel) {
-      case 'Done':    return _kSuccess;
-      case 'Partial': return AppColors.primary;
-      default:        return AppColors.textDark;
-    }
-  }
-
-  // ── Item reveal (STATE B) ─────────────────────────────────────────────────
-
-  void _toggleReveal(String itemId) {
-    if (_isEditing) return;
-    setState(() => _revealedItemId = _revealedItemId == itemId ? null : itemId);
-  }
-
-  void _closeReveal() {
-    if (_revealedItemId != null) setState(() => _revealedItemId = null);
-  }
-
-  // ── Item edit (STATE C) ───────────────────────────────────────────────────
-
-  void _startEdit(String itemId) {
-    final item = _items.firstWhere((i) => i.id == itemId);
-    setState(() {
-      _editingItemId       = itemId;
-      _revealedItemId      = null;
-      _editNameCtrl.text   = item.name;
-      _editAmountCtrl.text =
-          item.amount == 0 ? '' : item.amount.toStringAsFixed(2);
-    });
-    Future.delayed(const Duration(milliseconds: 60), () {
-      if (mounted) _editNameFocus.requestFocus();
-    });
-  }
-
-  void _saveEdit() {
-    final name   = _editNameCtrl.text.trim();
-    final amount = double.tryParse(_editAmountCtrl.text) ?? 0.0;
-    if (name.isEmpty) { _snack('Item name cannot be empty'); return; }
-    if (amount < 0)   { _snack('Amount must be ≥ 0');       return; }
-    setState(() {
-      final item  = _items.firstWhere((i) => i.id == _editingItemId);
-      item.name   = name;
-      item.amount = amount;
-      _editingItemId = null;
-    });
-  }
-
-  void _cancelEdit() => setState(() => _editingItemId = null);
-
-  void _deleteItem(String itemId) {
-    setState(() {
-      _items.removeWhere((i) => i.id == itemId);
-      for (final memberList in (_memberItems ?? [])) {
-        memberList.removeWhere((i) => i.id == itemId);
-      }
-      if (_revealedItemId == itemId) _revealedItemId = null;
-    });
-  }
-
-  void _snack(String msg) =>
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(msg)));
-
-  Future<void> _goToPay(BuildContext context) async {
-    // replaced mock — using provider: real event name and current user's index
-    final uid         = context.read<AppAuthProvider>().user?.uid;
-    final provider    = context.read<BillProvider>();
-    final memberIndex = provider.participants.indexWhere((p) => p.userId == uid);
-
-    final result = await context.push<bool>(
+    final result = await ctx.push<bool>(
       '/bill-payment',
-      extra: BillPaymentArgs(
-        eventName:   _localTitle ?? '',
-        amount:      _currentUserAmount,
-        memberCount: _nMembers,
-        memberIndex: memberIndex >= 0 ? memberIndex : 0,
+      extra: SmartPayBillArgs(
+        billId: bill.id,
+        billName: bill.name,
+        memberName: me.name,
+        myShare: myShare,
+        myItems: myItems,
+        qrImageUrl: bill.hostPromptPayQrUrl,
+        hostName: host.name,
       ),
     );
+
     if (result == true && mounted) {
-      setState(() {
-        _currentUserStatus = 'pending';
-        _showPaidBanner    = true;
-      });
+      setState(() => _paid = true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // replaced mock — using provider
-    final provider  = context.watch<BillProvider>();
+    final provider = context.watch<SmartBillProvider>();
+    final bill = provider.bill;
+    final items = provider.items;
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
-    // Loading state
-    if (provider.isLoading) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Column(
-          children: [
-            const _BillAppBar(title: 'Bill Summary'),
-            const Expanded(
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-            ),
-          ],
-        ),
-      );
+    if (provider.isLoading && bill == null) {
+      return _loadingScaffold();
     }
 
-    // Error state
-    if (provider.error != null && _items.isEmpty) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Column(
-          children: [
-            const _BillAppBar(title: 'Bill Summary'),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    provider.error!,
-                    style: GoogleFonts.poppins(color: AppColors.textGray),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+    if (bill == null) {
+      return _emptyScaffold();
     }
 
-    if (_items.isEmpty) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Column(
-          children: [
-            const _BillAppBar(title: 'Bill Summary'),
-            const Expanded(child: _EmptyBillState()),
-          ],
-        ),
-      );
-    }
+    final memberTotals = provider.getMemberTotals();
 
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap:    _closeReveal,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: Stack(
-          children: [
-            Column(
-              children: [
-                _BillAppBar(title: _localTitle ?? 'Bill Summary'), // replaced mock — using provider
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_showPaidBanner) ...[
-                          const _PaidBanner(),
-                          const SizedBox(height: 8),
-                        ],
-
-                        _SummaryCard(
-                          total:        _total,
-                          paidCount:    _paidCount,
-                          totalMembers: _nMembers,
-                          statusLabel:  _statusLabel,
-                          statusColor:  _statusColor,
-                        ),
-                        const SizedBox(height: 20),
-
-                        Text(
-                          'Who pays what',
-                          style: GoogleFonts.poppins(
-                            fontSize:   AppSizes.fontSM,
-                            fontWeight: FontWeight.w600,
-                            color:      AppColors.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-
-                        ..._members.asMap().entries.map((e) {
-                          final idx    = e.key;
-                          final member = e.value;
-                          final effectiveStatus =
-                              (idx == _members.length - 1 &&
-                                      _currentUserStatus != 'unpaid')
-                                  ? _currentUserStatus
-                                  : member.status;
-
-                          // Per-participant items and total (nMembers=1 → no division)
-                          final cardItems   = _memberItems?[idx] ?? _items;
-                          final cardAmount  = _memberItems != null
-                              ? _memberItems![idx].fold(0.0, (s, i) => s + i.amount)
-                              : _perPerson;
-                          final cardNMembers = _memberItems != null ? 1 : _nMembers;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _MemberCard(
-                              member:          member,
-                              effectiveStatus: effectiveStatus,
-                              perPerson:       cardAmount,
-                              items:           cardItems,
-                              nMembers:        cardNMembers,
-                              colorIndex:      idx,
-                              isHost:          widget.isCurrentUserHost,
-                              revealedItemId:  _revealedItemId,
-                              editingItemId:   _editingItemId,
-                              editNameCtrl:    _editNameCtrl,
-                              editAmountCtrl:  _editAmountCtrl,
-                              editNameFocus:   _editNameFocus,
-                              onToggleReveal:  _toggleReveal,
-                              onStartEdit:     _startEdit,
-                              onSave:          _saveEdit,
-                              onCancel:        _cancelEdit,
-                              onDelete:        _deleteItem,
-                            ),
-                          );
-                        }),
-
-                        SizedBox(height: 100 + bottomPad),
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              _buildAppBar(bill),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding:
+                      const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_paid) ...[
+                        _PaidBanner(),
+                        const SizedBox(height: 12),
                       ],
-                    ),
+                      _buildItemsCard(items),
+                      const SizedBox(height: 20),
+                      _buildMemberTotals(bill, memberTotals),
+                      const SizedBox(height: 20),
+                      _buildQrSection(bill),
+                      SizedBox(height: bottomPad + 80),
+                    ],
                   ),
                 ),
-              ],
-            ),
-
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: _StickyFooter(
-                label: _currentUserStatus == 'pending'
-                    ? 'Payment submitted — awaiting confirmation'
-                    : 'Pay my share  ฿${_currentUserAmount.toInt()}',
-                bgColor:   AppColors.background,
-                bottomPad: bottomPad,
-                isPending: _currentUserStatus == 'pending',
-                onTap:     () => _goToPay(context),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _buildFooter(bottomPad),
+          ),
+        ],
       ),
     );
   }
-}
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
-class _EmptyBillState extends StatelessWidget {
-  const _EmptyBillState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.receipt_long_outlined,
-                size: 64, color: AppColors.textGray),
-            const SizedBox(height: 16),
-            Text(
-              'No bill yet',
-              style: GoogleFonts.poppins(
-                fontSize:   AppSizes.fontL,
-                fontWeight: FontWeight.w500,
-                color:      AppColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "The host hasn't created a bill yet.\nCheck back later!",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: AppSizes.fontXS,
-                color:    AppColors.textGray,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── App bar ───────────────────────────────────────────────────────────────────
-
-class _BillAppBar extends StatelessWidget {
-  final String title;
-  const _BillAppBar({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
+  // ── App bar ───────────────────────────────────────────────────────────────
+  Widget _buildAppBar(SmartBillModel bill) {
     return Container(
-      color:   AppColors.primary,
+      color: _kPrimary,
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
       child: SizedBox(
-        height: AppSizes.appBarHeight,
+        height: 64,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(width: 4),
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+              icon: const Icon(Icons.arrow_back,
+                  color: Colors.white, size: 22),
               onPressed: () => context.pop(),
             ),
             Expanded(
-              child: Text(
-                title,
-                style: GoogleFonts.poppins(
-                  fontSize:   AppSizes.fontL,
-                  fontWeight: FontWeight.w600,
-                  color:      AppColors.cardWhite,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(bill.name,
+                      style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white),
+                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    '${bill.members.length} members · Total ฿${bill.totalAmount.toStringAsFixed(0)}',
+                    style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.85)),
+                  ),
+                ],
               ),
             ),
           ],
@@ -491,448 +191,240 @@ class _BillAppBar extends StatelessWidget {
       ),
     );
   }
-}
 
-// ── Summary card (Total | Paid X/Y | Status) ──────────────────────────────────
-
-class _SummaryCard extends StatelessWidget {
-  final double total;
-  final int    paidCount;
-  final int    totalMembers;
-  final String statusLabel;
-  final Color  statusColor;
-
-  const _SummaryCard({
-    required this.total,
-    required this.paidCount,
-    required this.totalMembers,
-    required this.statusLabel,
-    required this.statusColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color:        AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border:       Border.all(color: _kCardBorder, width: 0.5),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        children: [
-          _StatCell(
-            label:      'Total',
-            value:      '฿${total.toStringAsFixed(2)}',
-            valueColor: AppColors.primary,
-            bold:       true,
-          ),
-          _VDivider(),
-          _StatCell(label: 'Paid', value: '$paidCount/$totalMembers'),
-          _VDivider(),
-          _StatCell(
-              label: 'Status', value: statusLabel, valueColor: statusColor),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCell extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color  valueColor;
-  final bool   bold;
-  const _StatCell({
-    required this.label,
-    required this.value,
-    this.valueColor = AppColors.textDark,
-    this.bold = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize:   AppSizes.fontXL,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-              color:      valueColor,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          Text(label,
-              style: GoogleFonts.poppins(
-                  fontSize: AppSizes.fontXXS, color: AppColors.textGray)),
-        ],
-      ),
-    );
-  }
-}
-
-class _VDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 0.5, height: 44, color: _kCardBorder);
-}
-
-// ── Member participant card ───────────────────────────────────────────────────
-
-class _MemberCard extends StatelessWidget {
-  final BillMemberData        member;
-  final String                effectiveStatus;
-  final double                perPerson;
-  final List<_EditableItem>   items;
-  final int                   nMembers;
-  final int                   colorIndex;
-  final bool                  isHost;
-  final String?               revealedItemId;
-  final String?               editingItemId;
-  final TextEditingController editNameCtrl;
-  final TextEditingController editAmountCtrl;
-  final FocusNode             editNameFocus;
-  final void Function(String) onToggleReveal;
-  final void Function(String) onStartEdit;
-  final void Function(String) onDelete;
-  final VoidCallback          onSave;
-  final VoidCallback          onCancel;
-
-  const _MemberCard({
-    required this.member,
-    required this.effectiveStatus,
-    required this.perPerson,
-    required this.items,
-    required this.nMembers,
-    required this.colorIndex,
-    required this.isHost,
-    required this.revealedItemId,
-    required this.editingItemId,
-    required this.editNameCtrl,
-    required this.editAmountCtrl,
-    required this.editNameFocus,
-    required this.onToggleReveal,
-    required this.onStartEdit,
-    required this.onDelete,
-    required this.onSave,
-    required this.onCancel,
-  });
-
-  bool get _isPaid    => effectiveStatus == 'paid';
-  bool get _isEditing => editingItemId != null;
-
-  @override
-  Widget build(BuildContext context) {
-    final avatarColor = _kAvatarColors[colorIndex % _kAvatarColors.length];
-    final initial     = member.initials.isNotEmpty ? member.initials[0] : '?';
-
-    return Container(
-      decoration: BoxDecoration(
-        color:        AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(
-          color: _isPaid
-              ? _kSuccess.withValues(alpha: 0.5)
-              : _kCardBorder,
-          width: _isPaid ? 1.5 : 0.5,
+  // ── Items card ────────────────────────────────────────────────────────────
+  Widget _buildItemsCard(List<SmartBillItemModel> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel('BILL ITEMS'),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _kBorder)),
+          child: items.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(
+                      child: Text('No items',
+                          style: TextStyle(color: _kMuted))))
+              : Column(
+                  children: items.asMap().entries.map((e) {
+                    final isLast = e.key == items.length - 1;
+                    final item = e.value;
+                    return Column(
+                      children: [
+                        _ItemRow(
+                          item: item,
+                          members: context
+                              .read<SmartBillProvider>()
+                              .bill
+                              ?.members ??
+                              [],
+                        ),
+                        if (!isLast)
+                          const Divider(height: 1, color: _kBorder),
+                      ],
+                    );
+                  }).toList(),
+                ),
         ),
-      ),
-      child: Column(
-        children: [
-          // Header row — unchanged
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width:  40,
-                  height: 40,
-                  decoration:
-                      BoxDecoration(color: avatarColor, shape: BoxShape.circle),
-                  alignment: Alignment.center,
+        // Total strip
+        Container(
+          decoration: const BoxDecoration(
+            color: _kPrimary,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(12),
+              bottomRight: Radius.circular(12),
+            ),
+          ),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(children: [
+            Text('Total',
+                style: GoogleFonts.poppins(
+                    color: Colors.white, fontSize: 14)),
+            const Spacer(),
+            Text(
+              '฿${items.fold(0.0, (s, i) => s + i.price).toStringAsFixed(2)}',
+              style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white),
+            ),
+          ]),
+        ),
+      ],
+    );
+  }
+
+  // ── Member totals ─────────────────────────────────────────────────────────
+  Widget _buildMemberTotals(
+      SmartBillModel bill, Map<String, double> totals) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel('EACH MEMBER\'S SHARE'),
+        const SizedBox(height: 8),
+        ...bill.members.asMap().entries.map((e) {
+          final idx = e.key;
+          final member = e.value;
+          final amount = totals[member.uid] ?? 0;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _kBorder)),
+              child: Row(children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor:
+                      _kAvatarColors[idx % _kAvatarColors.length],
                   child: Text(
-                    initial,
-                    style: GoogleFonts.poppins(
-                        fontSize:   AppSizes.fontSM,
-                        fontWeight: FontWeight.w700,
-                        color:      AppColors.cardWhite),
+                    member.initials,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              member.name,
+                      Text(member.name,
+                          style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _kDark)),
+                      if (member.uid == bill.hostId)
+                        Container(
+                          margin: const EdgeInsets.only(top: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                              color: _kCream,
+                              borderRadius:
+                                  BorderRadius.circular(4)),
+                          child: Text('Host',
                               style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  color:      AppColors.textDark,
-                                  fontSize:   AppSizes.fontSM),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (member.isHost) ...[
-                            const SizedBox(width: 5),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Host',
-                                style: GoogleFonts.poppins(
-                                    fontSize:   AppSizes.fontXXXS,
-                                    fontWeight: FontWeight.w600,
-                                    color:      AppColors.primary),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      _StatusPill(status: effectiveStatus),
+                                  fontSize: 9,
+                                  color: _kPrimary,
+                                  fontWeight: FontWeight.w600)),
+                        ),
                     ],
                   ),
                 ),
                 Text(
-                  '฿${perPerson.toStringAsFixed(2)}',
+                  '฿${amount.toStringAsFixed(2)}',
                   style: GoogleFonts.poppins(
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color:      AppColors.primary,
-                      fontSize:   AppSizes.fontML),
+                      color: _kPrimary),
                 ),
-              ],
+              ]),
             ),
-          ),
+          );
+        }),
+      ],
+    );
+  }
 
-          const Divider(height: 1, thickness: 0.5, color: _kCardBorder),
-
-          // Item breakdown
-          // Host: full-width rows for slide-reveal / edit card
-          // Member: read-only padded rows (unchanged appearance)
-          if (!isHost)
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Column(
-                children: items.map((item) {
-                  final share =
-                      nMembers > 0 ? item.amount / nMembers : item.amount;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Row(
-                      children: [
-                        Text('•  ',
-                            style: GoogleFonts.poppins(
-                                fontSize: AppSizes.fontXS,
-                                color:    AppColors.textGray)),
-                        Expanded(
-                          child: Text(item.name,
-                              style: GoogleFonts.poppins(
-                                  fontSize: AppSizes.fontXS,
-                                  color:    AppColors.textDark)),
-                        ),
-                        Text(
-                          '฿${share.toStringAsFixed(2)}',
-                          style: GoogleFonts.poppins(
-                              fontSize: AppSizes.fontXS,
-                              color:    AppColors.textDark),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                children: items.map((item) {
-                  // STATE C — edit card
-                  if (editingItemId == item.id) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: _ItemEditCard(
-                        item:      item,
-                        nameCtrl:  editNameCtrl,
-                        amtCtrl:   editAmountCtrl,
-                        nameFocus: editNameFocus,
-                        onSave:    onSave,
-                        onCancel:  onCancel,
-                      ),
-                    );
-                  }
-
-                  final share =
-                      nMembers > 0 ? item.amount / nMembers : item.amount;
-                  final dimmed = _isEditing;
-
-                  return AnimatedOpacity(
-                    key:      ValueKey(item.id),
-                    opacity:  dimmed ? 0.35 : 1.0,
-                    duration: const Duration(milliseconds: 220),
-                    child: IgnorePointer(
-                      ignoring: dimmed,
-                      // STATE A / B — slide-reveal row
-                      child: _ItemSummaryRow(
-                        item:           item,
-                        share:          share,
-                        isRevealed:     revealedItemId == item.id,
-                        onToggleReveal: () => onToggleReveal(item.id),
-                        onEdit:         () => onStartEdit(item.id),
-                        onDelete:       () => onDelete(item.id),
+  // ── QR section ────────────────────────────────────────────────────────────
+  Widget _buildQrSection(SmartBillModel bill) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel('PROMPTPAY QR'),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _kBorder)),
+          padding: const EdgeInsets.all(20),
+          child: bill.hostPromptPayQrUrl.isEmpty
+              ? Column(
+                  children: [
+                    const Icon(Icons.qr_code_2,
+                        size: 48, color: _kBorder),
+                    const SizedBox(height: 8),
+                    Text('No QR code yet',
+                        style: GoogleFonts.poppins(
+                            fontSize: 13, color: _kMuted)),
+                  ],
+                )
+              : Column(
+                  children: [
+                    Text('Scan to pay',
+                        style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _kDark)),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        bill.hostPromptPayQrUrl,
+                        height: 200,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.broken_image,
+                                size: 80, color: _kBorder),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ),
-        ],
-      ),
+                  ],
+                ),
+        ),
+      ],
     );
   }
-}
 
-// ── Status pill ───────────────────────────────────────────────────────────────
-
-class _StatusPill extends StatelessWidget {
-  final String status;
-  const _StatusPill({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    if (status == 'paid') {
-      return _pill(
-          label: 'Paid',
-          bg:    _kSuccess.withValues(alpha: 0.12),
-          fg:    _kSuccess);
-    }
-    if (status == 'pending') {
-      return _pill(
-          label: 'Pending',
-          bg:    const Color(0xFFFFF8E6),
-          fg:    const Color(0xFFD97706));
-    }
-    return _pill(
-        label: 'Unpaid',
-        bg:    AppColors.primary.withValues(alpha: 0.10),
-        fg:    AppColors.primary);
-  }
-
-  Widget _pill({required String label, required Color bg, required Color fg}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label,
-          style: GoogleFonts.poppins(
-              color:      fg,
-              fontSize:   AppSizes.fontXXS,
-              fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
-// ── Paid banner ───────────────────────────────────────────────────────────────
-
-class _PaidBanner extends StatelessWidget {
-  const _PaidBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width:   double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color:        const Color(0xFFE8F9F0),
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border:       Border.all(color: const Color(0xFF86EFAC), width: 0.5),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.check_circle_outline,
-              color: Color(0xFF15803D), size: 18),
-          const SizedBox(width: 8),
-          Text(
-            "You've paid! 🎉",
-            style: GoogleFonts.poppins(
-              fontSize:   AppSizes.fontXS,
-              fontWeight: FontWeight.w600,
-              color:      const Color(0xFF15803D),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Sticky footer ─────────────────────────────────────────────────────────────
-
-class _StickyFooter extends StatelessWidget {
-  final String       label;
-  final Color        bgColor;
-  final double       bottomPad;
-  final VoidCallback onTap;
-  final bool         isPending;
-
-  const _StickyFooter({
-    required this.label,
-    required this.bgColor,
-    required this.bottomPad,
-    required this.onTap,
-    this.isPending = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  // ── Footer ────────────────────────────────────────────────────────────────
+  Widget _buildFooter(double bottomPad) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          height: 32,
+          height: 30,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
-              end:   Alignment.bottomCenter,
-              colors: [bgColor.withValues(alpha: 0), bgColor],
+              end: Alignment.bottomCenter,
+              colors: [_kBg.withValues(alpha: 0), _kBg],
             ),
           ),
         ),
         Container(
-          color:   bgColor,
+          color: _kBg,
           padding: EdgeInsets.fromLTRB(
               16, 0, 16, bottomPad > 0 ? bottomPad : 24),
           child: SizedBox(
-            width:  double.infinity,
-            height: AppSizes.buttonHeight,
+            width: double.infinity,
+            height: 52,
             child: ElevatedButton(
-              onPressed: isPending ? () {} : onTap,
+              onPressed: _paid ? null : () => _goToPay(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    isPending ? const Color(0xFF15803D) : AppColors.primary,
-                elevation: 0,
+                backgroundColor: _paid ? _kSuccess : _kPrimary,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSizes.radiusPill)),
+                    borderRadius: BorderRadius.circular(30)),
+                elevation: 0,
               ),
               child: Text(
-                label,
+                _paid
+                    ? 'Slip sent — awaiting confirmation'
+                    : 'Pay my share',
                 style: GoogleFonts.poppins(
-                  fontSize:   AppSizes.fontML,
-                  fontWeight: FontWeight.w600,
-                  color:      AppColors.cardWhite,
-                ),
+                    fontSize: 15, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -940,315 +432,175 @@ class _StickyFooter extends StatelessWidget {
       ],
     );
   }
+
+  // ── Loading / empty scaffolds ─────────────────────────────────────────────
+  Widget _loadingScaffold() {
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: Column(children: [
+        _AppBarPlaceholder(),
+        const Expanded(
+            child: Center(
+                child: CircularProgressIndicator(color: _kPrimary))),
+      ]),
+    );
+  }
+
+  Widget _emptyScaffold() {
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: Column(children: [
+        _AppBarPlaceholder(),
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.receipt_long_outlined,
+                    size: 64, color: _kBorder),
+                const SizedBox(height: 12),
+                Text('Bill not found',
+                    style: GoogleFonts.poppins(
+                        fontSize: 16, color: _kMuted)),
+              ],
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
 }
 
-// ── Item summary row — STATE A (normal) / STATE B (slide-revealed) ────────────
+// ── Item row widget ───────────────────────────────────────────────────────────
+class _ItemRow extends StatelessWidget {
+  final SmartBillItemModel item;
+  final List<SmartBillMember> members;
 
-class _ItemSummaryRow extends StatelessWidget {
-  final _EditableItem item;
-  final double        share;
-  final bool          isRevealed;
-  final VoidCallback  onToggleReveal;
-  final VoidCallback  onEdit;
-  final VoidCallback  onDelete;
-
-  const _ItemSummaryRow({
-    required this.item,
-    required this.share,
-    required this.isRevealed,
-    required this.onToggleReveal,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _ItemRow({required this.item, required this.members});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior:    HitTestBehavior.opaque,
-      onLongPress: onToggleReveal,
-      onTap:       isRevealed ? onToggleReveal : null,
-      child: ClipRect(
-        child: Stack(
-          children: [
-            // Action buttons revealed on the right
-            Positioned(
-              right: 6, top: 0, bottom: 0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _SummaryActionBtn(
-                      color: AppColors.primary,
-                      icon:  Icons.edit_rounded,
-                      onTap: onEdit),
-                  const SizedBox(width: 6),
-                  _SummaryActionBtn(
-                      color: _kDanger,
-                      icon:  Icons.delete_rounded,
-                      onTap: onDelete),
-                ],
-              ),
-            ),
-            // Row content — slides left 96 px on reveal
-            AnimatedContainer(
-              duration:  const Duration(milliseconds: 220),
-              curve:     Curves.easeInOut,
-              transform:
-                  Matrix4.translationValues(isRevealed ? -96 : 0, 0, 0),
-              color: AppColors.cardWhite,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 9),
-                child: Row(
-                  children: [
-                    Text('•  ',
-                        style: GoogleFonts.poppins(
-                            fontSize: AppSizes.fontXS,
-                            color:    AppColors.textGray)),
-                    Expanded(
-                      child: Text(item.name,
-                          style: GoogleFonts.poppins(
-                              fontSize: AppSizes.fontXS,
-                              color:    AppColors.textDark)),
-                    ),
-                    Text(
-                      '฿${share.toStringAsFixed(2)}',
+    final payerNames = item.payerIds
+        .map((uid) {
+          final m = members.where((m) => m.uid == uid).firstOrNull;
+          return m?.name ?? uid;
+        })
+        .join(', ');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.name,
+                    style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _kDark)),
+                if (payerNames.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(payerNames,
                       style: GoogleFonts.poppins(
-                          fontSize: AppSizes.fontXS,
-                          color:    AppColors.textDark),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryActionBtn extends StatelessWidget {
-  final Color        color;
-  final IconData     icon;
-  final VoidCallback onTap;
-  const _SummaryActionBtn(
-      {required this.color, required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width:  38,
-        height: 30,
-        decoration: BoxDecoration(
-            color: color, borderRadius: BorderRadius.circular(6)),
-        child: Icon(icon, color: Colors.white, size: 15),
-      ),
-    );
-  }
-}
-
-// ── Inline edit card — STATE C ────────────────────────────────────────────────
-
-class _ItemEditCard extends StatelessWidget {
-  final _EditableItem         item;
-  final TextEditingController nameCtrl;
-  final TextEditingController amtCtrl;
-  final FocusNode             nameFocus;
-  final VoidCallback          onSave;
-  final VoidCallback          onCancel;
-
-  const _ItemEditCard({
-    required this.item,
-    required this.nameCtrl,
-    required this.amtCtrl,
-    required this.nameFocus,
-    required this.onSave,
-    required this.onCancel,
-  });
-
-  InputDecoration _fieldDecor(String hint, {String? prefix}) {
-    return InputDecoration(
-      hintText:    hint,
-      hintStyle:   GoogleFonts.poppins(
-          fontSize: AppSizes.fontSM, color: AppColors.textGray),
-      prefixText:  prefix,
-      prefixStyle: GoogleFonts.poppins(
-          fontSize: AppSizes.fontSM, color: AppColors.textDark),
-      filled:      true,
-      fillColor:   AppColors.cardWhite,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
-      enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
-      focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide:
-              const BorderSide(color: AppColors.primary, width: 1.5)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween:    Tween(begin: 0.97, end: 1.0),
-      duration: const Duration(milliseconds: 220),
-      curve:    Curves.easeOut,
-      builder:  (_, scale, child) =>
-          Transform.scale(scale: scale, child: child),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color:        const Color(0xFFFFF5F1),
-          borderRadius: BorderRadius.circular(10),
-          border:       Border.all(color: AppColors.primary, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color:      AppColors.primary.withValues(alpha: 0.12),
-              blurRadius: 8,
-              offset:     const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header strip
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: const BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: Color(0xFFEEE0D8))),
-              ),
-              child: Row(
-                children: [
+                          fontSize: 11, color: _kMuted),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                ],
+                const SizedBox(height: 4),
+                Row(children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                        horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                        color:        AppColors.primary,
+                        color: _kCream,
                         borderRadius: BorderRadius.circular(20)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.edit_rounded,
-                            color: AppColors.cardWhite, size: 12),
-                        const SizedBox(width: 4),
-                        Text('Editing',
-                            style: GoogleFonts.poppins(
-                                fontSize:   AppSizes.fontXXS,
-                                fontWeight: FontWeight.w600,
-                                color:      AppColors.cardWhite)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
                     child: Text(
-                      item.name,
+                      '฿${item.pricePerPayer.toStringAsFixed(2)}/person',
                       style: GoogleFonts.poppins(
-                          fontSize: AppSizes.fontXS,
-                          color:    AppColors.textDark),
-                      overflow: TextOverflow.ellipsis,
+                          fontSize: 10,
+                          color: _kPrimary,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
-                ],
-              ),
+                ]),
+              ],
             ),
-            // Form body
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('ITEM NAME',
-                      style: GoogleFonts.poppins(
-                          fontSize:      AppSizes.fontXXS,
-                          color:         AppColors.textGray,
-                          letterSpacing: 0.8,
-                          fontWeight:    FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: nameCtrl,
-                    focusNode:  nameFocus,
-                    style: GoogleFonts.poppins(
-                        fontSize: AppSizes.fontSM,
-                        color:    AppColors.textDark),
-                    decoration: _fieldDecor('e.g. Pad Thai'),
-                    onSubmitted: (_) => onSave(),
-                  ),
-                  const SizedBox(height: 12),
-                  Text('PRICE',
-                      style: GoogleFonts.poppins(
-                          fontSize:      AppSizes.fontXXS,
-                          color:         AppColors.textGray,
-                          letterSpacing: 0.8,
-                          fontWeight:    FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller:   amtCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true),
-                    textAlign: TextAlign.right,
-                    style: GoogleFonts.poppins(
-                        fontSize: AppSizes.fontSM,
-                        color:    AppColors.textDark),
-                    decoration: _fieldDecor('0.00', prefix: '฿  '),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))
-                    ],
-                    onSubmitted: (_) => onSave(),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: onCancel,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textDark,
-                            side: const BorderSide(
-                                color: Color(0xFFCCCCCC)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(8)),
-                          ),
-                          child: Text('Cancel',
-                              style: GoogleFonts.poppins(
-                                  fontSize:   AppSizes.fontSM,
-                                  fontWeight: FontWeight.w500)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: onSave,
-                          icon:  const Icon(Icons.check_rounded, size: 16),
-                          label: Text('Save',
-                              style: GoogleFonts.poppins(
-                                  fontSize:   AppSizes.fontSM,
-                                  fontWeight: FontWeight.w600)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: AppColors.cardWhite,
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '฿${item.price.toStringAsFixed(2)}',
+            style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: _kDark),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Paid banner ───────────────────────────────────────────────────────────────
+class _PaidBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F9F0),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF86EFAC), width: 0.5),
         ),
+        child: Row(children: [
+          const Icon(Icons.check_circle_outline,
+              color: Color(0xFF15803D), size: 18),
+          const SizedBox(width: 8),
+          Text('Slip sent — waiting for host confirmation',
+              style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF15803D))),
+        ]),
+      );
+}
+
+// ── Shared small widgets ──────────────────────────────────────────────────────
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(text,
+      style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: _kMuted,
+          letterSpacing: 0.9));
+}
+
+class _AppBarPlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _kPrimary,
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      child: SizedBox(
+        height: 56,
+        child: Row(children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back,
+                color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
+          Text('Bill Summary',
+              style: GoogleFonts.poppins(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white)),
+        ]),
       ),
     );
   }
