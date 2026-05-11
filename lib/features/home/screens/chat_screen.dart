@@ -843,35 +843,43 @@ class _ChatMenuBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.primary,
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(
-                icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
-                label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
-                onTap: onMute,
-              ),
-              _MenuItem(icon: Icons.group_outlined, label: AppStrings.chatMenuMembers, onTap: onShowMembers),
-              _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
-              _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
-              IgnorePointer(
-                child: Opacity(
-                  opacity: 0,
-                  child: _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: () {}),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(
+                  icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+                  label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
+                  onTap: onMute,
                 ),
-              ),
-            ],
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.group_outlined, label: AppStrings.chatMenuMembers, onTap: onShowMembers),
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
+                const SizedBox(height: 5),
+                const SizedBox(),
+              ],
+            ),
           ),
         ],
       ),
@@ -897,14 +905,14 @@ class _MenuItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 44),
+          Icon(icon, color: Colors.white, size: 32),
           const SizedBox(height: 8),
           Text(
             label,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 13,
+              fontSize: 11,
             ),
           ),
         ],

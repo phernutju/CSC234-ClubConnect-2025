@@ -426,24 +426,39 @@ class _ChatMenuBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFE8563A),
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-      child: Column(
+      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(icon: Icons.notifications_off, label: 'Mute', onTap: onMute),
-              _MenuItem(icon: Icons.group, label: 'Members', onTap: onShowMembers),
-              _MenuItem(icon: Icons.exit_to_app, label: 'leave', onTap: onLeave),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.notifications_off, label: 'Mute', onTap: onMute),
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo),
-              _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.group, label: 'Members', onTap: onShowMembers),
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.exit_to_app, label: 'leave', onTap: onLeave),
+                const SizedBox(height: 5),
+                const SizedBox(),
+              ],
+            ),
           ),
         ],
       ),
@@ -468,14 +483,14 @@ class _MenuItem extends StatelessWidget {
       onTap: onTap,
       child: Column(
         children: [
-          Icon(icon, color: Colors.white, size: 60),
+          Icon(icon, color: Colors.white, size: 54),
           const SizedBox(height: 8),
           Text(
             label,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 13,
+              fontSize: 11,
             ),
           ),
         ],
