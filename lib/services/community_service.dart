@@ -58,6 +58,7 @@ class CommunityService {
   // ── Communities ────────────────────────────────────────────────────────────
 
   Stream<List<CommunityModel>> getCommunities() {
+    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
     return _communities
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -70,6 +71,7 @@ class CommunityService {
 
   // Alternative: Get communities with limit for performance
   Stream<List<CommunityModel>> getCommunitiesLimited({int limit = 20}) {
+    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
     return _communities
         .orderBy('createdAt', descending: true)
         .limit(limit)
@@ -88,6 +90,7 @@ class CommunityService {
 
   // Alternative: Get communities by specific IDs
   Stream<List<CommunityModel>> getCommunitiesByIds(List<String> communityIds) {
+    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
     if (communityIds.isEmpty) return Stream.value([]);
 
     return _communities
@@ -102,6 +105,7 @@ class CommunityService {
 
   // Get communities filtered by category name (client-side, tags are stored as maps)
   Stream<List<CommunityModel>> getCommunitiesByCategory(String categoryName) {
+    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
     return _communities
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -261,6 +265,8 @@ class CommunityService {
     batch.set(_messages(communityId).doc(), {
       'senderId': 'system',
       'isSystem': true,
+      'type': 'joined',
+      'senderName': displayName,
       'text': '$displayName joined the group',
       'imageURL': '',
       'timestamp': FieldValue.serverTimestamp(),
@@ -289,27 +295,50 @@ class CommunityService {
       throw Exception('Transfer ownership before leaving');
     }
 
+    final displayName = await getUserDisplayName(user.uid);
     final batch = _db.batch();
     batch.delete(_members(communityId).doc(user.uid));
     batch.update(_communities.doc(communityId), {
       'memberCount': FieldValue.increment(-1),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    batch.set(_messages(communityId).doc(), {
+      'senderId': 'system',
+      'isSystem': true,
+      'type': 'left',
+      'senderName': displayName,
+      'text': '$displayName left the group',
+      'imageURL': '',
+      'timestamp': FieldValue.serverTimestamp(),
+      'seenBy': [],
+    });
     await batch.commit();
   }
 
   Future<void> kickMember(String communityId, String userId) async {
     _requireAuth();
+    final displayName = await getUserDisplayName(userId);
     final batch = _db.batch();
     batch.delete(_members(communityId).doc(userId));
     batch.update(_communities.doc(communityId), {
       'memberCount': FieldValue.increment(-1),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    batch.set(_messages(communityId).doc(), {
+      'senderId': 'system',
+      'isSystem': true,
+      'type': 'kicked',
+      'senderName': displayName,
+      'text': '$displayName was removed from the group',
+      'imageURL': '',
+      'timestamp': FieldValue.serverTimestamp(),
+      'seenBy': [],
+    });
     await batch.commit();
   }
 
   Stream<List<MemberModel>> getMembers(String communityId) {
+    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
     return _members(communityId).snapshots().map(
       (snap) => snap.docs
           .map((doc) => MemberModel.fromJson(doc.data(), doc.id))
@@ -344,12 +373,13 @@ class CommunityService {
   // ── Messages ───────────────────────────────────────────────────────────────
 
   Stream<List<MessageModel>> getMessages(String communityId) {
+    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
     return _messages(communityId)
         .orderBy('timestamp', descending: false)
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map((doc) => MessageModel.fromJson(doc.data(), doc.id))
+              .map((doc) => MessageModel.fromFirestore(doc))
               .toList(),
         );
   }
