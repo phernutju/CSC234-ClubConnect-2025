@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../providers/community_provider.dart';
 import '../../../models/rule_model.dart';
+import '../../../services/category_service.dart';
 import '../widgets/category_picker_popup.dart';
 import '../widgets/interest_chip.dart';
 
@@ -391,9 +392,9 @@ class _FormField extends StatelessWidget {
   }
 }
 
-// ── Category row (single chip preview + popup) ────────────────────────────────
+// ── Category row (3-chip preview + popup, single-select) ─────────────────────
 
-class _CategoryEditRow extends StatelessWidget {
+class _CategoryEditRow extends StatefulWidget {
   final String? selected;
   final void Function(String) onToggle;
   final String? errorText;
@@ -404,6 +405,14 @@ class _CategoryEditRow extends StatelessWidget {
     this.errorText,
   });
 
+  @override
+  State<_CategoryEditRow> createState() => _CategoryEditRowState();
+}
+
+class _CategoryEditRowState extends State<_CategoryEditRow> {
+  late final Future<List<String>> _categoriesFuture =
+      CategoryService().getCategories();
+
   void _openPopup(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -413,55 +422,70 @@ class _CategoryEditRow extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => CategoryPickerPopup(
-        selectedInterests: selected != null ? {selected!} : {},
-        onToggle: onToggle,
+        selectedInterests: widget.selected != null ? {widget.selected!} : {},
+        onToggle: widget.onToggle,
         singleSelect: true,
       ),
     );
   }
 
+  // Selected chip first (always visible), fill 2 remaining from the rest.
+  List<String> _buildPreview(List<String> all) {
+    if (widget.selected == null) return all.take(3).toList();
+    final rest = all.where((c) => c != widget.selected).take(2).toList();
+    return [widget.selected!, ...rest];
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: AppSizes.paddingS,
-          runSpacing: AppSizes.paddingS,
+    return FutureBuilder<List<String>>(
+      future: _categoriesFuture,
+      builder: (context, snapshot) {
+        final preview = _buildPreview(snapshot.data ?? []);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (selected != null)
-              InterestChip(
-                label: selected!,
-                selected: true,
-                onTap: () => onToggle(selected!),
-              ),
-            GestureDetector(
-              onTap: () => _openPopup(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingM,
-                  vertical: AppSizes.paddingXS,
+            Wrap(
+              spacing: AppSizes.paddingS,
+              runSpacing: AppSizes.paddingS,
+              children: [
+                ...preview.map(
+                  (cat) => InterestChip(
+                    label: cat,
+                    selected: widget.selected == cat,
+                    onTap: () => widget.onToggle(cat),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
-                  border: Border.all(color: AppColors.chipBorder),
+                GestureDetector(
+                  onTap: () => _openPopup(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingM,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          BorderRadius.circular(AppSizes.interestChipRadius),
+                      border: Border.all(color: AppColors.chipBorder),
+                    ),
+                    child: const Icon(Icons.add, size: 14, color: AppColors.textDark),
+                  ),
                 ),
-                child: const Icon(Icons.add, size: 14, color: AppColors.textDark),
-              ),
+              ],
             ),
+            if (widget.errorText != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                widget.errorText!,
+                style: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontXS,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ],
-        ),
-        if (errorText != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            errorText!,
-            style: AppTextStyles.poppins(
-              fontSize: AppSizes.fontXS,
-              color: Colors.red,
-            ),
-          ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
