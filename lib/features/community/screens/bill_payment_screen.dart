@@ -365,7 +365,7 @@ class _UploadArea extends StatelessWidget {
           color: AppColors.cardWhite,
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
           border: Border.all(
-            color: AppColors.primary.withOpacity(0.5),
+            color: AppColors.primary.withValues(alpha: 0.5),
             width: 1.5,
             style: BorderStyle.solid,
           ),
@@ -405,7 +405,7 @@ class _DashBorderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFf07050).withOpacity(0.4)
+      ..color = const Color(0xFFf07050).withValues(alpha: 0.4)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -534,7 +534,7 @@ class _ConfirmFooter extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_kBg.withOpacity(0), _kBg],
+              colors: [_kBg.withValues(alpha: 0), _kBg],
             ),
           ),
         ),
@@ -548,7 +548,7 @@ class _ConfirmFooter extends StatelessWidget {
               onPressed: enabled ? onTap : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
+                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill)),

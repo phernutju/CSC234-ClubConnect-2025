@@ -158,12 +158,10 @@ class CommunityService {
     final user = _requireAuth();
     final communityRef = _communities.doc();
     final createdAt = FieldValue.serverTimestamp();
-    print('Creating community with name: $communityName');
     String coverImageURL = '';
     if (coverImageBytes != null) {
       coverImageURL = await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
     }
-    print('Uploaded cover image, URL: $coverImageURL');
     final batch = _db.batch();
     batch.set(communityRef, {
       'communityId': communityRef.id,

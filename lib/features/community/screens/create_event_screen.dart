@@ -146,6 +146,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
 
     setState(() => _isSubmitting = true);
+    final ep = context.read<EventProvider>();
 
     try {
       String coverImageUrl = '';
@@ -168,7 +169,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
       final memberLimit = int.tryParse(_memberController.text) ?? 0;
 
-      await context.read<EventProvider>().createEvent(
+      await ep.createEvent(
             widget.communityId,
             title: name,
             hostName: _hostNameController.text.trim(),
@@ -181,7 +182,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           );
 
       if (!mounted) return;
-      final ep = context.read<EventProvider>();
       if (ep.error != null) {
         _showSnack(ep.error!);
       } else {
@@ -344,7 +344,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             onPressed: _isSubmitting ? null : _onCreate,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
+                              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(AppSizes.radiusPill),

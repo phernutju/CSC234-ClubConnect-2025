@@ -10,7 +10,8 @@
       "Bash(flutter analyze *)",
       "Bash(xargs cat -n)",
       "Bash(Select-Object FullName, PSIsContainer)",
-      "Bash(Sort-Object FullName)"
+      "Bash(Sort-Object FullName)",
+      "Bash(dir *)"
     ]
   }
 }

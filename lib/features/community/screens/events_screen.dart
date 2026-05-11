@@ -168,26 +168,7 @@ class _EventList extends StatelessWidget {
 class _EventCard extends StatelessWidget {
   final EventModel event;
 
-  /// Member display names — populated from backend later; defaults to empty.
-  final List<String> memberNames;
-
-  /// Current RSVP / joined count — populated from backend later; defaults to 0.
-  final int currentMembers;
-
-  const _EventCard({
-    required this.event,
-    this.memberNames = const [],
-    this.currentMembers = 0,
-  });
-
-  static const _avatarColors = [
-    Color(0xFFFFB347), // amber
-    Color(0xFF77DD77), // sage green
-    Color(0xFF89CFF0), // sky blue
-    Color(0xFFCDA4DE), // lavender
-    Color(0xFFFF6961), // soft red
-    Color(0xFFFFD700), // gold
-  ];
+  const _EventCard({required this.event});
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +246,7 @@ class _EventCard extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSizes.paddingS),
                     Text(
-                      '$currentMembers/${event.memberLimit} members',
+                      '0/${event.memberLimit} members',
                       style: GoogleFonts.poppins(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.w500,
@@ -292,13 +273,6 @@ class _EventCard extends StatelessWidget {
                 Row(
                   children: [
                     // Member avatar circles
-                    if (memberNames.isNotEmpty)
-                      _MemberAvatars(
-                        names: memberNames,
-                        colors: _avatarColors,
-                      ),
-
-                    if (memberNames.isNotEmpty) const SizedBox(width: AppSizes.paddingS),
 
                     const Spacer(),
 
@@ -369,84 +343,3 @@ class _CoverImage extends StatelessWidget {
   }
 }
 
-// ── Member avatar row ─────────────────────────────────────────────────────────
-
-class _MemberAvatars extends StatelessWidget {
-  final List<String> names;
-  final List<Color> colors;
-
-  static const int _maxVisible = 4;
-  static const double _size = 26;
-  static const double _overlap = 8;
-
-  const _MemberAvatars({required this.names, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    final visible = names.take(_maxVisible).toList();
-    final overflow = names.length - _maxVisible;
-
-    return SizedBox(
-      height: _size,
-      width: visible.length * (_size - _overlap) + _size + (overflow > 0 ? (_size - _overlap) : 0),
-      child: Stack(
-        children: [
-          for (int i = 0; i < visible.length; i++)
-            Positioned(
-              left: i * (_size - _overlap),
-              child: _AvatarCircle(
-                label: visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
-                color: colors[i % colors.length],
-              ),
-            ),
-          if (overflow > 0)
-            Positioned(
-              left: visible.length * (_size - _overlap),
-              child: _AvatarCircle(
-                label: '+$overflow',
-                color: AppColors.inputFill,
-                textColor: AppColors.textGray,
-                fontSize: AppSizes.fontXXS,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AvatarCircle extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Color textColor;
-  final double fontSize;
-
-  const _AvatarCircle({
-    required this.label,
-    required this.color,
-    this.textColor = AppColors.cardWhite,
-    this.fontSize = AppSizes.fontXS,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: _MemberAvatars._size,
-      height: _MemberAvatars._size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.cardWhite, width: 1.5),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
-      ),
-    );
-  }
-}
