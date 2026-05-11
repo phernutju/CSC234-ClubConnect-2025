@@ -15,6 +15,12 @@ import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';
 import '../widgets/report_message_modal.dart';
 
+class _SystemEntry {
+  final int insertAfter; // insert after this many Firestore messages
+  final ChatMessage message;
+  _SystemEntry(this.insertAfter, this.message);
+}
+
 class ChatScreen extends StatefulWidget {
   final String communityId;
   final String communityName;
@@ -41,6 +47,8 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isSending = false;
   bool _isInitializing = true;
   bool _menuOpen = false;
+
+  final List<_SystemEntry> _systemMessages = [];
 
   // Track which sender UIDs have already had a name fetch triggered.
   final Set<String> _fetchedUids = {};
@@ -93,6 +101,17 @@ class _ChatScreenState extends State<ChatScreen> {
     String currentUid,
     CommunityProvider cp,
   ) {
+    if (m.isSystem) {
+      return ChatMessage(
+        id: m.id,
+        text: m.text,
+        isSent: false,
+        senderName: '',
+        senderId: m.senderId,
+        time: _formatTime(m.timestamp),
+        isSystemMessage: true,
+      );
+    }
     final isSent = m.senderId == currentUid;
     final cachedName = cp.displayNameOf(m.senderId);
     final senderName = isSent
@@ -167,6 +186,37 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
+  }
+
+  void _sendSystemMessage(String text) {
+    if (!mounted) return;
+    setState(() {
+      _systemMessages.add(_SystemEntry(
+        context.read<CommunityProvider>().messages.length,
+        ChatMessage(
+          id: 'sys_${DateTime.now().millisecondsSinceEpoch}',
+          text: text,
+          isSent: false,
+          senderName: '',
+          senderId: 'system',
+          time: _formatTime(DateTime.now()),
+          isSystemMessage: true,
+        ),
+      ));
+    });
+  }
+
+  List<ChatMessage> _mergeSystemMessages(List<ChatMessage> base) {
+    if (_systemMessages.isEmpty) return base;
+    final result = List<ChatMessage>.from(base);
+    // Insert in reverse position order so earlier inserts don't shift later ones
+    final sorted = [..._systemMessages]
+      ..sort((a, b) => b.insertAfter.compareTo(a.insertAfter));
+    for (final entry in sorted) {
+      final pos = entry.insertAfter.clamp(0, result.length);
+      result.insert(pos, entry.message);
+    }
+    return result;
   }
 
   void _scrollToBottom() {
@@ -259,6 +309,7 @@ class _ChatScreenState extends State<ChatScreen> {
       communityName: widget.communityName,
       currentUid: currentUid,
       creatorId: community?.createdById ?? '',
+      onSystemMessage: _sendSystemMessage,
     );
   }
 
@@ -287,9 +338,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUid = context.watch<AppAuthProvider>().user?.uid ?? '';
     final muted = cp.isMuted(widget.communityId);
 
-    // Trigger display-name fetches for any sender we haven't requested yet.
+    // Trigger display-name fetches for any real sender we haven't requested yet.
     for (final m in cp.messages) {
-      if (m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
+      if (!m.isSystem && m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
         cp.fetchDisplayName(m.senderId);
       }
     }
@@ -300,9 +351,9 @@ class _ChatScreenState extends State<ChatScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
-    final uiMessages = cp.messages
-        .map((m) => _toUIMessage(m, currentUid, cp))
-        .toList();
+    final uiMessages = _mergeSystemMessages(
+      cp.messages.map((m) => _toUIMessage(m, currentUid, cp)).toList(),
+    );
 
     final memberDisplay = cp.members.isNotEmpty
         ? cp.members.length.toString()

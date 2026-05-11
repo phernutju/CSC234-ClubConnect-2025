@@ -23,6 +23,7 @@ class ChatMessage {
   final String? readCount; // e.g. "Read 3" — only used for sent messages
   final String? replyToName; // sender name being replied to
   final String? replyToText; // text snippet of the message being replied to
+  final bool isSystemMessage; // centered pill (e.g. "X was removed from the group")
 
   const ChatMessage({
     required this.id,
@@ -36,6 +37,7 @@ class ChatMessage {
     this.readCount,
     this.replyToName,
     this.replyToText,
+    this.isSystemMessage = false,
   });
 }
 
@@ -62,6 +64,7 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (message.isSystemMessage) return _SystemPill(text: message.text);
     return GestureDetector(
       onLongPressStart: onLongPress == null
           ? null
@@ -69,6 +72,37 @@ class MessageBubble extends StatelessWidget {
       child: message.isSent
           ? _SentBubble(message: message)
           : _ReceivedBubble(message: message, onSenderTap: onSenderTap),
+    );
+  }
+}
+
+// ── System message pill (centered, LINE-style) ────────────────────────────────
+
+class _SystemPill extends StatelessWidget {
+  final String text;
+  const _SystemPill({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: AppSizes.systemPillMarginV),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.systemPillPadH,
+          vertical: AppSizes.systemPillPadV,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.systemPillBg,
+          borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+        ),
+        child: Text(
+          text,
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontXS,
+            color: AppColors.systemPillText,
+          ),
+        ),
+      ),
     );
   }
 }

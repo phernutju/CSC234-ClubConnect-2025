@@ -21,6 +21,7 @@ void showMembersBottomSheet(
   required String communityName,
   required String currentUid,
   required String creatorId,
+  void Function(String)? onSystemMessage,
 }) {
   showModalBottomSheet(
     context: context,
@@ -33,6 +34,7 @@ void showMembersBottomSheet(
         communityName: communityName,
         currentUid: currentUid,
         creatorId: creatorId,
+        onSystemMessage: onSystemMessage,
       ),
     ),
   );
@@ -45,12 +47,14 @@ class _MembersSheet extends StatefulWidget {
   final String communityName;
   final String currentUid;
   final String creatorId;
+  final void Function(String)? onSystemMessage;
 
   const _MembersSheet({
     required this.communityId,
     required this.communityName,
     required this.currentUid,
     required this.creatorId,
+    this.onSystemMessage,
   });
 
   @override
@@ -88,6 +92,7 @@ class _MembersSheetState extends State<_MembersSheet> {
         );
 
     if (mounted) {
+      widget.onSystemMessage?.call('$displayName was removed from the group');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$displayName ${AppStrings.memberKickedToast}'),

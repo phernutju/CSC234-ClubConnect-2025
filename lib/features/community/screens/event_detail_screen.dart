@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/bill_data.dart';
 import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/auth_provider.dart';
@@ -32,6 +33,7 @@ class EventDetailScreen extends StatefulWidget {
 class _EventDetailScreenState extends State<EventDetailScreen> {
   _JoinStatus _joinStatus = _JoinStatus.none;
   int _currentMembers = 0;
+  BillData? _publishedBill;
 
   /// Pending join requests — populated locally; backend will sync later.
   final List<_JoinRequest> _pendingRequests = [];
@@ -89,6 +91,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       case _JoinStatus.accepted:
         _goToChat();
         break;
+    }
+  }
+
+  Future<void> _onCreateBillTap() async {
+    final bill = await context.push<BillData>(
+      '/create-bill',
+      extra: {'eventName': widget.event.title},
+    );
+    if (bill != null && mounted) {
+      setState(() => _publishedBill = bill);
     }
   }
 
@@ -255,7 +267,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                         // Event's bills card
                         const SizedBox(height: AppSizes.paddingM),
-                        const _BillsCard(),
+                        _BillsCard(
+                          eventName: widget.event.title,
+                          isHost: isHost,
+                          publishedBill: _publishedBill,
+                          onCreateBill: _onCreateBillTap,
+                        ),
 
                         SizedBox(height: AppSizes.paddingXL + bottomPad),
                       ],
@@ -590,57 +607,114 @@ class _AvatarCircle extends StatelessWidget {
 // ── Event's bills card ────────────────────────────────────────────────────────
 
 class _BillsCard extends StatelessWidget {
-  const _BillsCard();
+  final String       eventName;
+  final bool         isHost;
+  final BillData?    publishedBill;
+  final VoidCallback onCreateBill;
+
+  const _BillsCard({
+    required this.eventName,
+    required this.isHost,
+    required this.onCreateBill,
+    this.publishedBill,
+  });
+
+  Widget _card({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.paddingM,
+          vertical: AppSizes.paddingM,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+          border: Border.all(color: const Color(0xFFE8DFD8)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontXXS,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFFF6B4A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSizes.paddingS),
+            Text(
+              '→',
+              style: GoogleFonts.poppins(
+                fontSize: AppSizes.fontL,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingM,
-        vertical: AppSizes.paddingM,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: const Color(0xFFE8DFD8)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Event's bills",
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontSM,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'view bill summary that each need to pay',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontXXS,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFFF6B4A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSizes.paddingS),
-          Text(
-            '→',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontL,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
+    final hasBill =
+        publishedBill != null && publishedBill!.items.isNotEmpty;
+
+    if (hasBill) {
+      return _card(
+        context: context,
+        title: "Event's bills",
+        subtitle: 'View bill summary and pay your share',
+        onTap: () => context.push('/bill-summary', extra: publishedBill),
+      );
+    }
+
+    if (isHost) {
+      return _card(
+        context: context,
+        title: 'Create Bill',
+        subtitle: 'Create & manage the bill for this event',
+        onTap: onCreateBill,
+      );
+    }
+
+    // Member, no bill yet
+    return _card(
+      context: context,
+      title: "Event's bills",
+      subtitle: 'View bill summary and pay your share',
+      onTap: () => context.push(
+        '/bill-summary',
+        extra: BillData(
+          eventName: eventName,
+          hostName: '',
+          items: const [],
+          members: const [],
+        ),
       ),
     );
   }

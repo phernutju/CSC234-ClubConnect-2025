@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/auth_result.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../services/auth_service.dart';
 import '../../../services/google_auth_service.dart';
-import '../widgets/auth_text_field.dart';
+import '../../../utils/validators.dart';
+import '../widgets/auth_error_banner.dart';
+import '../widgets/validated_field.dart';
 import '../widgets/google_sign_in_button.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -18,10 +24,45 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmController  = TextEditingController();
 
-  String? _emailError;
-  String? _passwordError;
-  String? _confirmError;
+  bool _submitting    = false;
   bool _googleLoading = false;
+
+  // Post-submit auth error — null when no error is present.
+  AuthResult? _authError;
+
+  static const _emailRules = [
+    FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
+    FieldRule(label: 'No spaces',          validate: hasNoSpaces),
+  ];
+
+  static const _passwordRules = [
+    FieldRule(label: 'At least one letter',    validate: hasLetter),
+    FieldRule(label: 'At least one uppercase', validate: hasUppercase),
+    FieldRule(label: 'At least one number',    validate: hasNumber),
+    FieldRule(label: 'At least 8 characters',  validate: hasMinLength8),
+  ];
+
+  // Recomputed each build so the closure always captures the current password.
+  List<FieldRule> get _confirmRules => [
+    FieldRule(
+      label: 'Passwords match',
+      validate: (v) => v.isNotEmpty && v == _passwordController.text,
+    ),
+  ];
+
+  bool get _canSubmit =>
+      !_submitting &&
+      _emailRules.every((r) => r.validate(_emailController.text)) &&
+      _passwordRules.every((r) => r.validate(_passwordController.text)) &&
+      _confirmRules.every((r) => r.validate(_confirmController.text));
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+    _confirmController.addListener(_onFieldChanged);
+  }
 
   @override
   void dispose() {
@@ -31,45 +72,30 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  bool _validate() {
-    final email    = _emailController.text.trim();
-    final password = _passwordController.text;
-    final confirm  = _confirmController.text;
-    String? emailErr;
-    String? passErr;
-    String? confirmErr;
+  void _onFieldChanged() => setState(() => _authError = null);
 
-    if (email.isEmpty) {
-      emailErr = 'Email is required';
-    } else if (!RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,}$').hasMatch(email)) {
-      emailErr = 'Enter a valid email address';
-    }
-
-    if (password.isEmpty) {
-      passErr = 'Password is required';
-    } else if (password.length < 6) {
-      passErr = 'Password must be at least 6 characters';
-    }
-
-    if (confirm.isEmpty) {
-      confirmErr = 'Please confirm your password';
-    } else if (confirm != password) {
-      confirmErr = 'Passwords do not match';
-    }
-
-    setState(() {
-      _emailError    = emailErr;
-      _passwordError = passErr;
-      _confirmError  = confirmErr;
-    });
-
-    return emailErr == null && passErr == null && confirmErr == null;
-  }
-
-  void _onNext() {
-    if (_validate()) {
-      // TODO: create account on backend
-      context.push('/verify-phone');
+  Future<void> _onNext() async {
+    setState(() { _submitting = true; _authError = null; });
+    try {
+      final result = await AuthService.preCheckSignUp(
+        _emailController.text.trim(),
+      );
+      if (!mounted) return;
+      switch (result) {
+        case Success():
+          // Stage credentials for the later full sign-up step.
+          context.read<AppAuthProvider>().setEmailPassword(
+            _emailController.text.trim(),
+            _passwordController.text,
+          );
+          context.push('/verify-phone');
+        case EmailAlreadyRegistered():
+          setState(() => _authError = result);
+        default:
+          setState(() => _authError = const NetworkError());
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -84,14 +110,12 @@ class _SignupScreenState extends State<SignupScreen> {
           'email': account.email,
         });
       }
-    } catch (e, stackTrace) {
+    } catch (e, st) {
       // ignore: avoid_print
-      print('Google Sign-In Error: $e');
-      // ignore: avoid_print
-      print('Stack trace: $stackTrace');
+      print('Google Sign-In Error: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google Sign-In failed: ${e.toString()}')),
+        SnackBar(content: Text('Google Sign-In failed: $e')),
       );
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -100,136 +124,184 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final statusBarH = MediaQuery.of(context).padding.top;
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAF0EC),
-      body: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height,
-          child: Column(
+      body: Stack(
         children: [
-          Expanded(
-            flex: 45,
-            child: Image.asset(
-              'assets/images/background.png',
-              width: double.infinity,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+          SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 45,
+                    child: Image.asset(
+                      'assets/images/background.png',
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 55,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft:  Radius.circular(30),
+                          topRight: Radius.circular(30),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: AppStrings.signupHeading,
+                                    style: GoogleFonts.instrumentSerif(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF1A1A1A),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: AppStrings.signupHeadingAccent,
+                                    style: GoogleFonts.instrumentSerif(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w400,
+                                      fontStyle: FontStyle.italic,
+                                      color: const Color(0xFFFF6B4A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Auth-error banner — only after a failed submit.
+                            if (_authError != null) ...[
+                              AuthErrorBanner(
+                                message: switch (_authError!) {
+                                  EmailAlreadyRegistered() =>
+                                    'This email is already registered. '
+                                    'Try logging in instead.',
+                                  _ => 'Something went wrong. Please try again.',
+                                },
+                                onClose: () => setState(() => _authError = null),
+                                action: _authError is EmailAlreadyRegistered
+                                    ? GestureDetector(
+                                        onTap: () => context.go('/login'),
+                                        child: const Text(
+                                          'Log in',
+                                          style: TextStyle(
+                                            color: Color(0xFFC62828),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            decoration:
+                                                TextDecoration.underline,
+                                            decorationColor:
+                                                Color(0xFFC62828),
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            ValidatedField(
+                              label: AppStrings.signupEmail,
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              rules: _emailRules,
+                            ),
+                            const SizedBox(height: 16),
+
+                            ValidatedField(
+                              label: AppStrings.signupPassword,
+                              controller: _passwordController,
+                              isObscurable: true,
+                              rules: _passwordRules,
+                            ),
+                            const SizedBox(height: 16),
+
+                            ValidatedField(
+                              label: AppStrings.signupConfirm,
+                              controller: _confirmController,
+                              isObscurable: true,
+                              rules: _confirmRules,
+                            ),
+                            const SizedBox(height: 24),
+
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _canSubmit ? _onNext : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF6B4A),
+                                  disabledBackgroundColor:
+                                      const Color(0xFFFF6B4A).withValues(alpha: 0.4),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                child: _submitting
+                                    ? const SizedBox(
+                                        height: 24,
+                                        width: 24,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        AppStrings.signupNext,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            GoogleSignInButton(
+                              isLoading: _googleLoading,
+                              onPressed: _onGoogleSignIn,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          Expanded(
-            flex: 55,
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: AppStrings.signupHeading,
-                            style: GoogleFonts.instrumentSerif(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xFF1A1A1A),
-                            ),
-                          ),
-                          TextSpan(
-                            text: AppStrings.signupHeadingAccent,
-                            style: GoogleFonts.instrumentSerif(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w400,
-                              fontStyle: FontStyle.italic,
-                              color: const Color(0xFFFF6B4A),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
 
-                    AuthTextField(
-                      label: AppStrings.signupEmail,
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      errorText: _emailError,
-                      fillColor: Colors.white,
-                      fieldBorderRadius: 30,
-                      enabledBorderColor: const Color(0xFFDDDDDD),
-                      contentPaddingVertical: 14,
-                    ),
-                    const SizedBox(height: 16),
-
-                    AuthTextField(
-                      label: AppStrings.signupPassword,
-                      controller: _passwordController,
-                      obscureText: true,
-                      errorText: _passwordError,
-                      fillColor: Colors.white,
-                      fieldBorderRadius: 30,
-                      enabledBorderColor: const Color(0xFFDDDDDD),
-                      contentPaddingVertical: 14,
-                    ),
-                    const SizedBox(height: 16),
-
-                    AuthTextField(
-                      label: AppStrings.signupConfirm,
-                      controller: _confirmController,
-                      obscureText: true,
-                      errorText: _confirmError,
-                      fillColor: Colors.white,
-                      fieldBorderRadius: 30,
-                      enabledBorderColor: const Color(0xFFDDDDDD),
-                      contentPaddingVertical: 14,
-                    ),
-                    const SizedBox(height: 24),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _onNext,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6B4A),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: Text(
-                          AppStrings.signupNext,
-                          style: GoogleFonts.poppins(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    GoogleSignInButton(
-                      isLoading: _googleLoading,
-                      onPressed: _onGoogleSignIn,
-                    ),
-                  ],
-                ),
-              ),
+          Positioned(
+            top: statusBarH + 8,
+            left: 4,
+            child: IconButton(
+              onPressed: () => context.pop(),
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)),
+              iconSize: 24,
+              tooltip: 'Back',
             ),
           ),
         ],
-          ),
-        ),
       ),
     );
   }

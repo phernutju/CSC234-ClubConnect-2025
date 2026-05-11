@@ -10,6 +10,7 @@ class MessageModel {
   final String? replyToId;
   final String? replyToSenderName;
   final String? replyToText;
+  final bool isSystem;
 
   MessageModel({
     required this.id,
@@ -21,12 +22,14 @@ class MessageModel {
     this.replyToId,
     this.replyToSenderName,
     this.replyToText,
+    this.isSystem = false,
   });
 
   factory MessageModel.fromJson(Map<String, dynamic> json, String id) {
+    final senderId = (json['senderId'] as String? ?? '').trim();
     return MessageModel(
       id: id,
-      senderId: (json['senderId'] as String? ?? '').trim(),
+      senderId: senderId,
       text: (json['text'] as String? ?? '').trim(),
       imageURL: (json['imageURL'] as String? ?? '').trim(),
       timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -34,6 +37,8 @@ class MessageModel {
       replyToId: json['replyToId'] as String?,
       replyToSenderName: json['replyToSenderName'] as String?,
       replyToText: json['replyToText'] as String?,
+      // Treat as system if the backend set the flag, or sender is the 'system' sentinel.
+      isSystem: (json['isSystem'] as bool? ?? false) || senderId == 'system',
     );
   }
 

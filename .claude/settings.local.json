@@ -7,7 +7,10 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse -Depth 3 | Select-Object -ExpandProperty FullName | ForEach-Object {$_ -replace [regex]::Escape\\(\"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\"\\), \"\"} | Sort-Object)",
       "Bash(flutter pub *)",
       "PowerShell(Get-Command *)",
-      "Bash(flutter analyze *)"
+      "Bash(flutter analyze *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CLUB-CONNECT PROJECT\\\\CSC234-ClubConnect-2025\\\\lib\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }
