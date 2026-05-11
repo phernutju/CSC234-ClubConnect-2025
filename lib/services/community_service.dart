@@ -37,6 +37,11 @@ class CommunityService {
   CollectionReference<Map<String, dynamic>> _members(String communityId) =>
       _communities.doc(communityId).collection('members');
 
+  // Tracks which users were active in a community within the last 24h.
+  // Path: community_activity/{communityId}/activeUsers/{userId}
+  CollectionReference<Map<String, dynamic>> _activityUsers(String communityId) =>
+      _db.collection('community_activity').doc(communityId).collection('activeUsers');
+
   // ── Communities ────────────────────────────────────────────────────────────
 
   Stream<List<CommunityModel>> getCommunities() {
@@ -176,6 +181,7 @@ class CommunityService {
       'createdAt': createdAt,
       'updatedAt': createdAt,
       'createdById': user.uid,
+      'stats': const CommunityStats().toMap(),
     });
     batch.set(_members(communityRef.id).doc(user.uid), {
       'joinedAt': createdAt,
@@ -234,6 +240,8 @@ class CommunityService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
+    _fireAndForget(_incrementStat(communityId, 'joins24h'));
+    _fireAndForget(trackActiveUser(communityId));
   }
 
   Future<void> leaveCommunity(String communityId) async {
@@ -336,6 +344,8 @@ class CommunityService {
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
     });
+    _fireAndForget(_incrementStat(communityId, 'messages24h'));
+    _fireAndForget(trackActiveUser(communityId));
   }
 
   Future<void> sendImageMessage(
@@ -371,6 +381,182 @@ class CommunityService {
     return doc.data()?['displayName'] as String? ?? 'User';
   }
 
+  // ── Trending & Recommendations ─────────────────────────────────────────────
+
+  /// Communities ordered by trendingScore descending.
+  /// Requires Firestore composite index: communities / stats.trendingScore DESC
+  Stream<List<CommunityModel>> fetchTrendingCommunities({int limit = 20}) {
+    return _communities
+        .orderBy('stats.trendingScore', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(CommunityModel.fromJson).toList());
+  }
+
+  /// Score formula: tagMatches*5 + trendingBoost (capped 20).
+  /// Excludes communities the user already joined.
+  /// Falls back to trending list when user has no interests.
+  Future<List<CommunityModel>> fetchRecommendedCommunities({
+    required String userId,
+    required List<String> joinedCommunityIds,
+    int limit = 20,
+  }) async {
+    final userDoc = await _db.collection('users').doc(userId).get();
+    final interests = List<String>.from(userDoc.data()?['interests'] ?? []);
+    final joinedSet = joinedCommunityIds.toSet();
+
+    if (interests.isEmpty) {
+      try {
+        return await fetchTrendingCommunities(limit: limit).first;
+      } catch (_) {
+        return [];
+      }
+    }
+
+    final snap = await _communities.limit(100).get();
+    final scored = <_ScoredCommunity>[];
+
+    for (final doc in snap.docs) {
+      final community = CommunityModel.fromJson(doc);
+      if (joinedSet.contains(community.id)) continue;
+
+      final tagSlugs = community.tags.map((t) => t.slug).toSet();
+      final tagMatches = interests.where(tagSlugs.contains).length;
+      final trendingBoost = (community.stats.trendingScore / 10.0).clamp(0.0, 20.0);
+      final score = tagMatches * 5.0 + trendingBoost;
+
+      if (score > 0) scored.add(_ScoredCommunity(community, score));
+    }
+
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    return scored.take(limit).map((s) => s.community).toList();
+  }
+
+  // ── Activity Tracking ──────────────────────────────────────────────────────
+
+  /// Deduplicates active-user counting to once per user per 24h window.
+  ///
+  /// Uses a transaction so concurrent calls cannot both pass the 24h check
+  /// and double-increment the counter. All reads happen before all writes
+  /// (Firestore transaction requirement).
+  Future<void> trackActiveUser(String communityId) async {
+    final user = _requireAuth();
+    final activityRef = _activityUsers(communityId).doc(user.uid);
+    final communityRef = _communities.doc(communityId);
+
+    await _db.runTransaction((tx) async {
+      final activitySnap = await tx.get(activityRef);
+      final now = Timestamp.now();
+
+      final lastActiveAt = activitySnap.data()?['lastActiveAt'] as Timestamp?;
+      final shouldCount = !activitySnap.exists ||
+          lastActiveAt == null ||
+          now.toDate().difference(lastActiveAt.toDate()) >=
+              const Duration(hours: 24);
+
+      // Read community doc before any writes (only when we need to update stats).
+      DocumentSnapshot<Map<String, dynamic>>? communitySnap;
+      if (shouldCount) communitySnap = await tx.get(communityRef);
+
+      // ── Writes ────────────────────────────────────────────────────────────
+      // Always refresh lastActiveAt so the 24h window is anchored to latest activity.
+      tx.set(activityRef, {'lastActiveAt': now});
+
+      if (!shouldCount || communitySnap == null || !communitySnap.exists) return;
+
+      // First activity in this 24h window — increment counter and recalc score.
+      final statsMap =
+          (communitySnap.data()?['stats'] as Map<String, dynamic>?) ?? {};
+      final newActive = (statsMap['activeUsers24h'] as int? ?? 0) + 1;
+      final newScore = _computeTrendingScore(<String, dynamic>{
+        ...statsMap,
+        'activeUsers24h': newActive,
+      });
+
+      tx.update(communityRef, {
+        'stats.activeUsers24h': FieldValue.increment(1),
+        'stats.trendingScore': newScore,
+        'stats.lastTrendingUpdate': now,
+      });
+    });
+  }
+
+  /// Call when a user reacts to a message.
+  Future<void> incrementReactionCount(String communityId) =>
+      _incrementStat(communityId, 'reactions24h');
+
+  /// Increments a 24h stat counter with lazy window reset.
+  /// If >24h since statsWindowStart, all counters reset before incrementing.
+  Future<void> _incrementStat(String communityId, String field) async {
+    final ref = _communities.doc(communityId);
+    final snap = await ref.get();
+    if (!snap.exists) return;
+
+    final statsMap = (snap.data()?['stats'] as Map<String, dynamic>?) ?? {};
+    final windowStart = statsMap['statsWindowStart'] as Timestamp?;
+    final now = Timestamp.now();
+    final windowExpired = windowStart == null ||
+        now.toDate().difference(windowStart.toDate()) >= const Duration(hours: 24);
+
+    if (windowExpired) {
+      // New 24h window — reset all counters then set this field to 1.
+      final fresh = <String, dynamic>{
+        'messages24h': 0,
+        'activeUsers24h': 0,
+        'joins24h': 0,
+        'reactions24h': 0,
+        'statsWindowStart': now,
+        'lastTrendingUpdate': now,
+        field: 1,
+      };
+      fresh['trendingScore'] = _computeTrendingScore(fresh);
+      await ref.update({'stats': fresh});
+    } else {
+      final newScore = _computeTrendingScore({
+        'messages24h': (statsMap['messages24h'] as int? ?? 0) +
+            (field == 'messages24h' ? 1 : 0),
+        'activeUsers24h': (statsMap['activeUsers24h'] as int? ?? 0) +
+            (field == 'activeUsers24h' ? 1 : 0),
+        'joins24h': (statsMap['joins24h'] as int? ?? 0) +
+            (field == 'joins24h' ? 1 : 0),
+        'reactions24h': (statsMap['reactions24h'] as int? ?? 0) +
+            (field == 'reactions24h' ? 1 : 0),
+      });
+      await ref.update({
+        'stats.$field': FieldValue.increment(1),
+        'stats.trendingScore': newScore,
+        'stats.lastTrendingUpdate': now,
+      });
+    }
+  }
+
+  /// trendingScore = messages*1 + activeUsers*4 + joins*3 + reactions*2
+  static double _computeTrendingScore(Map<String, dynamic> stats) {
+    return (stats['messages24h'] as int? ?? 0) * 1.0 +
+        (stats['activeUsers24h'] as int? ?? 0) * 4.0 +
+        (stats['joins24h'] as int? ?? 0) * 3.0 +
+        (stats['reactions24h'] as int? ?? 0) * 2.0;
+  }
+
+  /// Runs a future without awaiting it; swallows errors so stats failures
+  /// never surface to the user.
+  void _fireAndForget(Future<void> future) {
+    future.catchError((_) {});
+  }
+
+  // Extensibility hook for future ML-based personalization.
+  // Increments the per-user interest score for a tag slug.
+  // Call after join/message in communities with matching tags.
+  // ignore: unused_element
+  Future<void> _incrementInterestScore(String userId, String tagSlug) async {
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('interestScores')
+        .doc(tagSlug)
+        .set({'score': FieldValue.increment(1)}, SetOptions(merge: true));
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   User _requireAuth() {
@@ -404,4 +590,11 @@ class CommunityService {
       throw Exception('Only the community creator can perform this action');
     }
   }
+}
+
+// Private value type used only inside fetchRecommendedCommunities.
+class _ScoredCommunity {
+  final CommunityModel community;
+  final double score;
+  const _ScoredCommunity(this.community, this.score);
 }

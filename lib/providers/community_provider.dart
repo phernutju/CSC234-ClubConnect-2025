@@ -13,15 +13,22 @@ class CommunityProvider extends ChangeNotifier {
   final Map<String, String> _nameCache = {};
   List<CommunityModel> communities = [];
   List<CommunityModel> myCommunities = [];
+  List<CommunityModel> trendingCommunities = [];
+  List<CommunityModel> recommendedCommunities = [];
   CommunityModel? activeCommunity;
   List<MessageModel> messages = [];
   List<MemberModel> members = [];
   bool isLoading = false;
   bool isUploading = false;
+  bool isTrendingLoading = false;
+  bool isRecommendedLoading = false;
   String? error;
+  String? trendingError;
+  String? recommendedError;
 
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
   StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
+  StreamSubscription<List<CommunityModel>>? _trendingSub;
   StreamSubscription<List<MessageModel>>? _messagesSub;
   StreamSubscription<List<MemberModel>>? _membersSub;
 
@@ -244,6 +251,51 @@ class CommunityProvider extends ChangeNotifier {
   Future<void> deleteMessage(String communityId, String messageId) =>
       _run(() => _service.deleteMessage(communityId, messageId));
 
+  // ── Trending ───────────────────────────────────────────────────────────────
+
+  void loadTrendingCommunities({int limit = 20}) {
+    isTrendingLoading = true;
+    trendingError = null;
+    notifyListeners();
+    _trendingSub?.cancel();
+    _trendingSub = _service.fetchTrendingCommunities(limit: limit).listen(
+      (list) {
+        trendingCommunities = list;
+        isTrendingLoading = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        trendingError = e.toString();
+        isTrendingLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  // ── Recommendations ────────────────────────────────────────────────────────
+
+  Future<void> loadRecommendedCommunities(String userId) async {
+    isRecommendedLoading = true;
+    recommendedError = null;
+    notifyListeners();
+    try {
+      recommendedCommunities = await _service.fetchRecommendedCommunities(
+        userId: userId,
+        joinedCommunityIds: myCommunities.map((c) => c.id).toList(),
+      );
+    } catch (e) {
+      recommendedError = e.toString();
+    } finally {
+      isRecommendedLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Reactions ──────────────────────────────────────────────────────────────
+
+  Future<void> incrementReactionCount(String communityId) =>
+      _service.incrementReactionCount(communityId);
+
   // ── Helper ─────────────────────────────────────────────────────────────────
 
   Future<void> _run(Future<void> Function() action) async {
@@ -264,6 +316,7 @@ class CommunityProvider extends ChangeNotifier {
   void dispose() {
     _communitiesSub?.cancel();
     _myCommunitiesSub?.cancel();
+    _trendingSub?.cancel();
     _messagesSub?.cancel();
     _membersSub?.cancel();
     super.dispose();

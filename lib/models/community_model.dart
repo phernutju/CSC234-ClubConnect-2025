@@ -109,6 +109,49 @@ class RoomModel {
   }
 }
 
+/// 24-hour activity stats embedded in each community document.
+/// Used for trending score calculation and recommendation boosting.
+class CommunityStats {
+  final int messages24h;
+  final int activeUsers24h;
+  final int joins24h;
+  final int reactions24h;
+  final double trendingScore;
+  final Timestamp? lastTrendingUpdate;
+  // Marks the start of the current 24h counting window (lazy reset).
+  final Timestamp? statsWindowStart;
+
+  const CommunityStats({
+    this.messages24h = 0,
+    this.activeUsers24h = 0,
+    this.joins24h = 0,
+    this.reactions24h = 0,
+    this.trendingScore = 0.0,
+    this.lastTrendingUpdate,
+    this.statsWindowStart,
+  });
+
+  factory CommunityStats.fromMap(Map<String, dynamic> map) => CommunityStats(
+        messages24h: map['messages24h'] as int? ?? 0,
+        activeUsers24h: map['activeUsers24h'] as int? ?? 0,
+        joins24h: map['joins24h'] as int? ?? 0,
+        reactions24h: map['reactions24h'] as int? ?? 0,
+        trendingScore: (map['trendingScore'] as num?)?.toDouble() ?? 0.0,
+        lastTrendingUpdate: map['lastTrendingUpdate'] as Timestamp?,
+        statsWindowStart: map['statsWindowStart'] as Timestamp?,
+      );
+
+  Map<String, dynamic> toMap() => {
+        'messages24h': messages24h,
+        'activeUsers24h': activeUsers24h,
+        'joins24h': joins24h,
+        'reactions24h': reactions24h,
+        'trendingScore': trendingScore,
+        'lastTrendingUpdate': lastTrendingUpdate,
+        'statsWindowStart': statsWindowStart,
+      };
+}
+
 /// CommunityModel represents a community in the app
 class CommunityModel {
   final String id;
@@ -120,6 +163,7 @@ class CommunityModel {
   final int memberCount;
   final String createdBy;
   final Timestamp createdAt;
+  final CommunityStats stats;
 
   CommunityModel({
     required this.id,
@@ -131,7 +175,8 @@ class CommunityModel {
     required this.memberCount,
     required this.createdBy,
     required this.createdAt,
-  });
+    CommunityStats? stats,
+  }) : stats = stats ?? const CommunityStats();
 
   factory CommunityModel.fromJson(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -145,6 +190,9 @@ class CommunityModel {
       memberCount: data['memberCount'] ?? 0,
       createdBy: data['createdBy'] ?? '',
       createdAt: data['createdAt'] ?? Timestamp.now(),
+      stats: data['stats'] != null
+          ? CommunityStats.fromMap(data['stats'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -158,6 +206,7 @@ class CommunityModel {
       'memberCount': memberCount,
       'createdBy': createdBy,
       'createdAt': createdAt,
+      'stats': stats.toMap(),
     };
   }
 }

@@ -1,213 +1,73 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum BillStatus { pending, partial, settled }
-
-// ─────────────────────────────────────────────
-// Embedded inside each participant doc as an array of maps
-// ─────────────────────────────────────────────
-class BillItem {
+class EventBill {
+  final String billId;
   final String name;
-  final double amount;
-
-  const BillItem({
-    required this.name,
-    required this.amount,
-  });
-
-  factory BillItem.fromMap(Map<String, dynamic> map) {
-    return BillItem(
-      name: map['name'] ?? '',
-      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'amount': amount,
-    };
-  }
-
-  BillItem copyWith({String? name, double? amount}) {
-    return BillItem(
-      name: name ?? this.name,
-      amount: amount ?? this.amount,
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// bills/{billId}/participants/{participantId}
-// ─────────────────────────────────────────────
-class BillParticipantModel {
-  final String userId;
-  final String userName;
-  final String userAvatar;
-  final bool isPaid;
-  final DateTime? paidAt;
-  final List<BillItem> items;
-
-  const BillParticipantModel({
-    required this.userId,
-    required this.userName,
-    required this.userAvatar,
-    this.isPaid = false,
-    this.paidAt,
-    this.items = const [],
-  });
-
-  /// Sum of all item amounts for this participant
-  double get totalOwed => items.fold(0.0, (sum, i) => sum + i.amount);
-
-  factory BillParticipantModel.fromMap(Map<String, dynamic> map, String id) {
-    final rawItems = map['items'] as List<dynamic>? ?? [];
-    return BillParticipantModel(
-      userId: map['userId'] ?? id,
-      userName: map['userName'] ?? '',
-      userAvatar: map['userAvatar'] ?? '',
-      isPaid: map['isPaid'] ?? false,
-      paidAt: (map['paidAt'] as Timestamp?)?.toDate(),
-      items: rawItems
-          .map((e) => BillItem.fromMap(e as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-
-  factory BillParticipantModel.fromFirestore(DocumentSnapshot doc) {
-    return BillParticipantModel.fromMap(
-      doc.data() as Map<String, dynamic>,
-      doc.id,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'userName': userName,
-      'userAvatar': userAvatar,
-      'isPaid': isPaid,
-      'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
-      'items': items.map((i) => i.toMap()).toList(),
-    };
-  }
-
-  BillParticipantModel copyWith({
-    String? userId,
-    String? userName,
-    String? userAvatar,
-    bool? isPaid,
-    DateTime? paidAt,
-    List<BillItem>? items,
-  }) {
-    return BillParticipantModel(
-      userId: userId ?? this.userId,
-      userName: userName ?? this.userName,
-      userAvatar: userAvatar ?? this.userAvatar,
-      isPaid: isPaid ?? this.isPaid,
-      paidAt: paidAt ?? this.paidAt,
-      items: items ?? this.items,
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// bills/{billId}
-// ─────────────────────────────────────────────
-class EventBillModel {
-  final String id;
-  final String title;
-  final String description;
-  final String createdBy; // hostId only
-  final String qrImageUrl;
+  final String hostId;
+  final String hostName;
+  final String hostPromptPayQrUrl;
+  final List<BillMember> members;
   final double totalAmount;
   final BillStatus status;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
-  /// Loaded separately from the participants subcollection
-  final List<BillParticipantModel> participants;
-
-  const EventBillModel({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.createdBy,
-    required this.qrImageUrl,
+  const EventBill({
+    required this.billId,
+    required this.name,
+    required this.hostId,
+    required this.hostName,
+    required this.hostPromptPayQrUrl,
+    required this.members,
     required this.totalAmount,
-    this.status = BillStatus.pending,
+    required this.status,
     required this.createdAt,
-    this.participants = const [],
+    required this.updatedAt,
   });
 
-  double get paidAmount => participants
-      .where((p) => p.isPaid)
-      .fold(0.0, (sum, p) => sum + p.totalOwed);
-
-  double get remainingAmount => totalAmount - paidAmount;
-
-  bool get isSettled => status == BillStatus.settled;
-
-  /// Derive status from participants list when loaded
-  BillStatus get derivedStatus {
-    if (participants.isEmpty) return status;
-    final paidCount = participants.where((p) => p.isPaid).length;
-    if (paidCount == 0) return BillStatus.pending;
-    if (paidCount == participants.length) return BillStatus.settled;
-    return BillStatus.partial;
-  }
-
-  factory EventBillModel.fromMap(Map<String, dynamic> map, String id) {
-    return EventBillModel(
-      id: id,
-      title: map['title'] ?? '',
-      description: map['description'] ?? '',
-      createdBy: map['createdBy'] ?? '',
-      qrImageUrl: map['qrImageUrl'] ?? '',
-      totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0.0,
+  factory EventBill.fromFirestore(DocumentSnapshot doc) {
+    final d = doc.data() as Map<String, dynamic>;
+    return EventBill(
+      billId: doc.id,
+      name: d['name'] ?? '',
+      hostId: d['hostId'] ?? '',
+      hostName: d['hostName'] ?? '',
+      hostPromptPayQrUrl: d['hostPromptPayQrUrl'] ?? '',
+      members: (d['members'] as List? ?? [])
+          .map((m) => BillMember.fromMap(m))
+          .toList(),
+      totalAmount: (d['totalAmount'] ?? 0).toDouble(),
       status: BillStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => BillStatus.pending,
-      ),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        (e) => e.name == d['status'], orElse: () => BillStatus.draft),
+      createdAt: (d['createdAt'] as Timestamp).toDate(),
+      updatedAt: (d['updatedAt'] as Timestamp).toDate(),
     );
   }
 
-  factory EventBillModel.fromFirestore(DocumentSnapshot doc) {
-    return EventBillModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-  }
+  Map<String, dynamic> toFirestore() => {
+    'name': name,
+    'hostId': hostId,
+    'hostName': hostName,
+    'hostPromptPayQrUrl': hostPromptPayQrUrl,
+    'memberIds': members.map((m) => m.uid).toList(),
+    'members': members.map((m) => m.toMap()).toList(),
+    'totalAmount': totalAmount,
+    'status': status.name,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'updatedAt': Timestamp.fromDate(updatedAt),
+  };
+}
 
-  Map<String, dynamic> toMap() {
-    return {
-      'title': title,
-      'description': description,
-      'createdBy': createdBy,
-      'qrImageUrl': qrImageUrl,
-      'totalAmount': totalAmount,
-      'status': status.name,
-      'createdAt': Timestamp.fromDate(createdAt),
-    };
-  }
+enum BillStatus { draft, published, settled }
 
-  EventBillModel copyWith({
-    String? id,
-    String? title,
-    String? description,
-    String? createdBy,
-    String? qrImageUrl,
-    double? totalAmount,
-    BillStatus? status,
-    DateTime? createdAt,
-    List<BillParticipantModel>? participants,
-  }) {
-    return EventBillModel(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      createdBy: createdBy ?? this.createdBy,
-      qrImageUrl: qrImageUrl ?? this.qrImageUrl,
-      totalAmount: totalAmount ?? this.totalAmount,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      participants: participants ?? this.participants,
-    );
-  }
+class BillMember {
+  final String uid;
+  final String displayName;
+
+  const BillMember({required this.uid, required this.displayName});
+
+  factory BillMember.fromMap(Map<String, dynamic> m) =>
+      BillMember(uid: m['uid'] ?? '', displayName: m['displayName'] ?? '');
+
+  Map<String, dynamic> toMap() => {'uid': uid, 'displayName': displayName};
 }

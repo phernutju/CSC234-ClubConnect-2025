@@ -31,7 +31,9 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AppAuthProvider>();
       if (auth.user != null) {
-        context.read<CommunityProvider>().loadMyCommunities();
+        final cp = context.read<CommunityProvider>();
+        cp.loadMyCommunities();
+        cp.loadTrendingCommunities();
         context.read<ProfileProvider>().loadProfile(auth.user!.uid);
       }
     });
@@ -135,6 +137,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   final provider = context.read<CommunityProvider>();
                   if (i == 1) {
                     provider.loadMyCommunities();
+                  } else if (i == 2) {
+                    provider.loadTrendingCommunities();
                   } else {
                     provider.loadCommunities();
                   }
@@ -142,12 +146,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: AppSizes.paddingM),
               Expanded(
-                child: cp.isLoading && cp.communities.isEmpty
+                child: cp.isLoading && cp.communities.isEmpty && _selectedTab != 2
                     ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                     : _TabContent(
                         selectedTab: _selectedTab,
                         communities: _selectedTab == 1 ? cp.myCommunities : cp.communities,
                         myCommunities: cp.myCommunities,
+                        trendingCommunities: cp.trendingCommunities,
+                        isTrendingLoading: cp.isTrendingLoading,
+                        trendingError: cp.trendingError,
+                        onRetryTrending: () =>
+                            context.read<CommunityProvider>().loadTrendingCommunities(),
                         selectedCategory: _selectedCategory,
                         onCategoryChanged: _selectCategory,
                         onJoinTap: _showJoinFlow,
@@ -281,7 +290,10 @@ class _TabContent extends StatelessWidget {
   final int selectedTab;
   final List<CommunityModel> communities;
   final List<CommunityModel> myCommunities;
-
+  final List<CommunityModel> trendingCommunities;
+  final bool isTrendingLoading;
+  final String? trendingError;
+  final VoidCallback onRetryTrending;
   final String? selectedCategory;
   final ValueChanged<String> onCategoryChanged;
   final void Function(CommunityModel) onJoinTap;
@@ -292,11 +304,15 @@ class _TabContent extends StatelessWidget {
     required this.selectedTab,
     required this.communities,
     required this.myCommunities,
+    required this.trendingCommunities,
+    required this.isTrendingLoading,
+    required this.onRetryTrending,
     required this.onJoinTap,
     required this.onDirectTap,
     required this.userInterests,
     required this.selectedCategory,
     required this.onCategoryChanged,
+    this.trendingError,
   });
 
   @override
@@ -305,9 +321,13 @@ class _TabContent extends StatelessWidget {
       case 1:
         return _MyClubList(communities: myCommunities, onTap: onDirectTap);
       case 2:
-        final trending = [...communities]
-          ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
-        return _CommunityList(communities: trending, onTap: onJoinTap);
+        return _TrendingTab(
+          communities: trendingCommunities,
+          isLoading: isTrendingLoading,
+          error: trendingError,
+          onTap: onJoinTap,
+          onRetry: onRetryTrending,
+        );
       default:
         return _DiscoverTab(
           communities: communities,
@@ -445,25 +465,6 @@ class _DiscoverTab extends StatelessWidget {
   }
 }
 
-class _CommunityList extends StatelessWidget {
-  final List<CommunityModel> communities;
-  final void Function(CommunityModel) onTap;
-
-  const _CommunityList({required this.communities, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    if (communities.isEmpty) {
-      return Center(
-        child: Text(
-          'No communities yet',
-          style: AppTextStyles.body(color: AppColors.textGray),
-        ),
-      );
-    }
-    return ListView(children: _buildCommunityCards(communities, onTap));
-  }
-}
 
 List<Widget> _buildCommunityCards(
   List<CommunityModel> communities,
@@ -480,4 +481,138 @@ List<Widget> _buildCommunityCards(
             onTap: () => onTap(c),
           ))
       .toList();
+}
+
+// ── Trending tab ───────────────────────────────────────────────────────────────
+
+class _TrendingTab extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final bool isLoading;
+  final String? error;
+  final void Function(CommunityModel) onTap;
+  final VoidCallback onRetry;
+
+  const _TrendingTab({
+    required this.communities,
+    required this.isLoading,
+    required this.error,
+    required this.onTap,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && communities.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (error != null && communities.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Could not load trending communities',
+              style: AppTextStyles.body(color: AppColors.textGray),
+            ),
+            const SizedBox(height: AppSizes.paddingM),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Retry', style: TextStyle(color: AppColors.primary)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (communities.isEmpty) {
+      return Center(
+        child: Text(
+          'No trending communities yet.\nStart chatting to boost activity!',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.body(color: AppColors.textGray),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: communities.length,
+      itemBuilder: (context, index) {
+        final c = communities[index];
+        return _RankedCard(
+          community: c,
+          rank: index + 1,
+          onTap: () => onTap(c),
+        );
+      },
+    );
+  }
+}
+
+class _RankedCard extends StatelessWidget {
+  final CommunityModel community;
+  final int rank;
+  final VoidCallback onTap;
+
+  const _RankedCard({
+    required this.community,
+    required this.rank,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = community;
+    // Show trending score if non-zero, otherwise fall back to member count.
+    final scoreLabel = c.stats.trendingScore > 0
+        ? 'Score ${c.stats.trendingScore.toStringAsFixed(0)}'
+        : '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}';
+
+    return Stack(
+      children: [
+        ClubCard(
+          name: c.communityName,
+          description: c.description.isEmpty
+              ? c.tags.map((t) => t.name).join(', ')
+              : c.description,
+          memberCount: scoreLabel,
+          coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+          onTap: onTap,
+        ),
+        Positioned(
+          top: AppSizes.paddingS,
+          left: AppSizes.paddingS,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: rank <= 3 ? AppColors.primary : AppColors.textGray,
+              borderRadius: BorderRadius.circular(AppSizes.radiusS),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (rank <= 3)
+                  const Icon(
+                    Icons.local_fire_department,
+                    size: 10,
+                    color: AppColors.cardWhite,
+                  ),
+                if (rank <= 3) const SizedBox(width: 2),
+                Text(
+                  '#$rank',
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.cardWhite,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
