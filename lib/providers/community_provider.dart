@@ -12,6 +12,7 @@ class CommunityProvider extends ChangeNotifier {
   final CommunityService _service;
   final Set<String> _mutedCommunities = {};
   final Map<String, String> _nameCache = {};
+  final Map<String, String> _photoCache = {};
   List<CommunityModel> communities = [];
   List<CommunityModel> myCommunities = [];
   List<CommunityModel> trendingCommunities = [];
@@ -52,17 +53,42 @@ class CommunityProvider extends ChangeNotifier {
   /// Returns the cached display name for [uid], or empty string if not yet fetched.
   String displayNameOf(String uid) => _nameCache[uid] ?? '';
 
-  /// Fetches and caches the display name for [uid] from Firestore.
-  /// No-ops if already cached. Notifies listeners when the name arrives.
+  /// Returns the cached photo URL for [uid], or empty string if not yet fetched.
+  String photoURLOf(String uid) => _photoCache[uid] ?? '';
+
+  /// Fetches and caches displayName + photoURL for [uid] in one Firestore read.
+  /// No-ops if already cached. Notifies listeners when data arrives.
   Future<void> fetchDisplayName(String uid) async {
     if (_nameCache.containsKey(uid)) return;
-    _nameCache[uid] = ''; // mark as in-flight to prevent duplicate fetches
+    _nameCache[uid] = '';
+    _photoCache[uid] = '';
     try {
-      _nameCache[uid] = await _service.getUserDisplayName(uid);
+      final info = await _service.getUserInfo(uid);
+      _nameCache[uid] = info.displayName;
+      _photoCache[uid] = info.photoURL;
     } catch (_) {
-      _nameCache[uid] = 'User';
+      _nameCache[uid] = '';
     }
     notifyListeners();
+  }
+
+  /// Subscribes to the member list for [communityId] and auto-fetches
+  /// display names + photos as members arrive. Safe to call from UI.
+  void loadMembers(String communityId) {
+    _membersSub?.cancel();
+    _membersSub = _service.getMembers(communityId).listen(
+      (list) {
+        members = list;
+        for (final m in list) {
+          fetchDisplayName(m.userId);
+        }
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
   }
 
   void _listenToCommunities(Stream<List<CommunityModel>> stream) {

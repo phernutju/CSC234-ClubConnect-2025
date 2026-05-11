@@ -57,34 +57,35 @@ class CommunityService {
 
   // Tracks which users were active in a community within the last 24h.
   // Path: community_activity/{communityId}/activeUsers/{userId}
-  CollectionReference<Map<String, dynamic>> _activityUsers(String communityId) =>
-      _db.collection('community_activity').doc(communityId).collection('activeUsers');
+  CollectionReference<Map<String, dynamic>> _activityUsers(
+          String communityId) =>
+      _db
+          .collection('community_activity')
+          .doc(communityId)
+          .collection('activeUsers');
 
   // ── Communities ────────────────────────────────────────────────────────────
 
   Stream<List<CommunityModel>> getCommunities() {
-    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
-    return _communities
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
+    return _communities.orderBy('createdAt', descending: true).snapshots().map(
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
   // Alternative: Get communities with limit for performance
   Stream<List<CommunityModel>> getCommunitiesLimited({int limit = 20}) {
-    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     return _communities
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
@@ -95,26 +96,24 @@ class CommunityService {
 
   // Alternative: Get communities by specific IDs
   Stream<List<CommunityModel>> getCommunitiesByIds(List<String> communityIds) {
-    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     if (communityIds.isEmpty) return Stream.value([]);
 
     return _communities
         .where(FieldPath.documentId, whereIn: communityIds)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
   // Get communities filtered by category name (client-side, tags are stored as maps)
   Stream<List<CommunityModel>> getCommunitiesByCategory(String categoryName) {
-    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
-    return _communities
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
+    return _communities.orderBy('createdAt', descending: true).snapshots().map(
           (snap) => snap.docs
               .map((doc) => CommunityModel.fromJson(doc))
               .where((c) => c.tags.any((t) => t.name == categoryName))
@@ -157,9 +156,8 @@ class CommunityService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
@@ -188,7 +186,8 @@ class CommunityService {
     final createdAt = FieldValue.serverTimestamp();
     String coverImageURL = '';
     if (coverImageBytes != null) {
-      coverImageURL = await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
+      coverImageURL =
+          await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
     }
     final batch = _db.batch();
     batch.set(communityRef, {
@@ -272,8 +271,7 @@ class CommunityService {
     final communityDoc = await _communities.doc(communityId).get();
     final communityName =
         communityDoc.data()?['communityName'] as String? ?? '';
-    final createdById =
-        communityDoc.data()?['createdById'] as String?;
+    final createdById = communityDoc.data()?['createdById'] as String?;
 
     final batch = _db.batch();
     batch.set(memberRef, {
@@ -351,12 +349,13 @@ class CommunityService {
   }
 
   Stream<List<MemberModel>> getMembers(String communityId) {
-    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     return _members(communityId).snapshots().map(
-      (snap) => snap.docs
-          .map((doc) => MemberModel.fromJson(doc.data(), doc.id))
-          .toList(),
-    );
+          (snap) => snap.docs
+              .map((doc) => MemberModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   Future<void> editMember(
@@ -386,14 +385,14 @@ class CommunityService {
   // ── Messages ───────────────────────────────────────────────────────────────
 
   Stream<List<MessageModel>> getMessages(String communityId) {
-    if (_auth.currentUser == null) return Stream.error(Exception('Not authenticated'));
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     return _messages(communityId)
         .orderBy('timestamp', descending: false)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => MessageModel.fromFirestore(doc))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => MessageModel.fromFirestore(doc)).toList(),
         );
   }
 
@@ -418,7 +417,10 @@ class CommunityService {
 
     // Check if user is muted before adding message
     if (trimmed.isNotEmpty) {
-      final userDoc = await _db.collection('users').doc(user.uid).get(const GetOptions(source: Source.server));
+      final userDoc = await _db
+          .collection('users')
+          .doc(user.uid)
+          .get(const GetOptions(source: Source.server));
       if ((userDoc.data()?['isMuted'] as bool?) == true) {
         throw const ContentViolationException(
           'You have been restricted from sending messages.',
@@ -437,6 +439,55 @@ class CommunityService {
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
     });
+    if (trimmed.isNotEmpty) {
+      final result = await GeminiService.moderateMessage(trimmed, rules: rules);
+      if (result.isViolating) {
+        final count = await _reportService.submitAiViolation(
+          userId: user.uid,
+          communityId: communityId,
+          messageId: ref.id,
+          messageText: trimmed,
+          result: result,
+        );
+        await ref.delete();
+        throw ContentViolationException(
+          'Message failed to send. This content goes against our community standards.',
+          violationCount: count,
+        );
+      }
+    }
+    final needsNotification =
+        (replyToSenderId != null && replyToSenderId != user.uid) ||
+            mentions.any((uid) => uid != user.uid);
+    if (needsNotification) {
+      final communityDoc = await _communities.doc(communityId).get();
+      final communityName =
+          communityDoc.data()?['communityName'] as String? ?? '';
+      final senderName = await getUserDisplayName(user.uid);
+
+      if (replyToSenderId != null && replyToSenderId != user.uid) {
+        await _notifications.createNotification(replyToSenderId, {
+          'communityId': communityId,
+          'mentionedBy': user.uid,
+          'title': senderName,
+          'description':
+              '$senderName replied to your message in $communityName',
+          'type': 'reply',
+        });
+      }
+
+      for (final uid in mentions) {
+        if (uid == user.uid) continue;
+        await _notifications.createNotification(uid, {
+          'communityId': communityId,
+          'mentionedBy': user.uid,
+          'title': senderName,
+          'description': '$senderName mentioned you in $communityName',
+          'type': 'mention',
+        });
+      }
+    }
+
     _fireAndForget(_incrementStat(communityId, 'messages24h'));
     _fireAndForget(trackActiveUser(communityId));
   }
@@ -476,7 +527,17 @@ class CommunityService {
 
   Future<String> getUserDisplayName(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();
-    return doc.data()?['displayName'] as String? ?? 'User';
+    return doc.data()?['displayName'] as String? ?? '';
+  }
+
+  /// Single doc read returning both displayName and photoURL.
+  Future<({String displayName, String photoURL})> getUserInfo(String uid) async {
+    final doc = await _db.collection('users').doc(uid).get();
+    final data = doc.data();
+    return (
+      displayName: data?['displayName'] as String? ?? '',
+      photoURL: data?['photoURL'] as String? ?? '',
+    );
   }
 
   // ── Trending & Recommendations ─────────────────────────────────────────────
@@ -520,7 +581,8 @@ class CommunityService {
 
       final tagSlugs = community.tags.map((t) => t.slug).toSet();
       final tagMatches = interests.where(tagSlugs.contains).length;
-      final trendingBoost = (community.stats.trendingScore / 10.0).clamp(0.0, 20.0);
+      final trendingBoost =
+          (community.stats.trendingScore / 10.0).clamp(0.0, 20.0);
       final score = tagMatches * 5.0 + trendingBoost;
 
       if (score > 0) scored.add(_ScoredCommunity(community, score));
@@ -560,7 +622,8 @@ class CommunityService {
       // Always refresh lastActiveAt so the 24h window is anchored to latest activity.
       tx.set(activityRef, {'lastActiveAt': now});
 
-      if (!shouldCount || communitySnap == null || !communitySnap.exists) return;
+      if (!shouldCount || communitySnap == null || !communitySnap.exists)
+        return;
 
       // First activity in this 24h window — increment counter and recalc score.
       final statsMap =
@@ -594,7 +657,8 @@ class CommunityService {
     final windowStart = statsMap['statsWindowStart'] as Timestamp?;
     final now = Timestamp.now();
     final windowExpired = windowStart == null ||
-        now.toDate().difference(windowStart.toDate()) >= const Duration(hours: 24);
+        now.toDate().difference(windowStart.toDate()) >=
+            const Duration(hours: 24);
 
     if (windowExpired) {
       // New 24h window — reset all counters then set this field to 1.
@@ -615,8 +679,8 @@ class CommunityService {
             (field == 'messages24h' ? 1 : 0),
         'activeUsers24h': (statsMap['activeUsers24h'] as int? ?? 0) +
             (field == 'activeUsers24h' ? 1 : 0),
-        'joins24h': (statsMap['joins24h'] as int? ?? 0) +
-            (field == 'joins24h' ? 1 : 0),
+        'joins24h':
+            (statsMap['joins24h'] as int? ?? 0) + (field == 'joins24h' ? 1 : 0),
         'reactions24h': (statsMap['reactions24h'] as int? ?? 0) +
             (field == 'reactions24h' ? 1 : 0),
       });

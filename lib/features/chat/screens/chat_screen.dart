@@ -50,7 +50,6 @@ class _ChatScreenState extends State<ChatScreen> {
       text: 'Hey! Anyone want to play badminton?',
       isSent: false,
       senderName: 'TestUser',
-      timestamp: DateTime.now().subtract(const Duration(days: 2)),
       time: '10:14',
     ),
     ChatMessage(
@@ -58,7 +57,6 @@ class _ChatScreenState extends State<ChatScreen> {
       text: "I'm in! Let's meet tomorrow",
       isSent: false,
       senderName: 'JohnDoe',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
       time: '10:15',
     ),
     if (_testFlaggedMessage)
@@ -67,7 +65,6 @@ class _ChatScreenState extends State<ChatScreen> {
         text: 'Fuck you bitch ass hole ur mom mother fucker',
         isSent: true,
         senderName: 'Me',
-        timestamp: DateTime.now(),
         time: '10:16',
         isFlagged: true,
       ),
@@ -99,7 +96,6 @@ class _ChatScreenState extends State<ChatScreen> {
         text: text,
         isSent: true,
         senderName: 'Me',
-        timestamp: DateTime.now(),
         time: _nowTime,
         readCount: 'Read 0',
         replyToName: _replyingTo?.senderName,
@@ -120,7 +116,6 @@ class _ChatScreenState extends State<ChatScreen> {
         imageBytes: bytes,
         isSent: true,
         senderName: 'Me',
-        timestamp: DateTime.now(),
         time: _nowTime,
         readCount: 'Read 0',
       ));
@@ -152,8 +147,6 @@ class _ChatScreenState extends State<ChatScreen> {
         communityName: widget.communityName,
         messageSnippet: message.text,
       ),
-      onDelete: () =>
-          setState(() => _messages.removeWhere((m) => m.id == message.id)),
     );
   }
 
@@ -260,34 +253,32 @@ class _ChatScreenState extends State<ChatScreen> {
 
               // ── Message list ───────────────────────────────────────────
               Expanded(
-                child: Builder(builder: (context) {
-                  final items = _buildItems(_messages);
-                  return ListView.separated(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(AppSizes.paddingM),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSizes.paddingM),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      if (item is String) return _DateSeparator(label: item);
-                      final message = item as ChatMessage;
-                      return MessageBubble(
-                        message: message,
-                        onLongPress: (pos) => _onLongPressMessage(message, pos),
-                        onSenderTap: message.isSent
-                            ? null
-                            : () => context.push(
-                                  '/other-profile',
-                                  extra: ProfileArgs(
-                                    username: message.senderName,
-                                    communityName: widget.communityName,
-                                  ),
+                child: ListView.separated(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(AppSizes.paddingM),
+                  itemCount: _messages.length + 1, // +1 for date separator
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSizes.paddingM),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return const _DateSeparator(label: AppStrings.chatToday);
+                    }
+                    final message = _messages[index - 1];
+                    return MessageBubble(
+                      message: message,
+                      onLongPress: (pos) => _onLongPressMessage(message, pos),
+                      onSenderTap: message.isSent
+                          ? null
+                          : () => context.push(
+                                '/other-profile',
+                                extra: ProfileArgs(
+                                  username: message.senderName,
+                                  communityName: widget.communityName,
                                 ),
-                      );
-                    },
-                  );
-                }),
+                              ),
+                    );
+                  },
+                ),
               ),
 
               // ── Ban banner ─────────────────────────────────────────────
@@ -404,7 +395,7 @@ class _ChatAppBar extends StatelessWidget {
 
 /// Coral drop-down menu bar.
 /// Row 1: Mute · Members · Leave
-/// Row 2 (centered, balanced with spacer): Info · Events
+/// Row 2 (centered): Info · Events
 class _ChatMenuBar extends StatelessWidget {
   final bool muted;
   final VoidCallback onInfo;
@@ -425,24 +416,47 @@ class _ChatMenuBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFE8563A),
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      width: double.infinity,
+      height: AppSizes.chatMenuHeight,
+      color: AppColors.primary,
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
+          // Row 1: Mute · Members · Leave
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MenuItem(icon: Icons.notifications_off, label: 'Mute', onTap: onMute),
-              _MenuItem(icon: Icons.group, label: 'Members', onTap: onShowMembers),
-              _MenuItem(icon: Icons.exit_to_app, label: 'leave', onTap: onLeave),
+              _MenuItem(
+                icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+                label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
+                onTap: onMute,
+              ),
+              _MenuItem(
+                icon: Icons.group_outlined,
+                label: AppStrings.chatMenuMembers,
+                onTap: onShowMembers,
+              ),
+              _MenuItem(
+                icon: Icons.exit_to_app,
+                label: AppStrings.chatMenuLeave,
+                onTap: onLeave,
+              ),
             ],
           ),
-          const SizedBox(height: 24),
+          // Row 2: Info · Events
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo),
-              _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents),
+              _MenuItem(
+                icon: Icons.description_outlined,
+                label: AppStrings.chatMenuInfo,
+                onTap: onInfo,
+              ),
+              _MenuItem(
+                icon: Icons.event_outlined,
+                label: AppStrings.chatMenuEvents,
+                onTap: onEvents,
+              ),
             ],
           ),
         ],
@@ -451,6 +465,7 @@ class _ChatMenuBar extends StatelessWidget {
   }
 }
 
+/// One icon + label item inside the menu bar.
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -467,15 +482,20 @@ class _MenuItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 60),
-          const SizedBox(height: 8),
+          Icon(
+            icon,
+            color: AppColors.cardWhite,
+            size: AppSizes.chatMenuIconSize,
+          ),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontSM,
               fontWeight: FontWeight.bold,
-              fontSize: 13,
+              color: AppColors.cardWhite,
             ),
           ),
         ],
@@ -547,35 +567,6 @@ class _LeaveDialog extends StatelessWidget {
       ),
     );
   }
-}
-
-bool _isSameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
-
-String _dateLabel(DateTime date) {
-  final now = DateTime.now();
-  if (_isSameDay(date, now)) return 'Today';
-  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  if (date.year == now.year) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
-  }
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
-}
-
-List<Object> _buildItems(List<ChatMessage> messages) {
-  final items = <Object>[];
-  DateTime? lastDate;
-  for (final msg in messages) {
-    if (lastDate == null || !_isSameDay(lastDate, msg.timestamp)) {
-      items.add(_dateLabel(msg.timestamp));
-      lastDate = msg.timestamp;
-    }
-    items.add(msg);
-  }
-  return items;
 }
 
 /// Centered date label (e.g. "Today") between message groups.

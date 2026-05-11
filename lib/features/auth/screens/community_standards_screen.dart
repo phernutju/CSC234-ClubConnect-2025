@@ -1,7 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/auth_provider.dart';
 import '../widgets/step_progress_bar.dart';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
@@ -23,8 +25,22 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
   /// Derived from [hasAgreedToPolicy] — gates the primary button.
   bool get isAgreementButtonEnabled => hasAgreedToPolicy;
 
+  Future<void> _onAccept() async {
+    try {
+      await context.read<AppAuthProvider>().signUp();
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<AppAuthProvider>().isLoading;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -102,8 +118,8 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
                     height: AppSizes.buttonHeight,
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: isAgreementButtonEnabled
-                          ? () => context.go('/home')
+                      onPressed: isAgreementButtonEnabled && !isLoading
+                          ? _onAccept
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -114,10 +130,19 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
                               BorderRadius.circular(AppSizes.radiusPill),
                         ),
                       ),
-                      child: Text(
-                        AppStrings.communityStandardsAccept,
-                        style: AppTextStyles.button(color: AppColors.cardWhite),
-                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: AppColors.cardWhite,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              AppStrings.communityStandardsAccept,
+                              style: AppTextStyles.button(color: AppColors.cardWhite),
+                            ),
                     ),
                   ),
                   const SizedBox(height: AppSizes.paddingXS),
