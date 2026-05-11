@@ -5,6 +5,9 @@ import '../../../constants/app_constants.dart';
 import '../../../services/category_service.dart';
 import '../../home/widgets/interest_chip.dart';
 import '../widgets/step_progress_bar.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/category_provider.dart';
+import 'package:provider/provider.dart';
 
 class CategoryScreen extends StatefulWidget {
   final String? displayName;
@@ -18,7 +21,7 @@ class CategoryScreen extends StatefulWidget {
 class _CategoryScreenState extends State<CategoryScreen> {
   final Set<String> _selected = {};
   late final Future<List<String>> _categoriesFuture =
-      CategoryService().getCategories();
+      CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
 
   void _toggleCategory(String label) {
     setState(() {

@@ -5,8 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_model.dart';
+import '../../../models/message_model.dart';
 import '../../../models/profile_args.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/event_provider.dart';
 import '../../home/widgets/message_bubble.dart';
 import '../../home/widgets/message_input_bar.dart';
 import '../../home/widgets/message_long_press_menu.dart';
@@ -15,11 +17,13 @@ import '../../home/widgets/report_message_modal.dart';
 class EventChatScreen extends StatefulWidget {
   final EventModel event;
   final String memberCount;
+  final String communityId;
 
   const EventChatScreen({
     super.key,
     required this.event,
     required this.memberCount,
+    required this.communityId,
   });
 
   @override
@@ -29,20 +33,33 @@ class EventChatScreen extends StatefulWidget {
 class _EventChatScreenState extends State<EventChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
-  final List<ChatMessage> _messages = [];
   ChatMessage? _replyingTo;
   bool _isSending = false;
   bool _muted = false;
   bool _menuOpen = false;
+  final Set<String> _fetchedUids = {};
+  EventProvider? _provider;
+  int _lastMessageCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _provider = context.read<EventProvider>();
+      _provider!.loadEventMessages(widget.communityId, widget.event.id);
+    });
+  }
 
   @override
   void dispose() {
+    _provider?.clearEventMessages();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────────────────────
 
   String get _title => widget.memberCount.isEmpty
       ? widget.event.title
@@ -53,12 +70,31 @@ class _EventChatScreenState extends State<EventChatScreen> {
 
   bool get _isHost {
     final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-    return uid.isNotEmpty && widget.event.createdById == uid;
+    return uid.isNotEmpty && widget.event.createdBy == uid;
   }
 
-  // ── Send ──────────────────────────────────────────────────────────────────────
+  ChatMessage _toUIMessage(
+      MessageModel m, String currentUid, EventProvider ep) {
+    final isSent = m.senderId == currentUid;
+    final cached = ep.displayNameOf(m.senderId);
+    return ChatMessage(
+      id: m.id,
+      text: m.text,
+      imageUrl: m.imageURL.isNotEmpty ? m.imageURL : null,
+      isSent: isSent,
+      senderName: isSent ? 'You' : (cached.isNotEmpty ? cached : '…'),
+      senderId: m.senderId,
+      timestamp: m.timestamp,
+      time: _formatTime(m.timestamp),
+      readCount: isSent ? 'Read ${m.seenBy.length}' : null,
+      replyToName: m.replyToSenderName,
+      replyToText: m.replyToText,
+    );
+  }
 
-  void _sendText() {
+  // ── Actions ──────────────────────────────────────────────────────────────────
+
+  Future<void> _sendText() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSending) return;
 
@@ -69,41 +105,43 @@ class _EventChatScreenState extends State<EventChatScreen> {
       _replyingTo = null;
     });
 
-    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-    setState(() {
-      _messages.add(ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        text: text,
-        isSent: true,
-        senderName: 'You',
-        senderId: uid,
-        time: _formatTime(DateTime.now()),
-        readCount: 'Read 0',
-        replyToName: replySnapshot?.senderName,
-        replyToText: replySnapshot?.text,
-      ));
-      _isSending = false;
-    });
-    _scrollToBottom();
+    try {
+      await context.read<EventProvider>().sendEventMessage(
+            widget.communityId,
+            widget.event.id,
+            text: text,
+            replyToId: replySnapshot?.id,
+            replyToSenderName: replySnapshot?.senderName,
+            replyToText: replySnapshot?.text,
+          );
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Failed to send: $e')));
+      setState(() => _replyingTo = replySnapshot);
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
-  void _sendImage(Uint8List bytes) {
-    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-    setState(() {
-      _isSending = true;
-      _messages.add(ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        text: '',
-        imageBytes: bytes,
-        isSent: true,
-        senderName: 'You',
-        senderId: uid,
-        time: _formatTime(DateTime.now()),
-        readCount: 'Read 0',
-      ));
-      _isSending = false;
-    });
-    _scrollToBottom();
+  Future<void> _sendImage(Uint8List bytes) async {
+    if (_isSending) return;
+    setState(() => _isSending = true);
+    try {
+      await context.read<EventProvider>().sendEventImageMessage(
+            widget.communityId,
+            widget.event.id,
+            bytes,
+          );
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Failed to send image: $e')));
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   void _scrollToBottom() {
@@ -131,7 +169,16 @@ class _EventChatScreenState extends State<EventChatScreen> {
         reportedUsername: message.senderName,
         communityName: widget.event.title,
         messageSnippet: message.text,
+        reporterId: context.read<AppAuthProvider>().user?.uid ?? '',
+        messageId: message.id,
+        targetUserId: message.senderId,
+        communityId: widget.event.id,
       ),
+      onDelete: () => context.read<EventProvider>().deleteEventMessage(
+            widget.communityId,
+            widget.event.id,
+            message.id,
+          ),
     );
   }
 
@@ -143,9 +190,8 @@ class _EventChatScreenState extends State<EventChatScreen> {
       _menuOpen = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(_muted
-          ? AppStrings.chatMutedSnackbar
-          : AppStrings.chatUnmutedSnackbar),
+      content: Text(
+          _muted ? AppStrings.chatMutedSnackbar : AppStrings.chatUnmutedSnackbar),
     ));
   }
 
@@ -174,7 +220,25 @@ class _EventChatScreenState extends State<EventChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ep = context.watch<EventProvider>();
+    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     final statusBarHeight = MediaQuery.of(context).padding.top;
+    final isEnded = widget.event.status == EventStatus.ended;
+
+    for (final msg in ep.eventMessages) {
+      if (!_fetchedUids.contains(msg.senderId)) {
+        _fetchedUids.add(msg.senderId);
+        ep.fetchDisplayName(msg.senderId);
+      }
+    }
+
+    if (ep.eventMessages.length > _lastMessageCount) {
+      _lastMessageCount = ep.eventMessages.length;
+      _scrollToBottom();
+    }
+
+    final uiMessages =
+        ep.eventMessages.map((m) => _toUIMessage(m, currentUid, ep)).toList();
 
     return Scaffold(
       backgroundColor: AppColors.chatBackground,
@@ -191,19 +255,21 @@ class _EventChatScreenState extends State<EventChatScreen> {
                   color: AppColors.primary,
                   backgroundColor: AppColors.inputFill,
                 ),
-              Expanded(child: _buildMessageList()),
-              MessageInputBar(
-                controller: _inputController,
-                onSend: _sendText,
-                onImagePicked: _sendImage,
-                replyToName: _replyingTo?.senderName,
-                replyToText: _replyingTo?.text,
-                onCancelReply: () => setState(() => _replyingTo = null),
-              ),
+              Expanded(child: _buildMessageList(uiMessages, isEnded)),
+              if (isEnded)
+                const _EndedBanner()
+              else
+                MessageInputBar(
+                  controller: _inputController,
+                  onSend: _sendText,
+                  onImagePicked: _sendImage,
+                  replyToName: _replyingTo?.senderName,
+                  replyToText: _replyingTo?.text,
+                  onCancelReply: () => setState(() => _replyingTo = null),
+                ),
             ],
           ),
 
-          // Dismissal barrier
           if (_menuOpen)
             Positioned(
               top: statusBarHeight + AppSizes.appBarHeight,
@@ -217,7 +283,6 @@ class _EventChatScreenState extends State<EventChatScreen> {
               ),
             ),
 
-          // Drop-down menu
           if (_menuOpen)
             Positioned(
               top: statusBarHeight + AppSizes.appBarHeight,
@@ -235,25 +300,25 @@ class _EventChatScreenState extends State<EventChatScreen> {
     );
   }
 
-  Widget _buildMessageList() {
-    if (_messages.isEmpty) {
+  Widget _buildMessageList(List<ChatMessage> messages, bool isEnded) {
+    if (messages.isEmpty) {
       return Center(
         child: Text(
-          'No messages yet. Say hello! 👋',
+          isEnded ? 'This event has ended.' : 'No messages yet. Say hello! 👋',
           style: AppTextStyles.body(color: AppColors.textGray),
         ),
       );
     }
+    final items = _buildItems(messages);
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSizes.paddingM),
-      itemCount: _messages.length + 1,
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return const _DateSeparator(label: AppStrings.chatToday);
-        }
-        final message = _messages[index - 1];
+        final item = items[index];
+        if (item is String) return _DateSeparator(label: item);
+        final message = item as ChatMessage;
         return MessageBubble(
           message: message,
           onLongPress: (pos) => _onLongPressMessage(message, pos),
@@ -322,6 +387,35 @@ class _EventChatAppBar extends StatelessWidget {
   }
 }
 
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _dateLabel(DateTime date) {
+  final now = DateTime.now();
+  if (_isSameDay(date, now)) return 'Today';
+  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (date.year == now.year) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
+  }
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+List<Object> _buildItems(List<ChatMessage> messages) {
+  final items = <Object>[];
+  DateTime? lastDate;
+  for (final msg in messages) {
+    if (lastDate == null || !_isSameDay(lastDate, msg.timestamp)) {
+      items.add(_dateLabel(msg.timestamp));
+      lastDate = msg.timestamp;
+    }
+    items.add(msg);
+  }
+  return items;
+}
+
 // ── Date separator ─────────────────────────────────────────────────────────────
 
 class _DateSeparator extends StatelessWidget {
@@ -333,6 +427,32 @@ class _DateSeparator extends StatelessWidget {
     return Center(
       child: Text(
         label,
+        style: AppTextStyles.body(
+          fontSize: AppSizes.fontXS,
+          color: AppColors.textGray,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Ended banner ───────────────────────────────────────────────────────────────
+
+class _EndedBanner extends StatelessWidget {
+  const _EndedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingS,
+      ),
+      color: AppColors.inputFill,
+      child: Text(
+        'This event has ended — chat is read-only.',
+        textAlign: TextAlign.center,
         style: AppTextStyles.body(
           fontSize: AppSizes.fontXS,
           color: AppColors.textGray,
@@ -443,20 +563,20 @@ class _EventInfoDialog extends StatelessWidget {
           color: AppColors.cardWhite,
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
           boxShadow: const [
-            BoxShadow(color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 8)),
+            BoxShadow(
+                color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 8)),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (event.coverImageUrl.isNotEmpty)
+            if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppSizes.radiusM),
-                ),
+                    top: Radius.circular(AppSizes.radiusM)),
                 child: Image.network(
-                  event.coverImageUrl,
+                  event.imageUrl!,
                   height: 150,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -477,10 +597,10 @@ class _EventInfoDialog extends StatelessWidget {
                       color: AppColors.textDark,
                     ),
                   ),
-                  if (event.hostName.isNotEmpty) ...[
+                  if (event.createdBy.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(
-                      'by ${event.hostName}',
+                      'by ${event.createdBy}',
                       style: GoogleFonts.poppins(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.w500,
@@ -490,14 +610,12 @@ class _EventInfoDialog extends StatelessWidget {
                   ],
                   const SizedBox(height: AppSizes.paddingM),
                   _InfoRow(icon: Icons.calendar_month, text: dateStr),
-                  if (event.location.isNotEmpty) ...[
+                  if (event.description.isNotEmpty) ...[
                     const SizedBox(height: AppSizes.paddingXS),
-                    _InfoRow(icon: Icons.location_on, text: event.location),
-                  ],
-                  if (event.detail.isNotEmpty) ...[
+                    _InfoRow(icon: Icons.location_on, text: 'Location'),
                     const SizedBox(height: AppSizes.paddingM),
                     Text(
-                      event.detail,
+                      event.description,
                       style: GoogleFonts.poppins(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.w300,

@@ -5,38 +5,26 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
+import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
-
-// ── Join status ───────────────────────────────────────────────────────────────
-
-enum _JoinStatus { none, pending, accepted }
-
-class _JoinRequest {
-  final String userId;
-  final String username;
-  const _JoinRequest({required this.userId, required this.username});
-}
-
-// ── Screen ────────────────────────────────────────────────────────────────────
+import '../../../providers/smart_bill_provider.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel event;
+  final String communityId;
 
-  const EventDetailScreen({super.key, required this.event});
+  const EventDetailScreen({
+    super.key,
+    required this.event,
+    required this.communityId,
+  });
 
   @override
   State<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
-  _JoinStatus _joinStatus = _JoinStatus.none;
-  int _currentMembers = 0;
-
-  /// Pending join requests — populated locally; backend will sync later.
-  final List<_JoinRequest> _pendingRequests = [];
-
-  /// Accepted member display names — populated locally; backend will sync later.
-  final List<String> _memberNames = [];
+  AttendeeProvider? _attendeeProvider;
 
   static const _avatarColors = [
     Color(0xFFFFB347),
@@ -47,102 +35,130 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     Color(0xFFFFD700),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _attendeeProvider = context.read<AttendeeProvider>();
+      _attendeeProvider!.loadAttendees(widget.communityId, widget.event.id);
+      await _attendeeProvider!
+          .checkIsAttending(widget.communityId, widget.event.id);
+      if (!mounted) return;
+      context.read<SmartBillProvider>().loadBillByEvent(widget.communityId, widget.event.id);
+    });
+  }
+
+  @override
+  void dispose() {
+    _attendeeProvider?.clearAttendees();
+    super.dispose();
+  }
+
   // ── Host check ──────────────────────────────────────────────────────────────
 
   bool get _isHost {
     final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-    return uid.isNotEmpty && widget.event.createdById == uid;
+    return uid.isNotEmpty && widget.event.createdBy == uid;
   }
 
-  // ── Button ──────────────────────────────────────────────────────────────────
+  // ── Navigation ──────────────────────────────────────────────────────────────
 
-  String get _buttonLabel {
-    if (_isHost) return 'Enter Chat';
-    switch (_joinStatus) {
-      case _JoinStatus.none:     return 'Join';
-      case _JoinStatus.pending:  return 'Cancel';
-      case _JoinStatus.accepted: return 'Enter Chat';
-    }
-  }
-
-  void _onButtonTap() {
-    if (_isHost) {
-      _goToChat();
-      return;
-    }
-    switch (_joinStatus) {
-      case _JoinStatus.none:
-        final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-        setState(() {
-          _joinStatus = _JoinStatus.pending;
-          _pendingRequests.add(_JoinRequest(userId: uid, username: 'You'));
-        });
-        break;
-      case _JoinStatus.pending:
-        final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-        setState(() {
-          _pendingRequests.removeWhere((r) => r.userId == uid);
-          _joinStatus = _JoinStatus.none;
-        });
-        break;
-      case _JoinStatus.accepted:
-        _goToChat();
-        break;
-    }
+  Future<void> _onCreateBillTap() async {
+    await context.push(
+      '/create-bill',
+      extra: {
+        'communityId': widget.communityId,
+        'eventId': widget.event.id,
+        'eventName': widget.event.title,
+      },
+    );
   }
 
   void _goToChat() {
+    final ap = context.read<AttendeeProvider>();
     context.push(
       '/event-chat',
       extra: EventChatArgs(
         event: widget.event,
-        memberCount: '$_currentMembers/${widget.event.memberLimit}',
+        memberCount: '${ap.attendees.length}/${widget.event.maxAttendees}',
+        communityId: widget.communityId,
       ),
     );
   }
 
-  // ── Host actions ─────────────────────────────────────────────────────────────
+  // ── Button tap ──────────────────────────────────────────────────────────────
 
-  void _acceptRequest(_JoinRequest req) {
-    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
-    setState(() {
-      _pendingRequests.remove(req);
-      _memberNames.add(req.username);
-      _currentMembers++;
-      // Same-device demo: if current user's request is accepted, update status.
-      if (req.userId == currentUid) _joinStatus = _JoinStatus.accepted;
-    });
-  }
+  Future<void> _onButtonTap() async {
+    if (_isHost) {
+      _goToChat();
+      return;
+    }
+    final ap = context.read<AttendeeProvider>();
+    final communityId = widget.communityId;
+    final eventId = widget.event.id;
 
-  void _rejectRequest(_JoinRequest req) {
-    setState(() => _pendingRequests.remove(req));
+    if (ap.isAttending) {
+      await ap.leaveEvent(communityId, eventId);
+      if (!mounted) return;
+      if (ap.error != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(ap.error!)));
+      }
+    } else {
+      await ap.joinEvent(communityId, eventId);
+      if (!mounted) return;
+      if (ap.error != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(ap.error!)));
+      } else {
+        _goToChat();
+      }
+    }
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final ap = context.watch<AttendeeProvider>();
+    context.watch<SmartBillProvider>();
     final dateStr = widget.event.formattedDateRange;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isHost = _isHost;
+    final memberCount = ap.attendees.length;
+    final memberNames = ap.attendees.map((a) => a.displayName).toList();
+
+    String buttonLabel;
+    if (isHost) {
+      buttonLabel = 'Enter Chat';
+    } else if (ap.isAttending) {
+      buttonLabel = 'Leave';
+    } else {
+      buttonLabel = 'Join';
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // ── App bar ─────────────────────────────────────────────────────────
+          // ── App bar ───────────────────────────────────────────────────────
           _DetailAppBar(
             title: widget.event.title,
-            memberCount: '$_currentMembers/${widget.event.memberLimit}',
+            memberCount: '$memberCount/${widget.event.maxAttendees}',
           ),
 
-          // ── Scrollable content ───────────────────────────────────────────────
+          // ── Scrollable content ────────────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _CoverImage(url: widget.event.coverImageUrl),
+                  _CoverImage(
+                    url: widget.event.imageUrl?.isNotEmpty == true
+                        ? widget.event.imageUrl!
+                        : '',
+                  ),
 
                   Padding(
                     padding: const EdgeInsets.all(AppSizes.paddingM),
@@ -163,14 +179,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         // Date row
                         _IconRow(icon: Icons.calendar_month, text: dateStr),
 
-                        // Location row
-                        if (widget.event.location.isNotEmpty) ...[
+                        // Location / description row
+                        if (widget.event.description.isNotEmpty) ...[
                           const SizedBox(height: 14),
-                          _IconRow(icon: Icons.location_on, text: widget.event.location),
+                          _IconRow(
+                              icon: Icons.location_on,
+                              text: widget.event.location),
                         ],
 
                         // Event Detail section
-                        if (widget.event.detail.isNotEmpty) ...[
+                        if (widget.event.description.isNotEmpty) ...[
                           const SizedBox(height: AppSizes.paddingM),
                           Text(
                             'Event Detail',
@@ -182,7 +200,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                           const SizedBox(height: AppSizes.paddingXS),
                           Text(
-                            widget.event.detail,
+                            widget.event.description,
                             style: GoogleFonts.poppins(
                               fontSize: AppSizes.fontSM,
                               fontWeight: FontWeight.w300,
@@ -193,68 +211,31 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                         // ── Members section ──────────────────────────────────
                         const SizedBox(height: 25),
-
-                        if (isHost) ...[
-                          // Host: pending requests
-                          if (_pendingRequests.isNotEmpty) ...[
-                            Text(
-                              'Pending Requests (${_pendingRequests.length})',
-                              style: GoogleFonts.poppins(
-                                fontSize: AppSizes.fontSM,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSizes.paddingS),
-                            ..._pendingRequests.map((req) => Padding(
-                              padding: const EdgeInsets.only(bottom: AppSizes.paddingS),
-                              child: _PendingRequestTile(
-                                request: req,
-                                onAccept: () => _acceptRequest(req),
-                                onReject: () => _rejectRequest(req),
-                              ),
-                            )),
-                            const SizedBox(height: AppSizes.paddingS),
-                          ],
-
-                          // Host: members list
-                          Text(
-                            'Members ($_currentMembers/${widget.event.memberLimit})',
-                            style: GoogleFonts.poppins(
-                              fontSize: AppSizes.fontSM,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
+                        Text(
+                          'Members ($memberCount/${widget.event.maxAttendees})',
+                          style: GoogleFonts.poppins(
+                            fontSize: AppSizes.fontSM,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
                           ),
-                          if (_memberNames.isNotEmpty) ...[
-                            const SizedBox(height: AppSizes.paddingS),
-                            _MemberAvatarRow(
-                              names: _memberNames,
-                              colors: _avatarColors,
-                            ),
-                          ],
-                        ] else ...[
-                          // Non-host: member count + avatar row
-                          Text(
-                            'Members ($_currentMembers/${widget.event.memberLimit})',
-                            style: GoogleFonts.poppins(
-                              fontSize: AppSizes.fontSM,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
+                        ),
+                        if (memberNames.isNotEmpty) ...[
+                          const SizedBox(height: AppSizes.paddingS),
+                          _MemberAvatarRow(
+                            names: memberNames,
+                            colors: _avatarColors,
                           ),
-                          if (_memberNames.isNotEmpty) ...[
-                            const SizedBox(height: AppSizes.paddingS),
-                            _MemberAvatarRow(
-                              names: _memberNames,
-                              colors: _avatarColors,
-                            ),
-                          ],
                         ],
 
-                        // Event's bills card
+                        // Bills card
                         const SizedBox(height: AppSizes.paddingM),
-                        const _BillsCard(),
+                        _BillsCard(
+                          communityId:  widget.communityId,
+                          eventId:      widget.event.id,
+                          isHost:       isHost,
+                          isAttending:  ap.isAttending,
+                          onCreateBill: _onCreateBillTap,
+                        ),
 
                         SizedBox(height: AppSizes.paddingXL + bottomPad),
                       ],
@@ -265,7 +246,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ),
           ),
 
-          // ── Action button ────────────────────────────────────────────────────
+          // ── Action button ─────────────────────────────────────────────────
+          if (ap.isLoading)
+            const LinearProgressIndicator(
+              color: AppColors.primary,
+              backgroundColor: AppColors.inputFill,
+            ),
           Padding(
             padding: EdgeInsets.fromLTRB(
               AppSizes.paddingM,
@@ -273,115 +259,73 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               AppSizes.paddingM,
               bottomPad > 0 ? bottomPad : AppSizes.paddingL,
             ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _onButtonTap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+            child: Column(
+              children: [
+                if (!isHost && ap.isAttending) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: ap.isLoading ? null : _goToChat,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: AppColors.inputBorder,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSizes.radiusPill),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppSizes.paddingM),
+                      ),
+                      child: Text(
+                        'Go to Chat',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppSizes.fontML,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.cardWhite,
+                        ),
+                      ),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
-                ),
-                child: Text(
-                  _buttonLabel,
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontML,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.cardWhite,
+                  const SizedBox(height: AppSizes.paddingS),
+                ],
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: ap.isLoading ? null : _onButtonTap,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (!isHost && ap.isAttending)
+                          ? AppColors.cardWhite
+                          : AppColors.primary,
+                      foregroundColor: (!isHost && ap.isAttending)
+                          ? AppColors.primary
+                          : AppColors.cardWhite,
+                      disabledBackgroundColor: AppColors.inputBorder,
+                      elevation: 0,
+                      side: (!isHost && ap.isAttending)
+                          ? const BorderSide(color: AppColors.primary)
+                          : BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSizes.radiusPill),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: AppSizes.paddingM),
+                    ),
+                    child: Text(
+                      buttonLabel,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppSizes.fontML,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-// ── Pending request tile ──────────────────────────────────────────────────────
-
-class _PendingRequestTile extends StatelessWidget {
-  final _JoinRequest request;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-
-  const _PendingRequestTile({
-    required this.request,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // Avatar circle
-        Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            color: Color(0xFFFFB347),
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            request.username.isNotEmpty
-                ? request.username[0].toUpperCase()
-                : '?',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w600,
-              color: AppColors.cardWhite,
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSizes.paddingS),
-
-        // Username
-        Expanded(
-          child: Text(
-            request.username,
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textDark,
-            ),
-          ),
-        ),
-
-        // Accept button (✓)
-        GestureDetector(
-          onTap: onAccept,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check, color: AppColors.cardWhite, size: 16),
-          ),
-        ),
-        const SizedBox(width: AppSizes.paddingXS),
-
-        // Reject button (✗)
-        GestureDetector(
-          onTap: onReject,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.close, color: AppColors.textDark, size: 16),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -396,7 +340,8 @@ class _DetailAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayTitle = memberCount.isEmpty ? title : '$title ($memberCount)';
+    final displayTitle =
+        memberCount.isEmpty ? title : '$title ($memberCount)';
     return Container(
       color: AppColors.primary,
       padding: EdgeInsets.only(
@@ -411,7 +356,8 @@ class _DetailAppBar extends StatelessWidget {
           children: [
             GestureDetector(
               onTap: () => context.pop(),
-              child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+              child:
+                  const Icon(Icons.arrow_back, color: AppColors.cardWhite),
             ),
             const SizedBox(width: AppSizes.paddingM),
             Expanded(
@@ -445,7 +391,8 @@ class _CoverImage extends StatelessWidget {
         height: AppSizes.coverImageHeight,
         width: double.infinity,
         color: AppColors.inputFill,
-        child: const Icon(Icons.image_outlined, color: AppColors.inputBorder, size: 48),
+        child: const Icon(Icons.image_outlined,
+            color: AppColors.inputBorder, size: 48),
       );
     }
     return SizedBox(
@@ -457,7 +404,8 @@ class _CoverImage extends StatelessWidget {
         errorBuilder: (_, __, ___) => Container(
           height: AppSizes.coverImageHeight,
           color: AppColors.inputFill,
-          child: const Icon(Icons.broken_image_outlined, color: AppColors.inputBorder, size: 48),
+          child: const Icon(Icons.broken_image_outlined,
+              color: AppColors.inputBorder, size: 48),
         ),
         loadingBuilder: (_, child, progress) => progress == null
             ? child
@@ -465,7 +413,8 @@ class _CoverImage extends StatelessWidget {
                 height: AppSizes.coverImageHeight,
                 color: AppColors.inputFill,
                 child: const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                      color: AppColors.primary, strokeWidth: 2),
                 ),
               ),
       ),
@@ -530,7 +479,9 @@ class _MemberAvatarRow extends StatelessWidget {
             Positioned(
               left: i * (_size - _overlap),
               child: _AvatarCircle(
-                label: visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
+                label: visible[i].isNotEmpty
+                    ? visible[i][0].toUpperCase()
+                    : '?',
                 color: colors[i % colors.length],
               ),
             ),
@@ -589,58 +540,128 @@ class _AvatarCircle extends StatelessWidget {
 // ── Event's bills card ────────────────────────────────────────────────────────
 
 class _BillsCard extends StatelessWidget {
-  const _BillsCard();
+  final String       communityId;
+  final String       eventId;
+  final bool         isHost;
+  final bool         isAttending;
+  final VoidCallback onCreateBill;
+
+  const _BillsCard({
+    required this.communityId,
+    required this.eventId,
+    required this.isHost,
+    required this.isAttending,
+    required this.onCreateBill,
+  });
+
+  Widget _card({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.paddingM,
+          vertical: AppSizes.paddingM,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+          border: Border.all(color: const Color(0xFFE8DFD8)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontXXS,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFFF6B4A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSizes.paddingS),
+            Text(
+              '→',
+              style: GoogleFonts.poppins(
+                fontSize: AppSizes.fontL,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingM,
-        vertical: AppSizes.paddingM,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: const Color(0xFFE8DFD8)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Event's bills",
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontSM,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'view bill summary that each need to pay',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontXXS,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFFF6B4A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSizes.paddingS),
-          Text(
-            '→',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontL,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
+    final provider = context.watch<SmartBillProvider>();
+    final bill     = provider.bill;
+    final hasBill  = bill != null;
+
+    // isHost + no bill: show Create Bill
+    if (isHost && !hasBill) {
+      return _card(
+        context:  context,
+        title:    'Create Bill',
+        subtitle: 'Create & manage the bill for this event',
+        onTap:    onCreateBill,
+      );
+    }
+
+    // isHost + has bill: show Manage Bill → BillSummaryScreen
+    if (isHost && hasBill) {
+      return _card(
+        context:  context,
+        title:    'Manage Bill',
+        subtitle: 'View and manage the bill summary',
+        onTap: () => context.push('/bill-summary', extra: {
+          'communityId':       communityId,
+          'eventId':           eventId,
+          'billId':            bill.id,
+          'isCurrentUserHost': true,
+        }),
+      );
+    }
+
+    // non-host: hide if not attending (includes loading state where isAttending is false)
+    if (!isAttending) return const SizedBox.shrink();
+
+    // member + no bill: hide section
+    if (!hasBill) return const SizedBox.shrink();
+
+    // member + has bill: show View Bill → BillSummaryScreen (member view)
+    return _card(
+      context:  context,
+      title:    'View Bill',
+      subtitle: 'View the bill and pay your share',
+      onTap: () => context.push('/bill-summary', extra: {
+        'communityId':       communityId,
+        'eventId':           eventId,
+        'billId':            bill.id,
+        'isCurrentUserHost': false,
+      }),
     );
   }
 }

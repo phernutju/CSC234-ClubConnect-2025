@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isCurrentUser(uid) {
+      return isAuthed() && request.auth.uid == uid;
+    }
+
+    function isMember(communityId) {
+      return isAuthed() &&
+        exists(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid));
+    }
+
+    function memberRole(communityId) {
+      return get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid)).data.role;
+    }
+
+    function isAdminOrCreator(communityId) {
+      return isMember(communityId) &&
+        memberRole(communityId) in ['admin', 'creator'];
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      // Any authenticated user can read profiles (needed for display-name lookups).
+      allow read: if isAuthed();
+      // Only the owner can write their own profile.
+      allow create, update: if isCurrentUser(userId);
+      allow delete: if false;
+
+      // Notifications subcollection — scoped to the owning user.
+      match /notifications/{notificationId} {
+        allow read, write: if isCurrentUser(userId);
+      }
+    }
+
+    // ── Communities ───────────────────────────────────────────────────────────
+
+    match /communities/{communityId} {
+      // Any authenticated user can browse communities.
+      allow read: if isAuthed();
+      // Any authenticated user can create a community.
+      allow create: if isAuthed();
+      // Only admins / creator can update community metadata.
+      allow update: if isAdminOrCreator(communityId);
+      allow delete: if false;
+
+      // Members subcollection
+      match /members/{userId} {
+        allow read: if isAuthed();
+        // A user can add themselves (join) or be added by an admin/creator.
+        allow create: if isCurrentUser(userId) || isAdminOrCreator(communityId);
+        // Role changes are admin/creator only; a member can delete themselves (leave).
+        allow update: if isAdminOrCreator(communityId);
+        allow delete: if isCurrentUser(userId) || isAdminOrCreator(communityId);
+      }
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Only members can read or send messages.
+        allow read: if isMember(communityId);
+        allow create: if isMember(communityId);
+        // A member can update seenBy on any message; only the sender can edit text.
+        allow update: if isMember(communityId) &&
+          (resource.data.senderId == request.auth.uid ||
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy']));
+        // Sender or admin/creator can delete.
+        allow delete: if isAuthed() &&
+          (resource.data.senderId == request.auth.uid || isAdminOrCreator(communityId));
+      }
+    }
+
+    // ── Reports ───────────────────────────────────────────────────────────────
+
+    match /reports/{reportId} {
+      // Any authenticated user can submit a report or read their own reports.
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      // Status updates are performed server-side (admin actions via Cloud Functions
+      // or trusted service accounts); disallow direct client writes here.
+      allow update, delete: if false;
+    }
+
+    // ── Deny everything else ──────────────────────────────────────────────────
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -35,7 +35,7 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
   void initState() {
     super.initState();
     _localSelected = Set<String>.from(widget.selectedInterests);
-    _categoriesFuture = CategoryService().getCategories();
+    _categoriesFuture = CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
   }
 
   void _toggle(String name) {

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -15,11 +17,15 @@ import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';
 import '../widgets/report_message_modal.dart';
 
+class _SystemEntry {
+  final int insertAfter; // insert after this many Firestore messages
+  final ChatMessage message;
+  _SystemEntry(this.insertAfter, this.message);
+}
+
 class ChatScreen extends StatefulWidget {
   final String communityId;
   final String communityName;
-
-  /// Fallback member count shown before the member stream loads.
   final String memberCount;
 
   const ChatScreen({
@@ -42,13 +48,19 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isInitializing = true;
   bool _menuOpen = false;
 
-  // Track which sender UIDs have already had a name fetch triggered.
+  final List<_SystemEntry> _systemMessages = [];
+
+  // Ban state
+  bool _isBanned = false;
+  bool _isMuted = false;
+  StreamSubscription<DocumentSnapshot>? _banSub;
+
+  // Mention autocomplete
+  String? _mentionQuery;
+  final Map<String, String> _pendingMentions = {};
+
   final Set<String> _fetchedUids = {};
-
-  // Stored so dispose() can call clearActiveCommunity() safely.
   CommunityProvider? _provider;
-
-  // Track last-known message count to auto-scroll on new messages.
   int _lastMessageCount = 0;
 
   @override
@@ -60,10 +72,13 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _inputController.addListener(_onTextChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final cp = context.read<CommunityProvider>();
       _provider = cp;
+      _provider!.addListener(_onProviderChange);
       if (widget.communityId.isEmpty) {
         setState(() => _isInitializing = false);
         return;
@@ -72,34 +87,143 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       if (community != null) cp.setActiveCommunity(community);
       setState(() => _isInitializing = false);
+      _startBanWatch();
+    });
+  }
+
+  void _startBanWatch() {
+    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
+    if (uid.isEmpty) return;
+    _banSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .listen((snap) {
+      if (mounted && snap.exists) {
+        setState(() {
+          _isBanned = (snap.data()?['isBanned'] as bool?) ?? false;
+          _isMuted = (snap.data()?['isMuted'] as bool?) ?? false;
+        });
+      }
     });
   }
 
   @override
   void dispose() {
+    _provider?.removeListener(_onProviderChange);
+    _banSub?.cancel();
     _provider?.clearActiveCommunity();
+    _inputController.removeListener(_onTextChanged);
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  void _onProviderChange() {
+    final warning = _provider?.violationWarning;
+    if (warning != null && mounted) {
+      _provider?.violationWarning = null; // clear before showing
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(warning),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      });
+    }
+  }
+
+  // ── Mention detection ────────────────────────────────────────────────────────
+
+  void _onTextChanged() {
+    final text = _inputController.text;
+    final cursor = _inputController.selection.baseOffset;
+    if (cursor <= 0) {
+      if (_mentionQuery != null) setState(() => _mentionQuery = null);
+      return;
+    }
+
+    final textBeforeCursor = text.substring(0, cursor);
+    final lastAt = textBeforeCursor.lastIndexOf('@');
+    if (lastAt < 0) {
+      if (_mentionQuery != null) setState(() => _mentionQuery = null);
+      return;
+    }
+
+    final fragment = textBeforeCursor.substring(lastAt + 1);
+    if (fragment.contains(' ')) {
+      if (_mentionQuery != null) setState(() => _mentionQuery = null);
+      return;
+    }
+
+    if (_mentionQuery != fragment) setState(() => _mentionQuery = fragment);
+  }
+
+  void _onMentionSelected(String displayName, String uid) {
+    final text = _inputController.text;
+    final cursor = _inputController.selection.baseOffset.clamp(0, text.length);
+    final lastAt = text.lastIndexOf('@', cursor);
+    if (lastAt < 0) return;
+
+    final before = text.substring(0, lastAt);
+    final after = text.substring(cursor);
+    final inserted = '@$displayName ';
+    _inputController.value = TextEditingValue(
+      text: '$before$inserted$after',
+      selection: TextSelection.collapsed(offset: before.length + inserted.length),
+    );
+    _pendingMentions[displayName] = uid;
+    setState(() => _mentionQuery = null);
+  }
+
+  List<({String uid, String displayName})> _buildSuggestions(CommunityProvider cp, String currentUid) {
+    final q = _mentionQuery;
+    if (q == null) return [];
+
+    final results = <({String uid, String displayName})>[];
+    for (final m in cp.members) {
+      if (m.userId == currentUid) continue;
+      final name = cp.displayNameOf(m.userId);
+      if (name.isEmpty) continue;
+      if (q.isEmpty || name.toLowerCase().contains(q.toLowerCase())) {
+        results.add((uid: m.userId, displayName: name));
+      }
+    }
+    return results;
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
 
   String _formatTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
-  ChatMessage _toUIMessage(
-    MessageModel m,
-    String currentUid,
-    CommunityProvider cp,
-  ) {
+  ChatMessage _toUIMessage(MessageModel m, String currentUid, CommunityProvider cp) {
+    if (m.isSystem) {
+      return ChatMessage(
+        id: m.id,
+        text: m.text,
+        isSent: false,
+        senderName: m.senderName,
+        senderId: m.senderId,
+        timestamp: m.timestamp,
+        time: _formatTime(m.timestamp),
+        isSystemMessage: true,
+        type: m.type,
+      );
+    }
     final isSent = m.senderId == currentUid;
     final cachedName = cp.displayNameOf(m.senderId);
-    final senderName = isSent
-        ? 'You'
-        : cachedName.isNotEmpty
-            ? cachedName
-            : '…';
+    final senderName = isSent ? 'You' : (cachedName.isNotEmpty ? cachedName : '…');
+
+    final mentionMap = <String, String>{};
+    for (final uid in m.mentions) {
+      final name = cp.displayNameOf(uid);
+      if (name.isNotEmpty) mentionMap[name] = uid;
+    }
+
     return ChatMessage(
       id: m.id,
       text: m.text,
@@ -107,24 +231,36 @@ class _ChatScreenState extends State<ChatScreen> {
       isSent: isSent,
       senderName: senderName,
       senderId: m.senderId,
+      timestamp: m.timestamp,
       time: _formatTime(m.timestamp),
       readCount: isSent ? 'Read ${m.seenBy.length}' : null,
       replyToName: m.replyToSenderName,
       replyToText: m.replyToText,
+      mentionMap: mentionMap,
     );
   }
 
-  // ── Actions ─────────────────────────────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────────────────────
 
   Future<void> _sendTextMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty || _isSending || _isBanned) return;
+    if (_isMuted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You have been restricted from sending messages.')),
+      );
+      return;
+    }
 
     final replySnapshot = _replyingTo;
+    final mentionUids = List<String>.from(_pendingMentions.values);
+
     _inputController.clear();
     setState(() {
       _isSending = true;
       _replyingTo = null;
+      _mentionQuery = null;
+      _pendingMentions.clear();
     });
 
     try {
@@ -134,6 +270,8 @@ class _ChatScreenState extends State<ChatScreen> {
             replyToId: replySnapshot?.id,
             replyToSenderName: replySnapshot?.senderName,
             replyToText: replySnapshot?.text,
+            replyToSenderId: replySnapshot?.senderId,
+            mentions: mentionUids,
           );
       _scrollToBottom();
     } catch (e) {
@@ -147,17 +285,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _sendImageMessage(Uint8List bytes) {
-    _doSendImage(bytes);
-  }
+  void _sendImageMessage(Uint8List bytes) => _doSendImage(bytes);
 
   Future<void> _doSendImage(Uint8List bytes) async {
     setState(() => _isSending = true);
     try {
-      await context.read<CommunityProvider>().sendImageMessage(
-            widget.communityId,
-            bytes,
-          );
+      await context.read<CommunityProvider>().sendImageMessage(widget.communityId, bytes);
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
@@ -167,6 +300,38 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
+  }
+
+  void _sendSystemMessage(String text) {
+    if (!mounted) return;
+    setState(() {
+      _systemMessages.add(_SystemEntry(
+        context.read<CommunityProvider>().messages.length,
+        ChatMessage(
+          id: 'sys_${DateTime.now().millisecondsSinceEpoch}',
+          text: text,
+          isSent: false,
+          senderName: '',
+          senderId: 'system',
+          timestamp: DateTime.now(),
+          time: _formatTime(DateTime.now()),
+          isSystemMessage: true,
+        ),
+      ));
+    });
+  }
+
+  List<ChatMessage> _mergeSystemMessages(List<ChatMessage> base) {
+    if (_systemMessages.isEmpty) return base;
+    final result = List<ChatMessage>.from(base);
+    // Insert in reverse position order so earlier inserts don't shift later ones
+    final sorted = [..._systemMessages]
+      ..sort((a, b) => b.insertAfter.compareTo(a.insertAfter));
+    for (final entry in sorted) {
+      final pos = entry.insertAfter.clamp(0, result.length);
+      result.insert(pos, entry.message);
+    }
+    return result;
   }
 
   void _scrollToBottom() {
@@ -192,6 +357,27 @@ class _ChatScreenState extends State<ChatScreen> {
         reportedUsername: message.senderName,
         communityName: widget.communityName,
         messageSnippet: message.text,
+        reporterId: context.read<AppAuthProvider>().user?.uid ?? '',
+        targetUserId: message.senderId,
+        communityId: widget.communityId,
+        messageId: message.id,
+      ),
+      onDelete: () => context
+          .read<CommunityProvider>()
+          .deleteMessage(widget.communityId, message.id),
+    );
+  }
+
+  void _onMentionTap(String uid, String currentUid, CommunityProvider cp) {
+    if (uid == currentUid) return;
+    final name = cp.displayNameOf(uid);
+    context.push(
+      '/other-profile',
+      extra: ProfileArgs(
+        userId: uid,
+        username: name.isNotEmpty ? name : uid,
+        communityName: widget.communityName,
+        communityId: widget.communityId,
       ),
     );
   }
@@ -206,7 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
-    final isHost = community.createdById == currentUid;
+    final isHost = community.createdBy == currentUid;
     if (isHost) {
       context.push('/edit-community', extra: community);
     } else {
@@ -233,6 +419,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+
   void _onLeave() {
     setState(() => _menuOpen = false);
     showDialog(
@@ -258,7 +445,8 @@ class _ChatScreenState extends State<ChatScreen> {
       communityId: widget.communityId,
       communityName: widget.communityName,
       currentUid: currentUid,
-      creatorId: community?.createdById ?? '',
+      creatorId: community?.createdBy ?? '',
+      onSystemMessage: _sendSystemMessage,
     );
   }
 
@@ -287,26 +475,42 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUid = context.watch<AppAuthProvider>().user?.uid ?? '';
     final muted = cp.isMuted(widget.communityId);
 
-    // Trigger display-name fetches for any sender we haven't requested yet.
+    // Trigger display-name fetches for message senders
     for (final m in cp.messages) {
-      if (m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
+      if (!m.isSystem && m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
         cp.fetchDisplayName(m.senderId);
       }
     }
 
-    // Auto-scroll when a new message arrives.
+    // Trigger display-name fetches for all members (needed for autocomplete)
+    if (_mentionQuery != null) {
+      for (final m in cp.members) {
+        if (m.userId != currentUid && _fetchedUids.add(m.userId)) {
+          cp.fetchDisplayName(m.userId);
+        }
+      }
+    }
+
+    // Trigger display-name fetches for mentioned UIDs in messages
+    for (final m in cp.messages) {
+      for (final uid in m.mentions) {
+        if (_fetchedUids.add(uid)) cp.fetchDisplayName(uid);
+      }
+    }
+
     if (cp.messages.length != _lastMessageCount) {
       _lastMessageCount = cp.messages.length;
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
-    final uiMessages = cp.messages
-        .map((m) => _toUIMessage(m, currentUid, cp))
-        .toList();
+    final uiMessages = _mergeSystemMessages(
+      cp.messages.map((m) => _toUIMessage(m, currentUid, cp)).toList(),
+    );
 
     final memberDisplay = cp.members.isNotEmpty
         ? cp.members.length.toString()
         : widget.memberCount;
+    final suggestions = _buildSuggestions(cp, currentUid);
 
     return Scaffold(
       backgroundColor: AppColors.chatBackground,
@@ -334,11 +538,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
 
               // ── Message list ────────────────────────────────────────────
-              Expanded(
-                child: _buildMessageList(uiMessages, cp),
-              ),
+              Expanded(child: _buildMessageList(uiMessages, cp, currentUid)),
 
-              // ── Input bar ───────────────────────────────────────────────
+              // ── Mention autocomplete bar ─────────────────────────────────
+              if (suggestions.isNotEmpty)
+                _MentionSuggestionsBar(
+                  suggestions: suggestions,
+                  onSelect: _onMentionSelected,
+                ),
+
+              // ── Ban banner ───────────────────────────────────────────────
+              if (_isBanned) const _BanBanner(),
+
+              // ── Input bar ────────────────────────────────────────────────
               MessageInputBar(
                 controller: _inputController,
                 onSend: _sendTextMessage,
@@ -346,6 +558,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 replyToName: _replyingTo?.senderName,
                 replyToText: _replyingTo?.text,
                 onCancelReply: () => setState(() => _replyingTo = null),
+                enabled: !_isBanned,
               ),
             ],
           ),
@@ -384,11 +597,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageList(List<ChatMessage> uiMessages, CommunityProvider cp) {
+  Widget _buildMessageList(List<ChatMessage> uiMessages, CommunityProvider cp, String currentUid) {
     if (_isInitializing || (cp.isLoading && cp.messages.isEmpty)) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     if (cp.messages.isEmpty) {
@@ -400,16 +611,16 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    final items = _buildItems(uiMessages);
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSizes.paddingM),
-      itemCount: uiMessages.length + 1, // +1 for the date separator
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return const _DateSeparator(label: AppStrings.chatToday);
-        }
-        final message = uiMessages[index - 1];
+        final item = items[index];
+        if (item is String) return _DateSeparator(label: item);
+        final message = item as ChatMessage;
         return MessageBubble(
           message: message,
           onLongPress: (pos) => _onLongPressMessage(message, pos),
@@ -421,8 +632,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       userId: message.senderId,
                       username: message.senderName,
                       communityName: widget.communityName,
+                      communityId: widget.communityId,
                     ),
                   ),
+          onMentionTap: (uid) => _onMentionTap(uid, currentUid, cp),
         );
       },
     );
@@ -431,7 +644,84 @@ class _ChatScreenState extends State<ChatScreen> {
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
 
-/// Coral app bar: back arrow, community name + member count, hamburger menu.
+class _MentionSuggestionsBar extends StatelessWidget {
+  final List<({String uid, String displayName})> suggestions;
+  final void Function(String displayName, String uid) onSelect;
+
+  const _MentionSuggestionsBar({required this.suggestions, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 160),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        border: Border(top: BorderSide(color: AppColors.rateCardBorder)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, -2)),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: suggestions.length,
+        itemBuilder: (context, i) {
+          final s = suggestions[i];
+          return ListTile(
+            dense: true,
+            leading: Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.avatarSalmon,
+              ),
+            ),
+            title: Text(
+              s.displayName,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontSM,
+                color: AppColors.textDark,
+              ),
+            ),
+            onTap: () => onSelect(s.displayName, s.uid),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _BanBanner extends StatelessWidget {
+  const _BanBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: AppSizes.banBannerHeight),
+      decoration: BoxDecoration(
+        color: AppColors.banBannerBg,
+        boxShadow: const [
+          BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, -2)),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingXS,
+      ),
+      child: Text(
+        AppStrings.banText,
+        textAlign: TextAlign.center,
+        style: AppTextStyles.body(
+          fontSize: AppSizes.fontXXS,
+          fontWeight: FontWeight.w300,
+          color: AppColors.textDark,
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatAppBar extends StatelessWidget {
   final String communityName;
   final String memberCount;
@@ -487,7 +777,35 @@ class _ChatAppBar extends StatelessWidget {
   }
 }
 
-/// Centered date label (e.g. "Today") between message groups.
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _dateLabel(DateTime date) {
+  final now = DateTime.now();
+  if (_isSameDay(date, now)) return 'Today';
+  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (date.year == now.year) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
+  }
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+List<Object> _buildItems(List<ChatMessage> messages) {
+  final items = <Object>[];
+  DateTime? lastDate;
+  for (final msg in messages) {
+    if (lastDate == null || !_isSameDay(lastDate, msg.timestamp)) {
+      items.add(_dateLabel(msg.timestamp));
+      lastDate = msg.timestamp;
+    }
+    items.add(msg);
+  }
+  return items;
+}
+
 class _DateSeparator extends StatelessWidget {
   final String label;
   const _DateSeparator({required this.label});
@@ -497,16 +815,12 @@ class _DateSeparator extends StatelessWidget {
     return Center(
       child: Text(
         label,
-        style: AppTextStyles.body(
-          fontSize: AppSizes.fontXS,
-          color: AppColors.textGray,
-        ),
+        style: AppTextStyles.body(fontSize: AppSizes.fontXS, color: AppColors.textGray),
       ),
     );
   }
 }
 
-/// Coral drop-down menu bar with Info / Mute / Leave options.
 class _ChatMenuBar extends StatelessWidget {
   final bool muted;
   final VoidCallback onInfo;
@@ -529,11 +843,10 @@ class _ChatMenuBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.primary,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row 1: Mute · Members · Leave
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -542,32 +855,21 @@ class _ChatMenuBar extends StatelessWidget {
                 label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
                 onTap: onMute,
               ),
-              _MenuItem(
-                icon: Icons.group_outlined,
-                label: AppStrings.chatMenuMembers,
-                onTap: onShowMembers,
-              ),
-              _MenuItem(
-                icon: Icons.exit_to_app,
-                label: AppStrings.chatMenuLeave,
-                onTap: onLeave,
-              ),
+              _MenuItem(icon: Icons.group_outlined, label: AppStrings.chatMenuMembers, onTap: onShowMembers),
+              _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
             ],
           ),
-          const SizedBox(height: 8),
-          // Row 2: Info · Events
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MenuItem(
-                icon: Icons.description_outlined,
-                label: AppStrings.chatMenuInfo,
-                onTap: onInfo,
-              ),
-              _MenuItem(
-                icon: Icons.local_activity,
-                label: AppStrings.chatMenuEvents,
-                onTap: onEvents,
+              _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
+              _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
+              IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  child: _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: () {}),
+                ),
               ),
             ],
           ),
@@ -577,7 +879,6 @@ class _ChatMenuBar extends StatelessWidget {
   }
 }
 
-/// One icon + label item inside the menu bar.
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -596,14 +897,14 @@ class _MenuItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.cardWhite, size: AppSizes.chatMenuIconSize),
-          const SizedBox(height: 4),
+          Icon(icon, color: Colors.white, size: 44),
+          const SizedBox(height: 8),
           Text(
             label,
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontSM,
+            style: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.bold,
-              color: AppColors.cardWhite,
+              fontSize: 13,
             ),
           ),
         ],
@@ -612,7 +913,6 @@ class _MenuItem extends StatelessWidget {
   }
 }
 
-/// Compact leave-confirmation dialog.
 class _LeaveDialog extends StatelessWidget {
   final VoidCallback onNo;
   final VoidCallback onYes;
@@ -665,7 +965,6 @@ class _LeaveDialog extends StatelessWidget {
   }
 }
 
-/// Shared dialog button with InkWell highlight.
 class _DialogButton extends StatelessWidget {
   final String label;
   final Color color;
@@ -702,7 +1001,6 @@ class _DialogButton extends StatelessWidget {
   }
 }
 
-/// Thin red banner shown when the provider reports an error.
 class _ErrorBanner extends StatelessWidget {
   final String message;
   const _ErrorBanner({required this.message});
@@ -710,18 +1008,74 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      color: AppColors.alertRed.withValues(alpha: 0.1),
-      padding: const EdgeInsets.symmetric(
+      margin: const EdgeInsets.symmetric(
         horizontal: AppSizes.paddingM,
         vertical: AppSizes.paddingS,
       ),
-      child: Text(
-        message,
-        style: AppTextStyles.body(
-          fontSize: AppSizes.fontXS,
-          color: AppColors.alertRed,
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.30),
+          width: 1,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingM,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$message Repeated offenses will result in a ban.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontSM,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: AppSizes.paddingS),
+          GestureDetector(
+            onTap: () {
+              final community =
+                  context.read<CommunityProvider>().activeCommunity;
+              if (community != null) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierColor: Colors.black45,
+                  builder: (_) => CommunityInfoModal(community: community),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Open the Info menu to view community rules.'),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              'Review rules',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ).copyWith(
+                decoration: TextDecoration.underline,
+                decorationColor: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

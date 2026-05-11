@@ -3,12 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/review_model.dart';
 import '../models/user_model.dart';
+import 'notification_service.dart';
 import 'storage_service.dart';
 
 class ProfileService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final StorageService _storage;
+  final NotificationService _notifications;
 
   static const _allowedProfileFields = {
     'displayName',
@@ -18,10 +20,15 @@ class ProfileService {
     'photoURL',
   };
 
-  ProfileService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
-      : _db = db ?? FirebaseFirestore.instance,
+  ProfileService({
+    FirebaseFirestore? db,
+    FirebaseAuth? auth,
+    StorageService? storage,
+    NotificationService? notifications,
+  })  : _db = db ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _storage = storage ?? StorageService();
+        _storage = storage ?? StorageService(),
+        _notifications = notifications ?? NotificationService();
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
@@ -32,7 +39,7 @@ class ProfileService {
   CollectionReference<Map<String, dynamic>> _ratings(String userId) =>
       _users.doc(userId).collection('rating');
 
-  // ── Profile (3.3) ──────────────────────────────────────────────────────────
+  // ── Profile ────────────────────────────────────────────────────────────────
 
   Future<UserModel> getUserProfile(String userId) async {
     final doc = await _users.doc(userId).get();
@@ -94,7 +101,7 @@ class ProfileService {
     await _users.doc(userId).delete();
   }
 
-  // ── Reviews (3.5) ──────────────────────────────────────────────────────────
+  // ── Reviews ────────────────────────────────────────────────────────────────
 
   Future<ReviewModel> createReview(
     String targetUserId, {
@@ -119,12 +126,22 @@ class ProfileService {
     };
 
     final ref = await _ratings(targetUserId).add(data);
+
+    await _notifications.createNotification(targetUserId, {
+      'communityId': communityId,
+      'mentionedBy': current.uid,
+      'title': current.displayName ?? 'Someone',
+      'description':
+          '${current.displayName ?? 'Someone'} rated you ${score.toInt()} stars in $communityName',
+      'type': 'rating',
+    });
+
     return ReviewModel.fromJson(ref.id, data);
   }
 
   Future<ReviewsResult> getReviews(String targetUserId) async {
     final snapshot = await _ratings(targetUserId).get();
-    
+
     final reviews = snapshot.docs
         .map((doc) => ReviewModel.fromJson(doc.id, doc.data()))
         .toList();
@@ -150,8 +167,9 @@ class ProfileService {
 
     final updates = <String, dynamic>{};
     if (data.containsKey('score')) {
-      _validateScore(data['score'] as double);
-      updates['score'] = data['score'];
+      final score = (data['score'] as num).toDouble();
+      _validateScore(score);
+      updates['score'] = score;
     }
     if (data.containsKey('comment')) {
       final comment = data['comment'] as String;
@@ -179,6 +197,7 @@ class ProfileService {
 
   /// Fetch just the community name from a community ID.
   Future<String?> getCommunityName(String communityId) async {
+    if (communityId.isEmpty) return null;
     final doc = await _communities.doc(communityId).get();
     if (!doc.exists) return null;
     return doc.data()?['communityName'] as String?;
@@ -209,14 +228,14 @@ class ProfileService {
     return user;
   }
 
-  Future<void> _requireAdmin(String uid) async {
-    final doc = await _users.doc(uid).get();
+  Future<void> _requireAdmin(String uid) async {    
+    final doc = await _users.doc(uid).get();  
     if (doc.data()?['role'] != 'admin') throw Exception('Permission denied');
   }
 
   void _validateScore(double score) {
-    if (!{1.0, 2.0, 3.0, 4.0, 5.0}.contains(score)) {
-      throw ArgumentError('score must be "1"–"5", got "$score"');
+    if (score < 1.0 || score > 5.0) {
+      throw ArgumentError('score must be between 1.0 and 5.0, got $score');
     }
   }
 }

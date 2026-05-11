@@ -177,7 +177,7 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                           label: AppStrings.createCategoryLabel),
                       const SizedBox(height: AppSizes.paddingS),
                       _ReadOnlyCategoryChips(
-                          categories: widget.community.category),
+                          categories: widget.community.tags.map((t) => t.name).toList()),
                       const SizedBox(height: AppSizes.paddingM),
                       _RulesSection(
                         controllers: _rulesControllers,
@@ -187,7 +187,7 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                       Consumer<CommunityProvider>(
                         builder: (context, cp, _) {
                           final isHost = context.watch<AppAuthProvider>().user?.uid ==
-                              widget.community.createdById;
+                              widget.community.createdBy;
                           return Row(
                             children: [
                               if (isHost) ...[

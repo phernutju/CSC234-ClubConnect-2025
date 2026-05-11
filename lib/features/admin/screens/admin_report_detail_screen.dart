@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
-import '../../../models/report_model.dart';
+import '../../../models/report_model.dart' as fs;
+import '../../../providers/report_provider.dart';
+import '../models/report_model.dart';
 import '../widgets/ban_popup.dart';
 
 class AdminReportDetailScreen extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
 
   const AdminReportDetailScreen({super.key, required this.report});
 
@@ -66,7 +69,7 @@ class AdminReportDetailScreen extends StatelessWidget {
 }
 
 class _DarkHeader extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _DarkHeader({required this.report});
 
   @override
@@ -131,7 +134,7 @@ class _DarkHeader extends StatelessWidget {
 }
 
 class _SeverityRow extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _SeverityRow({required this.report});
 
   @override
@@ -175,7 +178,7 @@ class _SeverityRow extends StatelessWidget {
 }
 
 class _AiAnalysisCard extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _AiAnalysisCard({required this.report});
 
   @override
@@ -190,6 +193,18 @@ class _AiAnalysisCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          if (report.description.isNotEmpty && report.source.contains('AI'))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'AI reason: ${report.description}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: const Color(0xFF797979),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
           _ScoreRow(label: 'Hate Speech', score: report.hateSpeechScore),
           const SizedBox(height: 10),
           _ScoreRow(label: 'Harassment', score: report.harassmentScore),
@@ -360,7 +375,7 @@ class _ChatBubble extends StatelessWidget {
 
 
 class _BottomActions extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _BottomActions({required this.report});
 
   @override
@@ -378,7 +393,11 @@ class _BottomActions extends StatelessWidget {
           Expanded(
             flex: 1,
             child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () async {
+                final reportProvider = context.read<ReportProvider>();
+                await reportProvider.updateReportStatus(report.id, fs.ReportStatus.reviewed);
+                if (context.mounted) Navigator.pop(context);
+              },
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.white, width: 1),
                 shape: RoundedRectangleBorder(

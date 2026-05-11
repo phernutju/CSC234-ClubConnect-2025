@@ -12,6 +12,11 @@ class ProfileProvider extends ChangeNotifier {
 
   UserModel? profile;
   ReviewsResult? reviewsResult;
+
+  // Isolated state for OtherProfileScreen — never touches [profile] or [reviewsResult].
+  UserModel? viewedProfile;
+  ReviewsResult? viewedReviewsResult;
+
   bool isLoading = false;
   String? error;
 
@@ -49,7 +54,7 @@ class ProfileProvider extends ChangeNotifier {
   Future<void> loadCategories() async {
     if (_categoriesLoaded) return;
     try {
-      categories = await _categoryService.getCategories();
+      categories = await _categoryService.getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
       _categoriesLoaded = true;
       notifyListeners();
     } catch (_) {
@@ -99,6 +104,13 @@ class ProfileProvider extends ChangeNotifier {
         }
       });
 
+  Future<void> loadViewedProfile(String userId) => _run(() async {
+        viewedProfile = null;
+        viewedReviewsResult = null;
+        viewedProfile = await _service.getUserProfile(userId);
+        viewedReviewsResult = await _service.getReviews(userId);
+      });
+
   Future<void> updateProfile(
     String userId,
     Map<String, dynamic> data, {
@@ -133,7 +145,7 @@ class ProfileProvider extends ChangeNotifier {
           score: score,
           comment: comment,
         );
-        reviewsResult = await _service.getReviews(targetUserId);
+        viewedReviewsResult = await _service.getReviews(targetUserId);
       });
 
   Future<void> updateReview(

@@ -1,11 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../providers/profile_provider.dart';
+import '../../../models/report_model.dart';
+import '../../../providers/report_provider.dart';
 
 // ── Modal widget ──────────────────────────────────────────────────────────────
 
-/// The full report dialog. Stateful because the user can select a reason chip.
 class ReportUserModal extends StatefulWidget {
   final String username;
   final String communityName;
@@ -27,19 +28,71 @@ class _ReportUserModalState extends State<ReportUserModal> {
   final _descController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<ReportProvider>().resetState();
+    });
+  }
+
+  @override
   void dispose() {
     _descController.dispose();
     super.dispose();
   }
 
+  ReportReason _reasonToEnum(String label) {
+    switch (label) {
+      case 'Hate Speech': return ReportReason.hateSpeech;
+      case 'Harassment':  return ReportReason.harassment;
+      case 'Threat':      return ReportReason.threat;
+      case 'Scam':        return ReportReason.scam;
+      default:            return ReportReason.other;
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_selectedReason == null) return;
+    final rp = context.read<ReportProvider>();
+    await rp.submitReport(
+      ReportModel(
+        reportId: '',
+        reporterId: FirebaseAuth.instance.currentUser?.uid ?? '',
+        targetUserId: widget.userId,
+        communityId: '',
+        // use userId as dedup key so one reporter can only report a user once
+        messageId: widget.userId,
+        messageText: '',
+        reason: _reasonToEnum(_selectedReason!),
+        targetType: ReportTargetType.user,
+        source: ReportSource.user,
+        status: ReportStatus.pending,
+        description: _descController.text.trim().isEmpty
+            ? null
+            : _descController.text.trim(),
+        createdAt: DateTime.now(),
+      ),
+    );
+    if (!mounted) return;
+    if (rp.state == ReportState.submitted) {
+      Navigator.of(context).pop();
+    } else if (rp.state == ReportState.error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(rp.error ?? 'Failed to submit report')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isSubmitting =
+        context.watch<ReportProvider>().state == ReportState.submitting;
+
     return Dialog(
       backgroundColor: AppColors.cardWhite,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSizes.radiusL),
       ),
-      // Minimal inset so the fixed-size modal stays away from screen edges
       insetPadding: const EdgeInsets.symmetric(
         horizontal: AppSizes.paddingM,
         vertical: AppSizes.paddingL,
@@ -50,7 +103,7 @@ class _ReportUserModalState extends State<ReportUserModal> {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // ── Modal body — scrollable so it never overflows on small screens ──
+            // ── Modal body ───────────────────────────────────────────────────
             SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(AppSizes.paddingM),
@@ -58,7 +111,7 @@ class _ReportUserModalState extends State<ReportUserModal> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title: "Why are you" (Instrument Serif) + italic coral "Report"
+                    // Title
                     RichText(
                       text: TextSpan(
                         children: [
@@ -84,7 +137,6 @@ class _ReportUserModalState extends State<ReportUserModal> {
                     ),
                     const SizedBox(height: AppSizes.paddingXS),
 
-                    // Subtitle — Inter Regular, muted gray
                     Text(
                       AppStrings.reportSubtitle,
                       style: AppTextStyles.body(
@@ -94,14 +146,12 @@ class _ReportUserModalState extends State<ReportUserModal> {
                     ),
                     const SizedBox(height: AppSizes.paddingS),
 
-                    // Reported user info card
                     _UserInfoCard(
                       username: widget.username,
                       communityName: widget.communityName,
                     ),
                     const SizedBox(height: AppSizes.paddingS),
 
-                    // "Reason" label — Poppins Regular
                     Text(
                       AppStrings.reportReasonLabel,
                       style: AppTextStyles.poppins(
@@ -111,14 +161,16 @@ class _ReportUserModalState extends State<ReportUserModal> {
                     ),
                     const SizedBox(height: AppSizes.paddingS),
 
-                    // Reason chips: unselected = outlined, selected = black fill
+                    // Reason chips
                     Wrap(
                       spacing: AppSizes.paddingS,
                       runSpacing: AppSizes.paddingXS,
                       children: AppStrings.reportReasons.map((reason) {
                         final isSelected = _selectedReason == reason;
                         return GestureDetector(
-                          onTap: () => setState(() => _selectedReason = reason),
+                          onTap: isSubmitting
+                              ? null
+                              : () => setState(() => _selectedReason = reason),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSizes.paddingM,
@@ -146,7 +198,6 @@ class _ReportUserModalState extends State<ReportUserModal> {
                     ),
                     const SizedBox(height: AppSizes.paddingS),
 
-                    // "Description" label — Poppins Regular
                     Text(
                       AppStrings.reportDescriptionLabel,
                       style: AppTextStyles.poppins(
@@ -156,12 +207,12 @@ class _ReportUserModalState extends State<ReportUserModal> {
                     ),
                     const SizedBox(height: AppSizes.paddingXS),
 
-                    // Description text field — white bg, #E8DFD8 stroke, radius 8, h36
                     SizedBox(
                       height: AppSizes.reportDescFieldHeight,
                       child: TextField(
                         controller: _descController,
                         maxLines: 1,
+                        enabled: !isSubmitting,
                         style: AppTextStyles.body(
                           fontSize: AppSizes.fontS,
                           color: AppColors.textDark,
@@ -180,70 +231,82 @@ class _ReportUserModalState extends State<ReportUserModal> {
                             vertical: AppSizes.paddingS,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                            borderSide: const BorderSide(color: AppColors.reportFieldBg),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusS),
+                            borderSide:
+                                const BorderSide(color: AppColors.reportFieldBg),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                            borderSide: const BorderSide(color: AppColors.reportFieldBg),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusS),
+                            borderSide:
+                                const BorderSide(color: AppColors.reportFieldBg),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                            borderSide: const BorderSide(color: AppColors.reportFieldBg),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusS),
+                            borderSide:
+                                const BorderSide(color: AppColors.reportFieldBg),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: AppSizes.paddingS),
 
-                    // "Post" button — full width, coral, Poppins SemiBold, radius 32
+                    // Post button
                     SizedBox(
                       width: double.infinity,
                       height: AppSizes.buttonHeight,
                       child: ElevatedButton(
-                        onPressed: () {
-                          if (_selectedReason == null) return;
-                          context.read<ProfileProvider>().submitReport(
-                                targetId: widget.userId,
-                                reason: _selectedReason!,
-                                description: _descController.text,
-                              );
-                          Navigator.of(context).pop();
-                        },
+                        onPressed: isSubmitting ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.reportAccent,
+                          disabledBackgroundColor:
+                              AppColors.reportAccent.withValues(alpha: 0.6),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusXL),
                           ),
                         ),
-                        child: Text(
-                          AppStrings.reportPost,
-                          style: AppTextStyles.poppins(
-                            fontSize: AppSizes.fontM,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.cardWhite,
-                          ),
-                        ),
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: AppColors.cardWhite,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                AppStrings.reportPost,
+                                style: AppTextStyles.poppins(
+                                  fontSize: AppSizes.fontM,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.cardWhite,
+                                ),
+                              ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ), // SingleChildScrollView
+            ),
 
-            // ── X close button (coral circle, top-right corner) ─────────────
+            // ── X close button ───────────────────────────────────────────────
             Positioned(
               top: -AppSizes.paddingM,
               right: -AppSizes.paddingM,
               child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
+                onTap: isSubmitting ? null : () => Navigator.of(context).pop(),
                 child: Container(
                   width: 32,
                   height: 32,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.reportAccent,
+                    color: isSubmitting
+                        ? AppColors.reportAccent.withValues(alpha: 0.6)
+                        : AppColors.reportAccent,
                   ),
                   child: const Icon(
                     Icons.close,
@@ -262,7 +325,6 @@ class _ReportUserModalState extends State<ReportUserModal> {
 
 // ── Reported user info card ───────────────────────────────────────────────────
 
-/// Bordered card showing the avatar, username, and community.
 class _UserInfoCard extends StatelessWidget {
   final String username;
   final String communityName;
@@ -282,7 +344,6 @@ class _UserInfoCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Salmon avatar
           Container(
             width: AppSizes.avatarSmall,
             height: AppSizes.avatarSmall,
@@ -292,8 +353,6 @@ class _UserInfoCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSizes.paddingM),
-
-          // Username + community name — Inter Light
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

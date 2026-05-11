@@ -9,6 +9,7 @@ import '../../../constants/app_constants.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../services/storage_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CreateEventScreen extends StatefulWidget {
   final String communityId;
@@ -186,6 +187,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final ep = context.read<EventProvider>();
 
     try {
+      final ep = context.read<EventProvider>();
+
       String coverImageUrl = '';
       if (_coverBytes != null) {
         coverImageUrl = await StorageService()
@@ -205,16 +208,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         et.hour, et.minute,
       );
 
+
       await ep.createEvent(
-            widget.communityId,
+            communityId: widget.communityId,
             title: _nameController.text.trim(),
-            hostName: hostName,
-            startDate: startDateTime,
-            endDate: endDateTime,
+            description: _detailController.text.trim(),
             location: _locationController.text.trim(),
-            detail: _detailController.text.trim(),
-            memberLimit: memberLimit,
-            coverImageUrl: coverImageUrl,
+            tags: const [],
+            startDate: Timestamp.fromDate(startDateTime),
+            endDate: Timestamp.fromDate(endDateTime),
+            roomId: widget.communityId,
+            imageUrl: coverImageUrl.isEmpty ? null : coverImageUrl,
+            maxAttendees: memberLimit,
+            
             isPublished: _isPublished,
           );
 

@@ -17,11 +17,19 @@ class RuleModel {
     );
   }
 
+  factory RuleModel.fromMap(Map<String, dynamic> map) {
+    return RuleModel.fromJson(map);
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'text': text,
       'severity': severity,
     };
+  }
+
+  Map<String, dynamic> toMap() {
+    return toJson();
   }
 }

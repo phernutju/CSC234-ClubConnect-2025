@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -43,8 +42,8 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageBytes: community.coverImageURL.isNotEmpty
-                    ? Uint8List.fromList(community.coverImageURL.codeUnits)
+                _CoverArea(imageUrl: community.coverImageURL.isNotEmpty
+                    ? community.coverImageURL
                     : null),
                 Positioned(
                   top: AppSizes.paddingS,
@@ -142,8 +141,8 @@ class CommunityInfoModal extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -159,16 +158,20 @@ class CommunityInfoModal extends StatelessWidget {
 
 /// Grey placeholder or community cover photo (H167).
 class _CoverArea extends StatelessWidget {
-  final Uint8List? imageBytes;
-  const _CoverArea({this.imageBytes});
+  final String? imageUrl;
+  const _CoverArea({this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: AppSizes.communityInfoCoverHeight,
       width: double.infinity,
-      child: imageBytes != null
-          ? Image.memory(imageBytes!, fit: BoxFit.cover)
+      child: imageUrl != null
+          ? Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill),
+            )
           : Container(color: AppColors.inputFill),
     );
   }
@@ -192,8 +195,8 @@ class _HostCardState extends State<_HostCard> {
     super.initState();
     final pp = context.read<ProfileProvider>();
     _hostFuture = Future.wait([
-      pp.fetchUserById(widget.community.createdById),
-      pp.fetchReviewsForUser(widget.community.createdById),
+      pp.fetchUserById(widget.community.createdBy),
+      pp.fetchReviewsForUser(widget.community.createdBy),
     ]).then((results) => (results[0] as UserModel, results[1] as ReviewsResult));
   }
 
@@ -282,7 +285,7 @@ class _HostCardState extends State<_HostCard> {
                         context.push(
                           '/other-profile',
                           extra: ProfileArgs(
-                            userId: widget.community.createdById,
+                            userId: widget.community.createdBy,
                             username: user?.displayName ?? 'Unknown',
                             communityId: widget.community.id,
                           ),

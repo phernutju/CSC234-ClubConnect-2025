@@ -3,10 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/auth_result.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/auth_service.dart';
 import '../../../services/google_auth_service.dart';
-import '../widgets/auth_text_field.dart';
+import '../../../utils/validators.dart';
+import '../widgets/auth_error_banner.dart';
+import '../widgets/validated_field.dart';
 import '../widgets/google_sign_in_button.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -20,10 +22,33 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController    = TextEditingController();
   final _passwordController = TextEditingController();
 
-  String? _emailError;
-  String? _passwordError;
+  bool _submitting    = false;
   bool _googleLoading = false;
-  bool _emailLoading = false;
+
+  // Post-submit auth error — null when no error is present.
+  AuthResult? _authError;
+
+  static const _emailRules = [
+    FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
+    FieldRule(label: 'No spaces',          validate: hasNoSpaces),
+  ];
+
+  static const _passwordRules = [
+    FieldRule(label: 'Required', validate: isNotEmpty),
+  ];
+
+  bool get _canSubmit =>
+      !_submitting &&
+      _emailRules.every((r) => r.validate(_emailController.text)) &&
+      _passwordRules.every((r) => r.validate(_passwordController.text));
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild for _canSubmit; clear any existing auth-error banner on edit.
+    _emailController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+  }
 
   @override
   void dispose() {
@@ -32,54 +57,55 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  bool _validate() {
-    final email    = _emailController.text.trim();
-    final password = _passwordController.text;
-    String? emailErr;
-    String? passErr;
+  void _onFieldChanged() => setState(() => _authError = null);
 
-    if (email.isEmpty) {
-      emailErr = 'Email is required';
-    } else if (!RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,}$').hasMatch(email)) {
-      emailErr = 'Enter a valid email address';
+  // Wraps the Firebase call and maps exceptions to AuthResult variants.
+  Future<AuthResult> _doSignIn() async {
+    try {
+      await context.read<AppAuthProvider>().signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      return const Success();
+    } on AuthException catch (e) {
+      // These codes all mean "wrong credentials" — never reveal which.
+      const invalidCodes = {
+        'user-not-found',
+        'wrong-password',
+        'invalid-credential',
+        'invalid-login-credentials',
+        'INVALID_LOGIN_CREDENTIALS',
+      };
+      return invalidCodes.contains(e.code)
+          ? const InvalidCredentials()
+          : const NetworkError();
+    } catch (_) {
+      return const NetworkError();
     }
-
-    if (password.isEmpty) {
-      passErr = 'Password is required';
-    } else if (password.length < 6) {
-      passErr = 'Password must be at least 6 characters';
-    }
-
-    setState(() {
-      _emailError    = emailErr;
-      _passwordError = passErr;
-    });
-
-    return emailErr == null && passErr == null;
   }
 
   Future<void> _onNext() async {
-    if (!_validate()) return;
-    if (_emailController.text.trim() == 'admin@clubconnect.com' &&
-        _passwordController.text.trim() == 'admin1234') {
+    // Admin shortcut — bypasses Firebase.
+    if (_emailController.text.trim() == 'nonlada1@gmail.com' &&
+        _passwordController.text == '123456') {
       context.go('/admin');
       return;
     }
-    setState(() => _emailLoading = true);
+
+    setState(() { _submitting = true; _authError = null; });
     try {
-      await context.read<AppAuthProvider>().signIn(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
-      // Router redirect handles navigation once authStateChanges fires.
-    } on AuthException catch (e) {
+      final result = await _doSignIn();
       if (!mounted) return;
-      setState(() => _emailError = e.message);
-    } on Exception catch (e) {
-      if (!mounted) return;
-      setState(() => _emailError = e.toString());
+      switch (result) {
+        case Success():
+          break; // authStateChanges fires; router handles redirect.
+        case InvalidCredentials():
+          setState(() => _authError = result);
+        default:
+          setState(() => _authError = const NetworkError());
+      }
     } finally {
-      if (mounted) setState(() => _emailLoading = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -87,15 +113,12 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _googleLoading = true);
     try {
       await GoogleAuthService.signInWithGoogle();
-      // Firebase authStateChanges fires; router redirect handles navigation.
-    } catch (e, stackTrace) {
+    } catch (e, st) {
       // ignore: avoid_print
-      print('Google Sign-In Error: $e');
-      // ignore: avoid_print
-      print('Stack trace: $stackTrace');
+      print('Google Sign-In Error: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google Sign-In failed: ${e.toString()}')),
+        SnackBar(content: Text('Google Sign-In failed: $e')),
       );
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -105,120 +128,144 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.sizeOf(context).height;
+    final statusBarH   = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAF0EC),
-      body: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: SizedBox(
-          height: screenHeight,
-          child: Column(
+      body: Stack(
         children: [
-          Expanded(
-            flex: 45,
-            child: Image.asset(
-              'assets/images/background.png',
-              width: double.infinity,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+          SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: SizedBox(
+              height: screenHeight,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 45,
+                    child: Image.asset(
+                      'assets/images/background.png',
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 55,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft:  Radius.circular(30),
+                          topRight: Radius.circular(30),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppStrings.loginTitle,
+                              style: GoogleFonts.inter(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF1A1A1A),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Auth-error banner — only after a failed submit.
+                            if (_authError != null) ...[
+                              AuthErrorBanner(
+                                message: switch (_authError!) {
+                                  InvalidCredentials() =>
+                                    'Email or password is incorrect.',
+                                  _ => 'Something went wrong. Please try again.',
+                                },
+                                onClose: () => setState(() => _authError = null),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            ValidatedField(
+                              label: AppStrings.loginEmail,
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              rules: _emailRules,
+                            ),
+                            const SizedBox(height: 16),
+
+                            ValidatedField(
+                              label: AppStrings.loginPassword,
+                              controller: _passwordController,
+                              isObscurable: true,
+                              rules: _passwordRules,
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(height: screenHeight * 0.07),
+
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _canSubmit ? _onNext : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF6B4A),
+                                  disabledBackgroundColor:
+                                      const Color(0xFFFF6B4A).withValues(alpha: 0.4),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                child: _submitting
+                                    ? const SizedBox(
+                                        height: 24,
+                                        width: 24,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        AppStrings.loginNext,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            GoogleSignInButton(
+                              isLoading: _googleLoading,
+                              onPressed: _onGoogleSignIn,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          Expanded(
-            flex: 55,
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppStrings.loginTitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
 
-                    AuthTextField(
-                      label: AppStrings.loginEmail,
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      errorText: _emailError,
-                      fillColor: Colors.white,
-                      fieldBorderRadius: 30,
-                      enabledBorderColor: const Color(0xFFDDDDDD),
-                      contentPaddingVertical: 14,
-                    ),
-                    const SizedBox(height: 16),
-
-                    AuthTextField(
-                      label: AppStrings.loginPassword,
-                      controller: _passwordController,
-                      obscureText: true,
-                      errorText: _passwordError,
-                      fillColor: Colors.white,
-                      fieldBorderRadius: 30,
-                      enabledBorderColor: const Color(0xFFDDDDDD),
-                      contentPaddingVertical: 14,
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(height: screenHeight * 0.07),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _emailLoading ? null : _onNext,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6B4A),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: _emailLoading
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                AppStrings.loginNext,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    GoogleSignInButton(
-                      isLoading: _googleLoading,
-                      onPressed: _onGoogleSignIn,
-                    ),
-                  ],
-                ),
-              ),
+          Positioned(
+            top: statusBarH + 8,
+            left: 4,
+            child: IconButton(
+              onPressed: () => context.go('/'),
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)),
+              iconSize: 24,
+              tooltip: 'Back',
             ),
           ),
         ],
-          ),
-        ),
       ),
     );
   }

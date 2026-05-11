@@ -104,7 +104,7 @@ class CommunityInfoModal extends StatelessWidget {
                         context.push(
                           '/other-profile',
                           extra: ProfileArgs(
-                            userId: community.createdById,
+                            userId: community.createdBy,
                             username: '',
                             communityName: community.communityName,
                           ),
@@ -223,7 +223,7 @@ class _HostCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '',
+                  community.createdBy,
                   style: AppTextStyles.poppins(
                     fontSize: AppSizes.fontXII,
                     color: AppColors.textDark,

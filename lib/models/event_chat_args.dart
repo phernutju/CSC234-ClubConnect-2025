@@ -4,9 +4,11 @@ import 'event_model.dart';
 class EventChatArgs {
   final EventModel event;
   final String memberCount;
+  final String communityId;
 
   const EventChatArgs({
     required this.event,
     required this.memberCount,
+    required this.communityId,
   });
 }

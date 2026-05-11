@@ -37,15 +37,15 @@ class _EditEventScreenState extends State<EditEventScreen> {
   void initState() {
     super.initState();
     _nameController.text     = widget.event.title;
-    _hostNameController.text = widget.event.hostName;
+    _hostNameController.text = widget.event.createdBy;
     _locationController.text = widget.event.location;
-    _detailController.text   = widget.event.detail;
-    _startDate        = widget.event.startDate;
-    _endDate          = widget.event.endDate;
-    _startTime        = widget.event.startTime;
-    _endTime          = widget.event.endTime;
-    _memberLimit      = widget.event.memberLimit;
-    _existingCoverUrl = widget.event.coverImageUrl;
+    _detailController.text   = widget.event.description;
+    _startDate        = widget.event.startDate.toDate();
+    _endDate          = widget.event.endDate.toDate();
+    _startTime        = TimeOfDay(hour: _startDate!.hour, minute: _startDate!.minute);
+    _endTime          = TimeOfDay(hour: _endDate!.hour, minute: _endDate!.minute);
+    _memberLimit      = widget.event.maxAttendees ?? 0;
+    _existingCoverUrl = widget.event.imageUrl ?? '';
   }
 
   @override

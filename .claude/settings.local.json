@@ -1,14 +1,33 @@
 {
   "permissions": {
     "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gammy\\\\OneDrive\\\\Desktop\\\\Project\\\\Flutter_2\\\\CSC234-ClubConnect-2025\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "PowerShell(Test-Path *)",
+      "Bash(flutter analyze *)",
+      "Bash(Get-ChildItem *)",
+      "mcp__ide__getDiagnostics",
+      "Bash(claude doctor *)",
+      "Bash(Get-Content *)",
+      "PowerShell(claude doctor *)",
+      "Bash(flutter pub *)",
+      "PowerShell(Get-Command *)",
+      "Bash(xargs cat -n)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(dir *)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(curl -s \"https://api.github.com/repos/phernutju/CSC234-ClubConnect-2025/git/trees/frontend-smartBill?recursive=1\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse)",
       "Bash(Select-Object -First 100)",
       "Bash(Format-Table FullName)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\" -Recurse -Depth 3 | Select-Object -ExpandProperty FullName | ForEach-Object {$_ -replace [regex]::Escape\\(\"C:\\\\Users\\\\Kornc\\\\Documents\\\\CSC234-ClubConnect-2025\"\\), \"\"} | Sort-Object)",
-      "Bash(flutter pub *)",
-      "PowerShell(Get-Command *)",
-      "Bash(flutter analyze *)",
-      "Bash(xargs cat -n)",
+      "Bash(git add *)",
+      "Bash(git stash *)",
+      "Bash(flutter test *)",
       "Bash(git checkout *)"
     ]
   }

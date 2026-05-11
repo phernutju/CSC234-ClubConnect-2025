@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/category_model.dart';
+import '../../../providers/category_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../../../models/rule_model.dart';
 import '../../../services/category_service.dart';
@@ -24,7 +26,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   final List<TextEditingController> _rulesControllers = [TextEditingController()];
 
   Uint8List? _coverImageBytes;
-  String? _selectedCategory;
+  CategoryModel? _selectedCategory;
 
   String? _nameError;
   String? _aboutError;
@@ -169,11 +171,16 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       const _SectionLabel(label: AppStrings.createCategoryLabel),
                       const SizedBox(height: AppSizes.paddingS),
                       _CategoryEditRow(
-                        selected: _selectedCategory,
-                        onToggle: (cat) => setState(() {
-                          _selectedCategory = _selectedCategory == cat ? null : cat;
-                          if (_selectedCategory != null) _categoryError = null;
-                        }),
+                        selected: _selectedCategory?.name,
+                        onToggle: (cat) {
+                          final cats = context.read<CategoryProvider>().approvedCategories;
+                          final matches = cats.where((c) => c.name == cat);
+                          final model = matches.isNotEmpty ? matches.first : null;
+                          setState(() {
+                            _selectedCategory = _selectedCategory?.name == cat ? null : model;
+                            if (_selectedCategory != null) _categoryError = null;
+                          });
+                        },
                         errorText: _categoryError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
@@ -410,8 +417,9 @@ class _CategoryEditRow extends StatefulWidget {
 }
 
 class _CategoryEditRowState extends State<_CategoryEditRow> {
-  late final Future<List<String>> _categoriesFuture =
-      CategoryService().getCategories();
+  late final Future<List<String>> _categoriesFuture = CategoryService()
+      .getDefaultCategories()
+      .then((list) => list.map((c) => c.name).toList());
 
   void _openPopup(BuildContext context) {
     showModalBottomSheet(

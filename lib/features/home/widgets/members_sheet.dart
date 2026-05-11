@@ -5,6 +5,7 @@ import '../../../constants/app_constants.dart';
 import '../../../models/member_model.dart';
 import '../../../models/profile_args.dart';
 import '../../../providers/community_provider.dart';
+import 'network_image_view.dart';
 
 // Cycles through warm avatar tones so each member gets a distinct color
 const List<Color> _kAvatarPalette = [
@@ -21,6 +22,7 @@ void showMembersBottomSheet(
   required String communityName,
   required String currentUid,
   required String creatorId,
+  void Function(String)? onSystemMessage,
 }) {
   showModalBottomSheet(
     context: context,
@@ -33,6 +35,7 @@ void showMembersBottomSheet(
         communityName: communityName,
         currentUid: currentUid,
         creatorId: creatorId,
+        onSystemMessage: onSystemMessage,
       ),
     ),
   );
@@ -45,12 +48,14 @@ class _MembersSheet extends StatefulWidget {
   final String communityName;
   final String currentUid;
   final String creatorId;
+  final void Function(String)? onSystemMessage;
 
   const _MembersSheet({
     required this.communityId,
     required this.communityName,
     required this.currentUid,
     required this.creatorId,
+    this.onSystemMessage,
   });
 
   @override
@@ -63,10 +68,7 @@ class _MembersSheetState extends State<_MembersSheet> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final cp = context.read<CommunityProvider>();
-      for (final m in cp.members) {
-        cp.fetchDisplayName(m.userId);
-      }
+      context.read<CommunityProvider>().loadMembers(widget.communityId);
     });
   }
 
@@ -234,6 +236,7 @@ class _MembersSheetState extends State<_MembersSheet> {
                       return _MemberTile(
                         member: member,
                         displayName: name,
+                        photoURL: cp.photoURLOf(member.userId),
                         isAdmin: isAdmin,
                         showKickButton: showKick,
                         avatarColor:
@@ -258,6 +261,7 @@ class _MembersSheetState extends State<_MembersSheet> {
 class _MemberTile extends StatelessWidget {
   final MemberModel member;
   final String displayName;
+  final String photoURL;
   final bool isAdmin;
   final bool showKickButton;
   final Color avatarColor;
@@ -267,6 +271,7 @@ class _MemberTile extends StatelessWidget {
   const _MemberTile({
     required this.member,
     required this.displayName,
+    required this.photoURL,
     required this.isAdmin,
     required this.showKickButton,
     required this.avatarColor,
@@ -323,22 +328,35 @@ class _MemberTile extends StatelessWidget {
                     // Avatar + online dot (bottom-left)
                     Stack(
                       children: [
-                        Container(
-                          width: AppSizes.memberAvatarSize,
-                          height: AppSizes.memberAvatarSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: avatarColor,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            initial,
-                            style: AppTextStyles.poppins(
-                              fontSize: AppSizes.fontSM,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.cardWhite,
-                            ),
-                          ),
+                        ClipOval(
+                          child: photoURL.isNotEmpty
+                              ? SizedBox(
+                                  width: AppSizes.memberAvatarSize,
+                                  height: AppSizes.memberAvatarSize,
+                                  child: NetworkImageView(
+                                    url: photoURL,
+                                    width: AppSizes.memberAvatarSize,
+                                    height: AppSizes.memberAvatarSize,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Container(
+                                  width: AppSizes.memberAvatarSize,
+                                  height: AppSizes.memberAvatarSize,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: avatarColor,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    initial,
+                                    style: AppTextStyles.poppins(
+                                      fontSize: AppSizes.fontSM,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.cardWhite,
+                                    ),
+                                  ),
+                                ),
                         ),
                         Positioned(
                           bottom: 1,

@@ -1,26 +1,42 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/category_model.dart';
 
 class CategoryService {
-  Future<List<String>> getCategories() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('categories')
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static const String _col = 'categories';
+
+  Stream<List<CategoryModel>> getApprovedCategories() {
+    return _db
+        .collection(_col)
+        .where('isApproved', isEqualTo: true)
+        .orderBy('usageCount', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map(CategoryModel.fromDoc).toList());
+  }
+
+  Future<List<CategoryModel>> getDefaultCategories() async {
+    final snap = await _db
+        .collection(_col)
+        .where('isDefault', isEqualTo: true)
         .get();
+    return snap.docs.map(CategoryModel.fromDoc).toList();
+  }
 
-    // ignore: avoid_print
-    print('CategoryService: ${snapshot.docs.length} docs fetched');
-    for (final doc in snapshot.docs) {
-      // ignore: avoid_print
-      print('  ${doc.id}: ${doc.data()}');
-    }
+  Future<void> createUserCategory(String name, String createdBy) async {
+    await _db.collection(_col).add({
+      'name': name,
+      'slug': CategoryModel.toSlug(name),
+      'createdBy': createdBy,
+      'isDefault': false,
+      'isApproved': false,
+      'usageCount': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
 
-    return snapshot.docs
-        .map((doc) {
-          final data = doc.data();
-          // try name → title → label in order
-          return (data['name'] ?? data['title'] ?? data['label']) as String?;
-        })
-        .whereType<String>()
-        .where((name) => name.isNotEmpty)
-        .toList();
+  Future<void> incrementUsageCount(String categoryId) async {
+    await _db.collection(_col).doc(categoryId).update({
+      'usageCount': FieldValue.increment(1),
+    });
   }
 }

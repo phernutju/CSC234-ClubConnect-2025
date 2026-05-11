@@ -168,7 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    final isHost = community.createdById == context.read<AppAuthProvider>().user?.uid;
+    final isHost = community.createdBy == context.read<AppAuthProvider>().user?.uid;
 
     if (isHost) {
       // Host → open Edit Community page
@@ -227,7 +227,7 @@ class _ChatScreenState extends State<ChatScreen> {
       communityId: community?.id ?? '',
       communityName: widget.communityName,
       currentUid: currentUid,
-      creatorId: community?.createdById ?? '',
+      creatorId: community?.createdBy ?? '',
     );
   }
 

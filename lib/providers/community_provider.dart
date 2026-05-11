@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../models/category_model.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
@@ -10,17 +12,27 @@ class CommunityProvider extends ChangeNotifier {
   final CommunityService _service;
   final Set<String> _mutedCommunities = {};
   final Map<String, String> _nameCache = {};
+  final Map<String, String> _photoCache = {};
   List<CommunityModel> communities = [];
   List<CommunityModel> myCommunities = [];
+  List<CommunityModel> trendingCommunities = [];
+  List<CommunityModel> recommendedCommunities = [];
   CommunityModel? activeCommunity;
   List<MessageModel> messages = [];
   List<MemberModel> members = [];
   bool isLoading = false;
   bool isUploading = false;
+  bool isTrendingLoading = false;
+  bool isRecommendedLoading = false;
   String? error;
+  String? trendingError;
+  String? recommendedError;
+  String? violationWarning;
 
+  StreamSubscription<User?>? _authSub;
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
   StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
+  StreamSubscription<List<CommunityModel>>? _trendingSub;
   StreamSubscription<List<MessageModel>>? _messagesSub;
   StreamSubscription<List<MemberModel>>? _membersSub;
 
@@ -41,17 +53,42 @@ class CommunityProvider extends ChangeNotifier {
   /// Returns the cached display name for [uid], or empty string if not yet fetched.
   String displayNameOf(String uid) => _nameCache[uid] ?? '';
 
-  /// Fetches and caches the display name for [uid] from Firestore.
-  /// No-ops if already cached. Notifies listeners when the name arrives.
+  /// Returns the cached photo URL for [uid], or empty string if not yet fetched.
+  String photoURLOf(String uid) => _photoCache[uid] ?? '';
+
+  /// Fetches and caches displayName + photoURL for [uid] in one Firestore read.
+  /// No-ops if already cached. Notifies listeners when data arrives.
   Future<void> fetchDisplayName(String uid) async {
     if (_nameCache.containsKey(uid)) return;
-    _nameCache[uid] = ''; // mark as in-flight to prevent duplicate fetches
+    _nameCache[uid] = '';
+    _photoCache[uid] = '';
     try {
-      _nameCache[uid] = await _service.getUserDisplayName(uid);
+      final info = await _service.getUserInfo(uid);
+      _nameCache[uid] = info.displayName;
+      _photoCache[uid] = info.photoURL;
     } catch (_) {
-      _nameCache[uid] = 'User';
+      _nameCache[uid] = '';
     }
     notifyListeners();
+  }
+
+  /// Subscribes to the member list for [communityId] and auto-fetches
+  /// display names + photos as members arrive. Safe to call from UI.
+  void loadMembers(String communityId) {
+    _membersSub?.cancel();
+    _membersSub = _service.getMembers(communityId).listen(
+      (list) {
+        members = list;
+        for (final m in list) {
+          fetchDisplayName(m.userId);
+        }
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
   }
 
   void _listenToCommunities(Stream<List<CommunityModel>> stream) {
@@ -84,7 +121,25 @@ class CommunityProvider extends ChangeNotifier {
 
   CommunityProvider({CommunityService? service})
       : _service = service ?? CommunityService() {
-    _listenToCommunities(_service.getCommunities());
+    // Only subscribe to Firestore after Firebase Auth confirms a valid session.
+    // authStateChanges() fires asynchronously, so currentUser may be null at
+    // construction time even when a session exists — never query before this fires.
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        _listenToCommunities(_service.getCommunities());
+      } else {
+        _communitiesSub?.cancel();
+        _myCommunitiesSub?.cancel();
+        _messagesSub?.cancel();
+        _membersSub?.cancel();
+        communities = [];
+        myCommunities = [];
+        activeCommunity = null;
+        messages = [];
+        members = [];
+        notifyListeners();
+      }
+    });
   }
 
   void loadCommunities() {
@@ -189,7 +244,7 @@ class CommunityProvider extends ChangeNotifier {
 
   Future<void> addCommunity({
     required String communityName,
-    required List<String> category,
+    required List<CategoryModel> category,
     required String description,
     required List<RuleModel> rules,
     Uint8List? coverImageBytes,
@@ -220,15 +275,37 @@ class CommunityProvider extends ChangeNotifier {
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
-  }) =>
-      _run(() => _service.sendMessage(
-            communityId,
-            text: text,
-            imageURL: imageURL,
-            replyToId: replyToId,
-            replyToSenderName: replyToSenderName,
-            replyToText: replyToText,
-          ));
+    String? replyToSenderId,
+    List<String> mentions = const [],
+  }) {
+    error = null;
+    notifyListeners();
+    // fire-and-forget: save + moderate in background, return immediately
+    _service
+        .sendMessage(
+          communityId,
+          text: text,
+          imageURL: imageURL,
+          replyToId: replyToId,
+          replyToSenderName: replyToSenderName,
+          replyToText: replyToText,
+          replyToSenderId: replyToSenderId,
+          mentions: mentions,
+        )
+        .catchError((e) {
+      // ignore: avoid_print
+      print('[PROVIDER] catchError fired: $e');
+      if (e is ContentViolationException && !e.isMuteBlock && e.violationCount >= 3) {
+        final remaining = 5 - e.violationCount;
+        violationWarning = 'Warning: $remaining more violation${remaining == 1 ? '' : 's'} will result in an admin ban review.';
+      } else {
+        violationWarning = null;
+      }
+      error = e is ContentViolationException ? e.message : e.toString();
+      notifyListeners();
+    });
+    return Future.value();
+  }
 
   Future<void> sendImageMessage(String communityId, Uint8List bytes) async {
     isUploading = true;
@@ -246,6 +323,54 @@ class CommunityProvider extends ChangeNotifier {
 
   Future<void> markMessageSeen(String communityId, String messageId) =>
       _run(() => _service.markMessageSeen(communityId, messageId));
+
+  Future<void> deleteMessage(String communityId, String messageId) =>
+      _run(() => _service.deleteMessage(communityId, messageId));
+
+  // ── Trending ───────────────────────────────────────────────────────────────
+
+  void loadTrendingCommunities({int limit = 20}) {
+    isTrendingLoading = true;
+    trendingError = null;
+    notifyListeners();
+    _trendingSub?.cancel();
+    _trendingSub = _service.fetchTrendingCommunities(limit: limit).listen(
+      (list) {
+        trendingCommunities = list;
+        isTrendingLoading = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        trendingError = e.toString();
+        isTrendingLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  // ── Recommendations ────────────────────────────────────────────────────────
+
+  Future<void> loadRecommendedCommunities(String userId) async {
+    isRecommendedLoading = true;
+    recommendedError = null;
+    notifyListeners();
+    try {
+      recommendedCommunities = await _service.fetchRecommendedCommunities(
+        userId: userId,
+        joinedCommunityIds: myCommunities.map((c) => c.id).toList(),
+      );
+    } catch (e) {
+      recommendedError = e.toString();
+    } finally {
+      isRecommendedLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Reactions ──────────────────────────────────────────────────────────────
+
+  Future<void> incrementReactionCount(String communityId) =>
+      _service.incrementReactionCount(communityId);
 
   // ── Helper ─────────────────────────────────────────────────────────────────
 
@@ -265,8 +390,10 @@ class CommunityProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _communitiesSub?.cancel();
     _myCommunitiesSub?.cancel();
+    _trendingSub?.cancel();
     _messagesSub?.cancel();
     _membersSub?.cancel();
     super.dispose();

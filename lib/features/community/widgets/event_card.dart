@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_model.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/auth_provider.dart';
 
 /// Shared event card used in the community events page and the global Events tab/screen.
 class EventCard extends StatelessWidget {
@@ -33,7 +35,7 @@ class EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateLine = event.formattedDateRange;
-
+    final hostName = context.read<AppAuthProvider>().user?.displayName ?? '';
     return GestureDetector(
       onTap: () => context.push('/event-detail', extra: event),
       child: Container(
@@ -48,8 +50,10 @@ class EventCard extends StatelessWidget {
             // ── Date header ─────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                AppSizes.paddingM, AppSizes.paddingS,
-                AppSizes.paddingM, AppSizes.paddingS,
+                AppSizes.paddingM,
+                AppSizes.paddingS,
+                AppSizes.paddingM,
+                AppSizes.paddingS,
               ),
               child: Row(
                 children: [
@@ -75,13 +79,15 @@ class EventCard extends StatelessWidget {
             ),
 
             // ── Cover image ──────────────────────────────────────────────────
-            _CoverImage(url: event.coverImageUrl),
+            _CoverImage(url: event.imageUrl ?? ''),
 
             // ── Body ─────────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                AppSizes.paddingM, AppSizes.paddingS,
-                AppSizes.paddingM, AppSizes.paddingS,
+                AppSizes.paddingM,
+                AppSizes.paddingS,
+                AppSizes.paddingM,
+                AppSizes.paddingS,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,7 +109,7 @@ class EventCard extends StatelessWidget {
                       ),
                       const SizedBox(width: AppSizes.paddingS),
                       Text(
-                        '$currentMembers/${event.memberLimit} members',
+                        '$currentMembers/${event.maxAttendees} members',
                         style: GoogleFonts.poppins(
                           fontSize: AppSizes.fontXS,
                           fontWeight: FontWeight.w500,
@@ -113,10 +119,9 @@ class EventCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-
-                  if (event.hostName.isNotEmpty)
+                  if (hostName.isNotEmpty)
                     Text(
-                      'by ${event.hostName}',
+                      'by ${hostName}',
                       style: GoogleFonts.poppins(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.w500,
@@ -124,12 +129,13 @@ class EventCard extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(height: AppSizes.paddingS),
-
                   Row(
                     children: [
                       if (memberNames.isNotEmpty)
-                        _MemberAvatars(names: memberNames, colors: _avatarColors),
-                      if (memberNames.isNotEmpty) const SizedBox(width: AppSizes.paddingS),
+                        _MemberAvatars(
+                            names: memberNames, colors: _avatarColors),
+                      if (memberNames.isNotEmpty)
+                        const SizedBox(width: AppSizes.paddingS),
                       const Spacer(),
                       Text(
                         'details →',
@@ -164,7 +170,8 @@ class _CoverImage extends StatelessWidget {
         height: 130,
         width: double.infinity,
         color: AppColors.inputFill,
-        child: const Icon(Icons.image_outlined, color: AppColors.inputBorder, size: 40),
+        child: const Icon(Icons.image_outlined,
+            color: AppColors.inputBorder, size: 40),
       );
     }
     return SizedBox(
@@ -176,7 +183,8 @@ class _CoverImage extends StatelessWidget {
         errorBuilder: (_, __, ___) => Container(
           height: 130,
           color: AppColors.inputFill,
-          child: const Icon(Icons.broken_image_outlined, color: AppColors.inputBorder, size: 40),
+          child: const Icon(Icons.broken_image_outlined,
+              color: AppColors.inputBorder, size: 40),
         ),
         loadingBuilder: (_, child, progress) => progress == null
             ? child
@@ -214,7 +222,8 @@ class _MemberAvatars extends StatelessWidget {
 
     return SizedBox(
       height: _size,
-      width: visible.length * (_size - _overlap) + _size +
+      width: visible.length * (_size - _overlap) +
+          _size +
           (overflow > 0 ? (_size - _overlap) : 0),
       child: Stack(
         children: [
@@ -222,7 +231,8 @@ class _MemberAvatars extends StatelessWidget {
             Positioned(
               left: i * (_size - _overlap),
               child: _AvatarCircle(
-                label: visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
+                label:
+                    visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
                 color: colors[i % colors.length],
               ),
             ),
