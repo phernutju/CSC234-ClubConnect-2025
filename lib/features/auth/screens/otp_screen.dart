@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/auth_provider.dart';
 import '../widgets/step_progress_bar.dart';
 import '../widgets/primary_button.dart';
 
+/// Step 3 of 4: user enters the 6-digit SMS code they received.
+/// Sends OTP on mount; wires Verify and Resend to AppAuthProvider.
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
 
@@ -14,9 +18,9 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   final List<TextEditingController> _controllers =
-      List.generate(4, (_) => TextEditingController());
+      List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes =
-      List.generate(4, (_) => FocusNode());
+      List.generate(6, (_) => FocusNode());
 
   @override
   void dispose() {
@@ -26,18 +30,29 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _onDigitChanged(String value, int index) {
-    if (value.isNotEmpty && index < 3) {
+    if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
   }
 
-  void _onNext() {
-    // TODO: verify OTP with backend
-    context.push('/set-profile');
+  Future<void> _onNext() async {
+    final code = _controllers.map((c) => c.text).join();
+    if (code.length < 6) return;
+    final provider = context.read<AppAuthProvider>();
+    await provider.verifyOtp(code);
+    if (!mounted) return;
+    if (provider.otpState == OtpState.verified) {
+      context.push('/set-profile');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AppAuthProvider>();
+    final isLoading = provider.otpState == OtpState.verifying ||
+        provider.otpState == OtpState.sendingOtp;
+    final errorMsg = provider.otpState == OtpState.error ? provider.otpError : null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -47,42 +62,13 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 48),
+              const SizedBox(height: AppSizes.paddingM),
               const StepProgressBar(currentStep: 3),
               const SizedBox(height: AppSizes.paddingL),
-
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: const Icon(Icons.arrow_back, color: AppColors.textDark),
-              ),
+              _BackButton(),
               const SizedBox(height: AppSizes.paddingM),
-
-              // "Enter " (black) + "OTP" (italic coral)
-              RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: AppStrings.otpHeading,
-                      style: AppTextStyles.title(
-                        fontSize: 36.0,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    TextSpan(
-                      text: AppStrings.otpHeadingAccent,
-                      style: AppTextStyles.title(
-                        fontSize: 36.0,
-                        fontWeight: FontWeight.w400,
-                        fontStyle: FontStyle.italic,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _OtpHeading(),
               const SizedBox(height: AppSizes.paddingS),
-
               Text(
                 AppStrings.otpSubtitle,
                 style: AppTextStyles.body(
@@ -93,22 +79,74 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingXL),
-
               _OtpBoxRow(
                 controllers: _controllers,
                 focusNodes: _focusNodes,
                 onChanged: _onDigitChanged,
               ),
               const SizedBox(height: AppSizes.paddingM),
-
-              _ResendRow(),
-              const SizedBox(height: AppSizes.paddingXL),
-
-              PrimaryButton(label: AppStrings.otpNext, onPressed: _onNext),
+              if (errorMsg != null)
+                Center(
+                  child: Text(
+                    errorMsg,
+                    style: AppTextStyles.body(
+                      fontSize: AppSizes.fontS,
+                      color: Colors.red,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (isLoading)
+                const Center(child: CircularProgressIndicator()),
+              const SizedBox(height: AppSizes.paddingS),
+              _ResendRow(
+                canResend: provider.canResend,
+                onResend: () => provider.sendOtp(),
+              ),
+              const Spacer(),
+              PrimaryButton(
+                label: AppStrings.otpNext,
+                onPressed: isLoading ? null : _onNext,
+              ),
               const SizedBox(height: AppSizes.paddingXL),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+class _BackButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.pop(),
+      child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+    );
+  }
+}
+
+class _OtpHeading extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: AppStrings.otpHeading,
+            style: AppTextStyles.title(color: AppColors.textDark),
+          ),
+          TextSpan(
+            text: AppStrings.otpHeadingAccent,
+            style: AppTextStyles.title(
+              fontStyle: FontStyle.italic,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -129,7 +167,7 @@ class _OtpBoxRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(4, (i) {
+      children: List.generate(6, (i) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingS),
           child: SizedBox(
@@ -170,6 +208,11 @@ class _OtpBoxRow extends StatelessWidget {
 }
 
 class _ResendRow extends StatelessWidget {
+  final bool canResend;
+  final VoidCallback onResend;
+
+  const _ResendRow({required this.canResend, required this.onResend});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -185,15 +228,13 @@ class _ResendRow extends StatelessWidget {
             ),
           ),
           GestureDetector(
-            onTap: () {
-              // TODO: trigger resend OTP
-            },
+            onTap: canResend ? onResend : null,
             child: Text(
               AppStrings.otpResend,
               style: AppTextStyles.body(
-                fontSize: AppSizes.fontXS,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
+                fontSize: AppSizes.fontS,
+                color: canResend ? AppColors.primary : AppColors.textGray,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

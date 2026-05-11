@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/category_model.dart';
+import '../../../providers/category_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../../../models/rule_model.dart';
 
@@ -20,8 +22,8 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   final _aboutController = TextEditingController();
   final List<TextEditingController> _rulesControllers = [TextEditingController()];
 
-  Uint8List? _coverImageBytes;
-  String?    _selectedCategory;
+  Uint8List?     _coverImageBytes;
+  CategoryModel? _selectedCategory;
 
   @override
   void dispose() {
@@ -337,18 +339,26 @@ class _FormField extends StatelessWidget {
 // ── Category chips ────────────────────────────────────────────────────────────
 
 class _CategoryChips extends StatelessWidget {
-  final String? selected;
-  final ValueChanged<String> onSelected;
+  final CategoryModel? selected;
+  final ValueChanged<CategoryModel> onSelected;
 
   const _CategoryChips({required this.selected, required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
+    final catProvider = context.watch<CategoryProvider>();
+    if (catProvider.isLoading) {
+      return const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final categories = catProvider.approvedCategories;
     return Wrap(
       spacing: AppSizes.paddingS,
       runSpacing: AppSizes.paddingS,
-      children: AppStrings.createCategories.map((cat) {
-        final isSelected = cat == selected;
+      children: categories.map((cat) {
+        final isSelected = cat.id == selected?.id;
         return GestureDetector(
           onTap: () => onSelected(cat),
           child: Container(
@@ -364,7 +374,7 @@ class _CategoryChips extends StatelessWidget {
               ),
             ),
             child: Text(
-              cat,
+              cat.name,
               style: AppTextStyles.poppins(
                 fontSize: AppSizes.fontSM,
                 fontWeight: FontWeight.w600,

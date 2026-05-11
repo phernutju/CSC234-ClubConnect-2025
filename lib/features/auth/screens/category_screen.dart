@@ -3,6 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
 import '../widgets/step_progress_bar.dart';
+import '../widgets/primary_button.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/category_provider.dart';
+import 'package:provider/provider.dart';
 
 class CategoryScreen extends StatefulWidget {
   final String? displayName;
@@ -16,24 +20,6 @@ class CategoryScreen extends StatefulWidget {
 class _CategoryScreenState extends State<CategoryScreen> {
   final Set<String> _selected = {};
 
-  static const List<Map<String, String>> _categories = [
-    {'emoji': '🏸', 'label': 'Badminton'},
-    {'emoji': '🏃', 'label': 'Running'},
-    {'emoji': '🧁', 'label': 'Baking'},
-    {'emoji': '🧗', 'label': 'Climbing'},
-    {'emoji': '🧘', 'label': 'Yoga'},
-    {'emoji': '🚴', 'label': 'Cycling'},
-    {'emoji': '⚽', 'label': 'Football'},
-    {'emoji': '🍳', 'label': 'Home cooking'},
-    {'emoji': '🍷', 'label': 'Wine'},
-    {'emoji': '🥗', 'label': 'Vegan'},
-    {'emoji': '💻', 'label': 'Coding'},
-    {'emoji': '🚀', 'label': 'Startups'},
-    {'emoji': '🔧', 'label': 'Hardware'},
-    {'emoji': '✍️', 'label': 'Writing'},
-    {'emoji': '🎨', 'label': 'Design'},
-  ];
-
   void _toggleCategory(String label) {
     setState(() {
       if (_selected.contains(label)) {
@@ -44,12 +30,21 @@ class _CategoryScreenState extends State<CategoryScreen> {
     });
   }
 
-  void _onGetStarted() {
-    // TODO: save selected categories
-    context.go('/home', extra: {
-      'displayName': widget.displayName ?? '',
-      'interests': _selected.toList(),
-    });
+  Future<void> _onGetStarted() async {
+    final tags = _selected.toList();
+    final provider = context.read<AppAuthProvider>();
+    provider.setInterests(tags);
+    try {
+      await provider.signUp();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign up failed: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    context.go('/home');
   }
 
   @override
@@ -119,22 +114,27 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: AppSizes.paddingL),
 
               Expanded(
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _categories.map((cat) {
-                      final label    = cat['label']!;
-                      final emoji    = cat['emoji']!;
-                      final isActive = _selected.contains(label);
-                      return _CategoryChip(
-                        emoji: emoji,
-                        label: label,
-                        isSelected: isActive,
-                        onTap: () => _toggleCategory(label),
+                child: Consumer<CategoryProvider>(
+                  builder: (context, catProvider, _) {
+                    if (catProvider.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (catProvider.error != null) {
+                      return Center(
+                        child: Text(
+                          'Failed to load categories',
+                          style: AppTextStyles.body(color: AppColors.textGray),
+                        ),
                       );
-                    }).toList(),
-                  ),
+                    }
+                    return _CategoryChipGrid(
+                      categories: catProvider.approvedCategories
+                          .map((c) => c.name)
+                          .toList(),
+                      selected: _selected,
+                      onTap: _toggleCategory,
+                    );
+                  },
                 ),
               ),
             ],
@@ -145,14 +145,53 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 }
 
+// ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+class _BackButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.pop(),
+      child: const Icon(Icons.arrow_back, color: AppColors.textDark),
+    );
+  }
+}
+
+class _CategoryChipGrid extends StatelessWidget {
+  final List<String> categories;
+  final Set<String> selected;
+  final ValueChanged<String> onTap;
+
+  const _CategoryChipGrid({
+    required this.categories,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Wrap(
+        spacing: AppSizes.paddingS,
+        runSpacing: AppSizes.paddingS,
+        children: categories.map((label) {
+          return _CategoryChip(
+            label: label,
+            isSelected: selected.contains(label),
+            onTap: () => onTap(label),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
 class _CategoryChip extends StatelessWidget {
-  final String emoji;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _CategoryChip({
-    required this.emoji,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -175,8 +214,6 @@ class _CategoryChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: GoogleFonts.roboto(fontSize: 15)),
-            const SizedBox(width: 6),
             Text(
               label,
               style: GoogleFonts.roboto(

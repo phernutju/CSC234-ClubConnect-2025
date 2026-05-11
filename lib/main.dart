@@ -7,8 +7,12 @@ import 'constants/app_constants.dart';
 import 'providers/auth_provider.dart';
 import 'providers/community_provider.dart';
 import 'providers/profile_provider.dart';
+import 'providers/category_provider.dart';
+import 'providers/attendee_provider.dart';
 import 'providers/event_provider.dart';
+import 'providers/event_bill_provider.dart';
 import 'providers/rating_provider.dart';
+import 'providers/report_provider.dart';
 import 'router/app_router.dart';
 
 void main() async {
@@ -30,7 +34,12 @@ class ClubConnectApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: _authProvider),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
+        ChangeNotifierProvider(create: (_) => RatingProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(create: (_) => ReportProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
+        ChangeNotifierProvider(create: (_) => BillProvider()), // connected to BillProvider
+        ChangeNotifierProvider(create: (_) => AttendeeProvider()),
         ChangeNotifierProvider(create: (_) => RatingProvider()),
       ],
       child: MaterialApp.router(

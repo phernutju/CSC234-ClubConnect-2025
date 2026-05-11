@@ -31,7 +31,8 @@ class AuthService {
         'interests': interests,
         'role': 'user',
         'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),  
+        'mutedCommunities': [], // Initialize with empty list for muted communities
       });
       return credential.user!;
     } catch (e) {

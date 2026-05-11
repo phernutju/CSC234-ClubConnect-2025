@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/review_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/category_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
@@ -564,10 +565,15 @@ class _InterestsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final catProvider = context.watch<CategoryProvider>();
+    if (catProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final interests = catProvider.approvedCategories.map((c) => c.name).toList();
     return Wrap(
       spacing: AppSizes.paddingS,
       runSpacing: AppSizes.paddingS,
-      children: AppStrings.interestOptions.map((interest) {
+      children: interests.map((interest) {
         return InterestChip(
           label: interest,
           selected: selectedInterests.contains(interest),

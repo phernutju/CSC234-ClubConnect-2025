@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/event_provider.dart';
+import '../../../providers/profile_provider.dart';
 
 class EventsScreen extends StatefulWidget {
   final String communityId;
@@ -45,7 +47,6 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     final ep = context.watch<EventProvider>();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
@@ -58,7 +59,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   )
                 : ep.events.isEmpty
                     ? const _EmptyState()
-                    : _EventList(events: ep.events),
+                    : _EventList(events: ep.events, communityId: widget.communityId),
           ),
         ],
       ),
@@ -149,8 +150,9 @@ class _EmptyState extends StatelessWidget {
 
 class _EventList extends StatelessWidget {
   final List<EventModel> events;
+  final String communityId;
 
-  const _EventList({required this.events});
+  const _EventList({required this.events, required this.communityId});
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +160,8 @@ class _EventList extends StatelessWidget {
       padding: const EdgeInsets.all(AppSizes.paddingM),
       itemCount: events.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
-      itemBuilder: (context, index) => _EventCard(event: events[index]),
+      itemBuilder: (context, index) =>
+          _EventCard(event: events[index], communityId: communityId , currentMembers: events[index].attendeeCount),
     );
   }
 }
@@ -167,8 +170,15 @@ class _EventList extends StatelessWidget {
 
 class _EventCard extends StatelessWidget {
   final EventModel event;
+  final String communityId;
 
-  const _EventCard({required this.event});
+  final int currentMembers;
+
+  const _EventCard({
+    required this.event,
+    required this.communityId,
+    this.currentMembers = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +225,7 @@ class _EventCard extends StatelessWidget {
           ),
 
           // ── Cover image ──────────────────────────────────────────────────
-          _CoverImage(url: event.coverImageUrl),
+          _CoverImage(url: event.imageUrl?.isNotEmpty == true ? event.imageUrl! : ''),
 
           // ── Body ─────────────────────────────────────────────────────────
           Padding(
@@ -246,7 +256,7 @@ class _EventCard extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSizes.paddingS),
                     Text(
-                      '0/${event.memberLimit} members',
+                      '$currentMembers/${event.maxAttendees} members',
                       style: GoogleFonts.poppins(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.w500,
@@ -258,14 +268,23 @@ class _EventCard extends StatelessWidget {
                 const SizedBox(height: 2),
 
                 // Host name
-                if (event.hostName.isNotEmpty)
-                  Text(
-                    'by ${event.hostName}',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppSizes.fontXS,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF837A7A),
-                    ),
+                if (event.createdBy.isNotEmpty)
+                  FutureBuilder(
+                    future: context.read<ProfileProvider>().fetchUserById(event.createdBy),
+                    builder: (context, snapshot) {
+                      final hostLabel = snapshot.hasData
+                          ? snapshot.data!.displayName
+                          : event.createdBy;
+
+                      return Text(
+                        'by $hostLabel',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppSizes.fontXS,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF837A7A),
+                        ),
+                      );
+                    },
                   ),
                 const SizedBox(height: AppSizes.paddingS),
 
@@ -278,7 +297,9 @@ class _EventCard extends StatelessWidget {
 
                     // Details link
                     GestureDetector(
-                      onTap: () => context.push('/event-detail', extra: event),
+                      onTap: () => context.push('/event-detail',
+                          extra: EventDetailArgs(
+                              event: event, communityId: communityId)),
                       child: Text(
                         'details →',
                         style: GoogleFonts.poppins(

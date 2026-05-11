@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=/Users/nonladapream/flutter"
-export "FLUTTER_APPLICATION_PATH=/Users/nonladapream/Documents/CSC234-ClubConnect-2025"
+export "FLUTTER_ROOT=C:\Users\gammy\flutter"
+export "FLUTTER_APPLICATION_PATH=C:\Users\gammy\OneDrive\Desktop\Project\Flutter_2\CSC234-ClubConnect-2025"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=1.0.0"

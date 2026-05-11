@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:csc234_clubconnect/models/category_model.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../providers/event_provider.dart';
 import '../../../services/storage_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CreateEventScreen extends StatefulWidget {
   final String communityId;
@@ -170,15 +172,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       final memberLimit = int.tryParse(_memberController.text) ?? 0;
 
       await ep.createEvent(
-            widget.communityId,
+            communityId: widget.communityId,
             title: name,
-            hostName: _hostNameController.text.trim(),
-            startDate: startDateTime,
-            endDate: endDateTime,
+            description: _detailController.text.trim(),
             location: _locationController.text.trim(),
-            detail: _detailController.text.trim(),
-            memberLimit: memberLimit,
-            coverImageUrl: coverImageUrl,
+            tags: const [],
+            startDate: Timestamp.fromDate(startDateTime),
+            endDate: Timestamp.fromDate(endDateTime),
+            roomId: widget.communityId,
+            imageUrl: coverImageUrl.isEmpty ? null : coverImageUrl,
+            maxAttendees: memberLimit,
           );
 
       if (!mounted) return;

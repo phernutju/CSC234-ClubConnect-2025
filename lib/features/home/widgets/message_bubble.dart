@@ -19,6 +19,7 @@ class ChatMessage {
   final bool isSent;       // true = current user's message (right side)
   final String senderName;
   final String senderId;     // needed for tapping sender name/avatar to view profile
+  final DateTime timestamp;
   final String time;       // displayed as "HH:mm"
   final String? readCount; // e.g. "Read 3" — only used for sent messages
   final String? replyToName; // sender name being replied to
@@ -33,6 +34,7 @@ class ChatMessage {
     required this.isSent,
     required this.senderName,
     required this.senderId,
+    required this.timestamp,
     required this.time,
     this.readCount,
     this.replyToName,

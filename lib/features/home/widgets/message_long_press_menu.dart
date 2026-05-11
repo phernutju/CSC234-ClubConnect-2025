@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../constants/app_constants.dart';
 import 'message_bubble.dart';
 
-enum _MenuAction { copy, reply, report }
+enum _MenuAction { copy, reply, report, delete }
 
 /// Shows a small compact popup menu (~94 × 77 px) anchored to [tapPosition].
 /// Flutter's showMenu() auto-dismisses when the user taps outside — no barrier
@@ -14,6 +14,7 @@ void showMessageMenu(
   required Offset tapPosition,
   required VoidCallback onReply,
   required VoidCallback onReport,
+  VoidCallback? onDelete,
 }) {
   final screenSize = MediaQuery.sizeOf(context);
 
@@ -74,6 +75,19 @@ void showMessageMenu(
           color: AppColors.reportAccent,
         ),
       ),
+
+      // Delete — only shown to the message sender
+      if (message.isSent && onDelete != null)
+        PopupMenuItem<_MenuAction>(
+          value: _MenuAction.delete,
+          height: AppSizes.popupMenuItemHeight,
+          padding: EdgeInsets.zero,
+          child: const _MenuRow(
+            icon: Icons.delete_outline,
+            label: AppStrings.chatDelete,
+            color: AppColors.alertRed,
+          ),
+        ),
     ],
   ).then((action) {
     if (action == null) return;
@@ -84,6 +98,8 @@ void showMessageMenu(
         onReply();
       case _MenuAction.report:
         onReport();
+      case _MenuAction.delete:
+        onDelete?.call();
     }
   });
 }

@@ -2,8 +2,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import '../../../models/bill_data.dart';
-import '../../../data/mock_data.dart';
+import 'package:provider/provider.dart';
+import '../../../models/event_bill_model.dart';
+import '../../../providers/event_bill_provider.dart';
+import '../../../providers/auth_provider.dart';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const _kBg = Color(0xFFFFE8E0);
@@ -45,8 +47,15 @@ String _uid() => UniqueKey().hashCode.toRadixString(16);
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 class CreateBillScreen extends StatefulWidget {
+  final String communityId;
+  final String eventId;
   final String eventName;
-  const CreateBillScreen({super.key, required this.eventName});
+  const CreateBillScreen({
+    super.key,
+    required this.communityId,
+    required this.eventId,
+    required this.eventName,
+  });
 
   @override
   State<CreateBillScreen> createState() => _CreateBillScreenState();
@@ -76,16 +85,11 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   void initState() {
     super.initState();
     _titleController.text = widget.eventName;
-    for (final p in mockBill.participants) {
-      _memberCounter++;
-      _participants.add(_EditableParticipant(
-        id: _uid(),
-        userId: p.userId,
-        items: p.items
-            .map((i) => _EditableItem(id: _uid(), name: i.name, amount: i.amount))
-            .toList(),
-      ));
-    }
+    // connected to BillProvider — subscribe to bill stream for this event
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<BillProvider>().loadBills(widget.communityId, widget.eventId);
+    });
   }
 
   @override
@@ -249,7 +253,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────
-  void _publish() {
+  Future<void> _publish() async {
     if (_titleController.text.trim().isEmpty) {
       _snack('Please enter a bill title');
       return;
@@ -267,32 +271,69 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
       return;
     }
 
-    final allItems = _participants
-        .expand((p) => p.items)
-        .map((i) => BillItemData(name: i.name, amount: i.amount))
-        .toList();
+    // connected to BillProvider — build models from form fields
+    final provider = context.read<BillProvider>();
+    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
 
-    final allMembers = _participants.map((p) {
-      final parts = p.displayName.split(' ');
-      final initials =
-          parts.take(2).map((w) => w.isEmpty ? '' : w[0].toUpperCase()).join();
-      return BillMemberData(
-        name: p.displayName,
-        initials: initials,
-        role: '',
-        isHost: false,
-        status: 'unpaid',
-      );
-    }).toList();
-
-    final billData = BillData(
-      eventName: _titleController.text.trim(),
-      hostName: '',
-      items: allItems,
-      members: allMembers,
+    final bill = EventBillModel(
+      id: '',
+      title: _titleController.text.trim(),
+      description: '',
+      createdBy: uid,
+      qrImageUrl: '',
+      totalAmount: _totalAmount,
+      status: BillStatus.pending,
+      createdAt: DateTime.now(),
     );
 
-    context.pop(billData);
+    final participantModels = _participants
+        .map((p) => BillParticipantModel(
+              userId: p.userId,
+              userName: p.displayName,
+              userAvatar: '',
+              items: p.items
+                  .map((i) => BillItem(name: i.name, amount: i.amount))
+                  .toList(),
+            ))
+        .toList();
+
+    // connected to BillProvider — create bill document
+    await provider.createBill(widget.communityId, widget.eventId, bill);
+    if (!mounted) return;
+
+    if (provider.error != null) {
+      _snack(provider.error!);
+      return;
+    }
+
+    // Add participants to the subcollection using the newly created bill's ID
+    if (provider.bills.isNotEmpty && participantModels.isNotEmpty) {
+      final newBillId = provider.bills.first.id;
+
+      // connected to BillProvider — select bill so addParticipant host-check passes
+      await provider.selectBill(widget.communityId, widget.eventId, newBillId);
+      if (!mounted) return;
+
+      if (provider.error == null) {
+        for (final p in participantModels) {
+          await provider.addParticipant(
+              widget.communityId, widget.eventId, newBillId, p);
+          if (!mounted) return;
+          if (provider.error != null) break;
+        }
+      }
+    }
+
+    if (!mounted) return;
+    if (provider.error != null) {
+      _snack(provider.error!);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bill published to members!')),
+    );
+    context.pop();
   }
 
   void _snack(String msg) {
@@ -302,6 +343,8 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    // connected to BillProvider — watch loading state to drive button/spinner
+    final isLoading = context.watch<BillProvider>().isLoading;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: _closeReveal,
@@ -330,7 +373,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: _buildBottomBar(),
+        bottomNavigationBar: _buildBottomBar(isLoading),
       ),
     );
   }
@@ -531,7 +574,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   }
 
   // ── Bottom bar ────────────────────────────────────────────────────────────
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(bool isLoading) {
     return Container(
       color: _kBg,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
@@ -539,17 +582,27 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
         width: double.infinity,
         height: 52,
         child: ElevatedButton(
-          onPressed: _publish,
+          // connected to BillProvider — disabled while submitting
+          onPressed: isLoading ? null : _publish,
           style: ElevatedButton.styleFrom(
             backgroundColor: _kPrimary,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             elevation: 0,
           ),
-          child: const Text(
-            'Publish bill to members',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
+          child: isLoading
+              ? const SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : const Text(
+                  'Publish bill to members',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
         ),
       ),
     );

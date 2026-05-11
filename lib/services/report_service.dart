@@ -1,0 +1,101 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/report_model.dart';
+
+class ReportService {
+  final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
+
+  ReportService({FirebaseFirestore? db, FirebaseAuth? auth})
+      : _db = db ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
+
+  // ── Collection ref ─────────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> get _reports =>
+      _db.collection('reports');
+
+  // ── Methods ────────────────────────────────────────────────────────────────
+
+  Future<void> submitReport(ReportModel report) async {
+    _requireAuth();
+
+    final duplicate = await hasUserReportedMessage(
+      report.reporterId,
+      report.messageId,
+    );
+    if (duplicate) throw Exception('Already reported this message');
+
+    final ref = _reports.doc();
+    await ref.set({
+      ...report.toMap(),
+      'reportId': ref.id,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<List<ReportModel>> getReportsByCommunity(String communityId) async {
+    final snap = await _reports
+        .where('communityId', isEqualTo: communityId)
+        .orderBy('createdAt', descending: true)
+        .get();
+    return snap.docs
+        .map((doc) => ReportModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<List<ReportModel>> getReportsByUser(String reporterId) async {
+    final snap = await _reports
+        .where('reporterId', isEqualTo: reporterId)
+        .orderBy('createdAt', descending: true)
+        .get();
+    return snap.docs
+        .map((doc) => ReportModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<void> updateReportStatus(
+    String reportId,
+    ReportStatus status,
+    String reviewedBy,
+  ) async {
+    _requireAuth();
+    await _reports.doc(reportId).update({
+      'status': status.name,
+      'reviewedBy': reviewedBy,
+      'reviewedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<ReportModel>> streamPendingReports() {
+    return _reports
+        .where('status', isEqualTo: ReportStatus.pending.name)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((doc) => ReportModel.fromMap(doc.data()))
+              .toList(),
+        );
+  }
+
+  Future<bool> hasUserReportedMessage(
+    String reporterId,
+    String messageId,
+  ) async {
+    final snap = await _reports
+        .where('reporterId', isEqualTo: reporterId)
+        .where('messageId', isEqualTo: messageId)
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
+  }
+
+  // ── Helper ─────────────────────────────────────────────────────────────────
+
+  User _requireAuth() {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    return user;
+  }
+}

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../widgets/step_progress_bar.dart';
 import '../widgets/primary_button.dart';
-
+import '../../../providers/auth_provider.dart'; 
 class VerifyPhoneScreen extends StatefulWidget {
   const VerifyPhoneScreen({super.key});
 
@@ -37,10 +38,10 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   }
 
   void _onNext() {
-    if (_validate()) {
-      // TODO: trigger SMS OTP for the entered phone number
-      context.push('/otp');
-    }
+    final provider = context.read<AppAuthProvider>();
+    provider.setPhoneNumber(_phoneController.text);
+    provider.sendOtp(); // unawaited — provider state drives OTP screen
+    context.push('/otp');
   }
 
   @override

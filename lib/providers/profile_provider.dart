@@ -10,6 +10,11 @@ class ProfileProvider extends ChangeNotifier {
 
   UserModel? profile;
   ReviewsResult? reviewsResult;
+
+  // Isolated state for OtherProfileScreen — never touches [profile] or [reviewsResult].
+  UserModel? viewedProfile;
+  ReviewsResult? viewedReviewsResult;
+
   bool isLoading = false;
   String? error;
 
@@ -73,6 +78,13 @@ class ProfileProvider extends ChangeNotifier {
             ..clear()
             ..addAll(profile!.interests);
         }
+      });
+
+  Future<void> loadViewedProfile(String userId) => _run(() async {
+        viewedProfile = null;
+        viewedReviewsResult = null;
+        viewedProfile = await _service.getUserProfile(userId);
+        viewedReviewsResult = await _service.getReviews(userId);
       });
 
   Future<void> updateProfile(

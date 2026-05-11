@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../models/category_model.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
@@ -182,7 +183,7 @@ class CommunityProvider extends ChangeNotifier {
 
   Future<void> addCommunity({
     required String communityName,
-    required List<String> category,
+    required List<CategoryModel> category,
     required String description,
     required List<RuleModel> rules,
     Uint8List? coverImageBytes,
@@ -239,6 +240,9 @@ class CommunityProvider extends ChangeNotifier {
 
   Future<void> markMessageSeen(String communityId, String messageId) =>
       _run(() => _service.markMessageSeen(communityId, messageId));
+
+  Future<void> deleteMessage(String communityId, String messageId) =>
+      _run(() => _service.deleteMessage(communityId, messageId));
 
   // ── Helper ─────────────────────────────────────────────────────────────────
 

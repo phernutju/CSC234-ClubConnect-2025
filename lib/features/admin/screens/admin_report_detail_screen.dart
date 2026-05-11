@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../models/report_model.dart';
+import '../models/report_model.dart';
 import '../widgets/ban_popup.dart';
 
 class AdminReportDetailScreen extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
 
   const AdminReportDetailScreen({super.key, required this.report});
 
@@ -66,7 +66,7 @@ class AdminReportDetailScreen extends StatelessWidget {
 }
 
 class _DarkHeader extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _DarkHeader({required this.report});
 
   @override
@@ -131,7 +131,7 @@ class _DarkHeader extends StatelessWidget {
 }
 
 class _SeverityRow extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _SeverityRow({required this.report});
 
   @override
@@ -175,7 +175,7 @@ class _SeverityRow extends StatelessWidget {
 }
 
 class _AiAnalysisCard extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _AiAnalysisCard({required this.report});
 
   @override
@@ -360,7 +360,7 @@ class _ChatBubble extends StatelessWidget {
 
 
 class _BottomActions extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _BottomActions({required this.report});
 
   @override

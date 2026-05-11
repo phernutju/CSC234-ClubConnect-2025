@@ -83,7 +83,6 @@ class _SignupScreenState extends State<SignupScreen> {
       if (!mounted) return;
       switch (result) {
         case Success():
-          // Stage credentials for the later full sign-up step.
           context.read<AppAuthProvider>().setEmailPassword(
             _emailController.text.trim(),
             _passwordController.text,

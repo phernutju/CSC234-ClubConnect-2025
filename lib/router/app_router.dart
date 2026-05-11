@@ -22,6 +22,7 @@ import '../features/community/screens/event_chat_screen.dart';
 import '../features/community/screens/edit_event_screen.dart';
 import '../models/event_model.dart';
 import '../models/event_chat_args.dart';
+import '../models/event_detail_args.dart';
 import '../features/admin/screens/admin_reports_screen.dart';
 import '../features/admin/screens/admin_report_detail_screen.dart';
 import '../features/community/screens/bill_summary_screen.dart';
@@ -29,13 +30,13 @@ import '../features/community/screens/bill_payment_screen.dart';
 import '../features/community/screens/payment_success_screen.dart';
 import '../features/community/screens/create_bill_screen.dart';
 import '../models/bill_payment_args.dart';
-import '../models/bill_data.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
 import '../models/report_model.dart';
 import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
+import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';
 
 GoRouter createAppRouter(AppAuthProvider authProvider) {
@@ -99,7 +100,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       ),
       GoRoute(
         path: '/category',
-        builder: (context, state) => const CategoryScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CategoryScreen(displayName: extra?['displayName'] as String?);
+        },
       ),
 
       // ── Main-app shell (bottom nav shared across these three routes) ─────────
@@ -174,9 +178,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       GoRoute(
         path: '/event-detail',
         builder: (context, state) {
-          final event = state.extra as EventModel?;
-          if (event == null) return const SizedBox.shrink();
-          return EventDetailScreen(event: event);
+          final args = state.extra as EventDetailArgs?;
+          if (args == null) return const SizedBox.shrink();
+          return EventDetailScreen(
+              event: args.event, communityId: args.communityId);
         },
       ),
       GoRoute(
@@ -187,6 +192,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           return EventChatScreen(
             event: args.event,
             memberCount: args.memberCount,
+            communityId: args.communityId,
           );
         },
       ),
@@ -197,6 +203,8 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         builder: (context, state) {
           final args = state.extra as Map<String, dynamic>;
           return CreateBillScreen(
+            communityId: args['communityId'] as String? ?? '',
+            eventId: args['eventId'] as String? ?? '',
             eventName: args['eventName'] as String,
           );
         },
@@ -204,8 +212,14 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       GoRoute(
         path: '/bill-summary',
         builder: (context, state) {
-          final billData = state.extra as BillData;
-          return BillSummaryScreen(billData: billData);
+          // replaced mock — using provider
+          final args = state.extra as Map<String, dynamic>? ?? {};
+          return BillSummaryScreen(
+            communityId:       args['communityId']       as String? ?? '',
+            eventId:           args['eventId']           as String? ?? '',
+            billId:            args['billId']            as String? ?? '',
+            isCurrentUserHost: args['isCurrentUserHost'] as bool?   ?? false,
+          );
         },
       ),
       GoRoute(
@@ -255,7 +269,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       GoRoute(
         path: '/admin-report-detail',
         builder: (context, state) {
-          final report = state.extra as ReportModel;
+          final report = state.extra as AdminReportModel;
           return AdminReportDetailScreen(report: report);
         },
       ),

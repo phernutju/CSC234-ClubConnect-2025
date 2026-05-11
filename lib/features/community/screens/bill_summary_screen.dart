@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import '../../../constants/app_constants.dart';
-import '../../../data/mock_data.dart';
 import '../../../models/bill_data.dart';
 import '../../../models/bill_payment_args.dart';
+import '../../../providers/event_bill_provider.dart';
+import '../../../providers/auth_provider.dart';
 
 // ── Local design tokens not in AppColors ─────────────────────────────────────
 const _kCardBorder = Color(0xFFEDE5DF);
@@ -32,11 +34,16 @@ String _uid() => UniqueKey().hashCode.toRadixString(16);
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class BillSummaryScreen extends StatefulWidget {
-  final BillData billData;
-  final bool     isCurrentUserHost;
+  // replaced mock — using provider
+  final String communityId;
+  final String eventId;
+  final String billId;
+  final bool   isCurrentUserHost;
   const BillSummaryScreen({
     super.key,
-    required this.billData,
+    required this.communityId,
+    required this.eventId,
+    required this.billId,
     this.isCurrentUserHost = false,
   });
 
@@ -48,7 +55,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
   String _currentUserStatus = 'unpaid';
   bool   _showPaidBanner    = false;
 
-  // Populated from mockBill in initState
+  // replaced mock — using provider: populated via _seedFromProvider
   String?                    _localTitle;
   List<BillMemberData>?      _localMembers;
   List<List<_EditableItem>>? _memberItems;
@@ -67,28 +74,36 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
   @override
   void initState() {
     super.initState();
-    _localTitle = mockBill.title;
+    // replaced mock — using provider: fetch bill + participants from Firestore
+    if (widget.billId.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final provider = context.read<BillProvider>();
+        await provider.selectBill(
+            widget.communityId, widget.eventId, widget.billId);
+        if (!mounted) return;
+        _seedFromProvider(provider);
+      });
+    }
+  }
 
+  // replaced mock — using provider: seed local editable state from provider data
+  void _seedFromProvider(BillProvider provider) {
     final builtMembers     = <BillMemberData>[];
     final builtMemberItems = <List<_EditableItem>>[];
 
-    for (final p in mockBill.participants) {
-      // "user001" → "User 001"
-      final m = RegExp(r'^([a-zA-Z]+)(\d+)$').firstMatch(p.userId);
-      final displayName = m != null
-          ? '${m.group(1)![0].toUpperCase()}${m.group(1)!.substring(1)} ${m.group(2)}'
-          : p.userId;
-      final parts    = displayName.split(' ');
+    for (final p in provider.participants) {
+      final parts    = p.userName.trim().split(' ');
       final initials = parts
           .take(2)
           .map((w) => w.isEmpty ? '' : w[0].toUpperCase())
           .join();
 
       builtMembers.add(BillMemberData(
-        name:     displayName,
+        name:     p.userName,
         initials: initials,
         role:     '',
-        isHost:   false,
+        isHost:   p.userId == provider.selectedBill?.createdBy,
         status:   p.isPaid ? 'paid' : 'unpaid',
       ));
 
@@ -99,10 +114,13 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
       );
     }
 
-    _localMembers = builtMembers;
-    _memberItems  = builtMemberItems;
-    // Flatten for global tracking (summary total, host-edit lookup)
-    _items = builtMemberItems.expand((list) => list).toList();
+    setState(() {
+      _localTitle   = provider.selectedBill?.title;
+      _localMembers = builtMembers;
+      _memberItems  = builtMemberItems;
+      // Flatten for global tracking (summary total, host-edit lookup)
+      _items = builtMemberItems.expand((list) => list).toList();
+    });
   }
 
   @override
@@ -113,8 +131,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     super.dispose();
   }
 
-  List<BillMemberData> get _members =>
-      _localMembers ?? widget.billData.members;
+  // replaced mock — using provider
+  List<BillMemberData> get _members => _localMembers ?? [];
 
   double get _total     => _items.fold(0.0, (s, i) => s + i.amount);
   int    get _nMembers  => _members.isNotEmpty ? _members.length : 1;
@@ -123,11 +141,16 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
   int    get _paidCount =>
       _members.where((m) => m.status == 'paid').length;
 
-  // Amount owed by the current user (last member = current user in demo)
+  // replaced mock — using provider: find current user's items by uid
   double get _currentUserAmount {
     if (_memberItems != null && _memberItems!.isNotEmpty) {
-      final idx = _memberItems!.length - 1;
-      return _memberItems![idx].fold(0.0, (s, i) => s + i.amount);
+      final uid      = context.read<AppAuthProvider>().user?.uid;
+      final provider = context.read<BillProvider>();
+      final idx = provider.participants.indexWhere((p) => p.userId == uid);
+      if (idx >= 0 && idx < _memberItems!.length) {
+        return _memberItems![idx].fold(0.0, (s, i) => s + i.amount);
+      }
+      return _memberItems!.last.fold(0.0, (s, i) => s + i.amount);
     }
     return _perPerson;
   }
@@ -203,13 +226,18 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           .showSnackBar(SnackBar(content: Text(msg)));
 
   Future<void> _goToPay(BuildContext context) async {
+    // replaced mock — using provider: real event name and current user's index
+    final uid         = context.read<AppAuthProvider>().user?.uid;
+    final provider    = context.read<BillProvider>();
+    final memberIndex = provider.participants.indexWhere((p) => p.userId == uid);
+
     final result = await context.push<bool>(
       '/bill-payment',
       extra: BillPaymentArgs(
-        eventName:   _localTitle ?? widget.billData.eventName,
+        eventName:   _localTitle ?? '',
         amount:      _currentUserAmount,
         memberCount: _nMembers,
-        memberIndex: 4,
+        memberIndex: memberIndex >= 0 ? memberIndex : 0,
       ),
     );
     if (result == true && mounted) {
@@ -222,7 +250,50 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // replaced mock — using provider
+    final provider  = context.watch<BillProvider>();
     final bottomPad = MediaQuery.of(context).padding.bottom;
+
+    // Loading state
+    if (provider.isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Column(
+          children: [
+            const _BillAppBar(title: 'Bill Summary'),
+            const Expanded(
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Error state
+    if (provider.error != null && _items.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Column(
+          children: [
+            const _BillAppBar(title: 'Bill Summary'),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    provider.error!,
+                    style: GoogleFonts.poppins(color: AppColors.textGray),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     if (_items.isEmpty) {
       return Scaffold(
@@ -245,7 +316,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           children: [
             Column(
               children: [
-                _BillAppBar(title: _localTitle ?? widget.billData.eventName),
+                _BillAppBar(title: _localTitle ?? 'Bill Summary'), // replaced mock — using provider
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),

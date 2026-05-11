@@ -151,7 +151,7 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                           label: AppStrings.createCategoryLabel),
                       const SizedBox(height: AppSizes.paddingS),
                       _ReadOnlyCategoryChips(
-                          categories: widget.community.category),
+                          categories: widget.community.tags.map((t) => t.name).toList()),
                       const SizedBox(height: AppSizes.paddingM),
                       _RulesSection(
                         controllers: _rulesControllers,

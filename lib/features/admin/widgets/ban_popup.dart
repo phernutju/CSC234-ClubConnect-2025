@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../models/report_model.dart';
+import '../models/report_model.dart';
 
 class BanPopup extends StatefulWidget {
-  final ReportModel report;
+  final AdminReportModel report;
 
   const BanPopup({super.key, required this.report});
 
-  static void show(BuildContext context, ReportModel report) {
+  static void show(BuildContext context, AdminReportModel report) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -201,7 +201,7 @@ class _BanPopupState extends State<BanPopup> {
 }
 
 class _ReportInfoCard extends StatelessWidget {
-  final ReportModel report;
+  final AdminReportModel report;
   const _ReportInfoCard({required this.report});
 
   @override
