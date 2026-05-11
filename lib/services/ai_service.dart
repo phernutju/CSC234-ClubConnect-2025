@@ -30,25 +30,31 @@ class GeminiService {
           isViolating: false, violatedRules: [], reason: '');
     }
 
+    // No rules → nothing to violate
+    if (rules.trim().isEmpty) {
+      return const ModerationResult(
+          isViolating: false, violatedRules: [], reason: '');
+    }
+
     final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
-    final rulesSection = rules.isNotEmpty ? rules : '(ไม่มีกฎเพิ่มเติม)';
 
     final prompt = '''
-กฎของชุมชนนี้:
-$rulesSection
+You are a content moderator for a community chat room.
 
-ตรวจสอบข้อความต่อไปนี้ว่าละเมิดข้อใดด้านล่างหรือไม่ (ทุกภาษา):
-1. ละเมิดกฎชุมชนข้างต้น
-2. คำหยาบภาษาไทย: ควย หี เย็ด มึง กู ไอ้สัตว์ อีสัตว์ เหี้ย แม่ง ฯลฯ (รวมถึงสะกดแปลก เช่น ค-ว-ย หรือเว้นช่องไฟ)
-3. คำหยาบภาษาอังกฤษ: fuck, f*ck, fck, shit, bitch, asshole, bastard, cunt, dick, pussy, cock ฯลฯ (รวมถึงสะกดแปลงหรือ censor บางตัว)
-4. การข่มขู่ คุกคาม หรือล่อลวง (ทุกภาษา)
-5. การเหยียดเชื้อชาติ ศาสนา หรือเพศ (ทุกภาษา)
+Community rules (numbered list):
+$rules
 
-ข้อความ: "$text"
+Message to evaluate: "$text"
 
-ตอบเป็น JSON object เท่านั้น ห้าม markdown ห้าม backtick ห้ามอธิบายเพิ่ม:
-ถ้าละเมิด: {"isViolating":true,"violatedRules":[<เลขข้อ>],"reason":"<อธิบายสั้นๆ>"}
-ถ้าปลอดภัย: {"isViolating":false,"violatedRules":[],"reason":""}
+Instructions:
+- Judge ONLY against the community rules listed above.
+- Do NOT apply any external standards, general profanity policies, or assumptions.
+- If the rules do not explicitly prohibit what the message contains, it is NOT a violation.
+- If a rule is violated, include its 1-based index in violatedRules.
+
+Respond with a single JSON object only. No markdown, no backticks, no explanation:
+If violation: {"isViolating":true,"violatedRules":[<rule numbers>],"reason":"<brief reason>"}
+If safe: {"isViolating":false,"violatedRules":[],"reason":""}
 ''';
 
     final body = jsonEncode({

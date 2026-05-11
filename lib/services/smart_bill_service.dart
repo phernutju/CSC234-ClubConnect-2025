@@ -125,6 +125,30 @@ class SmartBillService {
           .snapshots()
           .map((d) => d.exists ? SmartPaymentModel.fromFirestore(d) : null);
 
+  Stream<List<SmartPaymentModel>> streamAllPayments(
+          String communityId, String eventId, String billId) =>
+      _paymentsCol(communityId, eventId, billId).snapshots().map((s) =>
+          s.docs.map((d) => SmartPaymentModel.fromFirestore(d)).toList());
+
+  Future<void> verifyPaymentManually(String communityId, String eventId,
+          String billId, String userId) =>
+      _paymentsCol(communityId, eventId, billId)
+          .doc(userId)
+          .update({'status': 'verified'});
+
+  Future<void> rejectPaymentManually(String communityId, String eventId,
+          String billId, String userId) =>
+      _paymentsCol(communityId, eventId, billId)
+          .doc(userId)
+          .update({'status': 'rejected'});
+
+  Future<void> settleBill(
+          String communityId, String eventId, String billId) =>
+      _billsCol(communityId, eventId).doc(billId).update({
+        'status': SmartBillStatus.settled.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
   // ── Storage ───────────────────────────────────────────────────────────────
 
   Future<String> uploadQrImage(String communityId, String eventId,

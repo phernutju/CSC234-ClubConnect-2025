@@ -25,17 +25,25 @@ class CategoryPickerPopup extends StatefulWidget {
 }
 
 class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
-  // Local mirror of selected state so chip animations respond immediately
-  // without waiting for the parent widget tree to rebuild.
   late Set<String> _localSelected;
-
   late final Future<List<String>> _categoriesFuture;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _localSelected = Set<String>.from(widget.selectedInterests);
     _categoriesFuture = CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _toggle(String name) {
@@ -98,6 +106,54 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
 
             const Divider(height: 1, color: AppColors.divider),
 
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSizes.paddingL,
+                AppSizes.paddingM,
+                AppSizes.paddingL,
+                AppSizes.paddingXS,
+              ),
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.inputFill,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: AppSizes.paddingM),
+                    const Icon(Icons.search, color: AppColors.textGray, size: 18),
+                    const SizedBox(width: AppSizes.paddingS),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search categories…',
+                          hintStyle: AppTextStyles.body(
+                            color: AppColors.textGray,
+                            fontSize: AppSizes.fontM,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: AppTextStyles.body(fontSize: AppSizes.fontM),
+                      ),
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => _searchController.clear(),
+                        child: const Padding(
+                          padding: EdgeInsets.only(right: AppSizes.paddingS),
+                          child: Icon(Icons.close, color: AppColors.textGray, size: 16),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
             // Category chips — built from Firestore data
             Expanded(
               child: FutureBuilder<List<String>>(
@@ -120,11 +176,22 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
                       ),
                     );
                   }
-                  final names = snapshot.data ?? [];
-                  if (names.isEmpty) {
+                  final allNames = snapshot.data ?? [];
+                  if (allNames.isEmpty) {
                     return Center(
                       child: Text(
                         'No categories found in Firestore.',
+                        style: AppTextStyles.body(color: AppColors.textGray),
+                      ),
+                    );
+                  }
+                  final names = _searchQuery.isEmpty
+                      ? allNames
+                      : allNames.where((n) => n.toLowerCase().contains(_searchQuery)).toList();
+                  if (names.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No categories match "$_searchQuery".',
                         style: AppTextStyles.body(color: AppColors.textGray),
                       ),
                     );

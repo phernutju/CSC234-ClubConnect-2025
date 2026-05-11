@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
@@ -9,6 +10,7 @@ import '../../../providers/auth_provider.dart';
 /// Shared event card used in the community events page and the global Events tab/screen.
 class EventCard extends StatelessWidget {
   final EventModel event;
+  final String communityId;
 
   /// Member display names — populated from backend later; defaults to empty.
   final List<String> memberNames;
@@ -19,6 +21,7 @@ class EventCard extends StatelessWidget {
   const EventCard({
     super.key,
     required this.event,
+    this.communityId = '',
     this.memberNames = const [],
     this.currentMembers = 0,
   });
@@ -37,7 +40,7 @@ class EventCard extends StatelessWidget {
     final dateLine = event.formattedDateRange;
     final hostName = context.read<AppAuthProvider>().user?.displayName ?? '';
     return GestureDetector(
-      onTap: () => context.push('/event-detail', extra: event),
+      onTap: () => context.push('/event-detail', extra: EventDetailArgs(event: event, communityId: communityId)),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.cardWhite,

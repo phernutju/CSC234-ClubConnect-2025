@@ -10,6 +10,7 @@ class SmartBillProvider extends ChangeNotifier {
   List<SmartBillItemModel> items = [];
   SmartPaymentModel? myPayment;
   AiVerificationResult? lastVerification;
+  List<SmartPaymentModel> allPayments = [];
 
   bool isLoading = false;
   bool isVerifying = false;
@@ -18,6 +19,7 @@ class SmartBillProvider extends ChangeNotifier {
   StreamSubscription<SmartBillModel?>? _billSub;
   StreamSubscription<List<SmartBillItemModel>>? _itemsSub;
   StreamSubscription<SmartPaymentModel?>? _paymentSub;
+  StreamSubscription<List<SmartPaymentModel>>? _allPaymentsSub;
 
   SmartBillProvider({SmartBillService? service})
       : _service = service ?? SmartBillService();
@@ -87,6 +89,59 @@ class SmartBillProvider extends ChangeNotifier {
       },
       onError: _onError,
     );
+  }
+
+  void loadAllPayments(String communityId, String eventId, String billId) {
+    _allPaymentsSub?.cancel();
+    _allPaymentsSub = _service
+        .streamAllPayments(communityId, eventId, billId)
+        .listen(
+      (list) {
+        allPayments = list;
+        notifyListeners();
+      },
+      onError: _onError,
+    );
+  }
+
+  Future<bool> settleBill(
+      String communityId, String eventId, String billId) async {
+    if (!canSettle) return false;
+    isLoading = true;
+    error = null;
+    notifyListeners();
+    try {
+      await _service.settleBill(communityId, eventId, billId);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> verifyMemberPayment(String communityId, String eventId,
+      String billId, String userId) async {
+    try {
+      await _service.verifyPaymentManually(
+          communityId, eventId, billId, userId);
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> rejectMemberPayment(String communityId, String eventId,
+      String billId, String userId) async {
+    try {
+      await _service.rejectPaymentManually(
+          communityId, eventId, billId, userId);
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+    }
   }
 
   // ── Mock injection ────────────────────────────────────────────────────────
@@ -161,7 +216,8 @@ class SmartBillProvider extends ChangeNotifier {
             id: member.uid,
             userId: member.uid,
             amountDue: memberAmounts[member.uid] ?? 0,
-            status: 'pending',
+            // Host receives money — no slip needed; auto-verify their share
+            status: member.uid == hostId ? 'verified' : 'pending',
           ),
         );
       }
@@ -302,6 +358,13 @@ class SmartBillProvider extends ChangeNotifier {
 
   double getMemberShare(String uid) => getMemberTotals()[uid] ?? 0;
 
+  bool get canSettle =>
+      bill != null &&
+      bill!.status == SmartBillStatus.published &&
+      bill!.members.isNotEmpty &&
+      allPayments.length >= bill!.members.length &&
+      allPayments.every((p) => p.status == 'verified');
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   void _onError(Object e) {
@@ -313,9 +376,11 @@ class SmartBillProvider extends ChangeNotifier {
     _billSub?.cancel();
     _itemsSub?.cancel();
     _paymentSub?.cancel();
+    _allPaymentsSub?.cancel();
     bill = null;
     items = [];
     myPayment = null;
+    allPayments = [];
     lastVerification = null;
     error = null;
     notifyListeners();
@@ -326,6 +391,7 @@ class SmartBillProvider extends ChangeNotifier {
     _billSub?.cancel();
     _itemsSub?.cancel();
     _paymentSub?.cancel();
+    _allPaymentsSub?.cancel();
     super.dispose();
   }
 }
