@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/smart_bill_provider.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel event;
@@ -44,6 +44,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       _attendeeProvider!.loadAttendees(widget.communityId, widget.event.id);
       await _attendeeProvider!
           .checkIsAttending(widget.communityId, widget.event.id);
+      if (!mounted) return;
+      context.read<SmartBillProvider>().loadBillByEvent(widget.event.id);
     });
   }
 
@@ -61,6 +63,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
+
+  Future<void> _onCreateBillTap() async {
+    await context.push(
+      '/create-bill',
+      extra: {
+        'communityId': widget.communityId,
+        'eventId': widget.event.id,
+        'eventName': widget.event.title,
+      },
+    );
+  }
 
   void _goToChat() {
     final ap = context.read<AttendeeProvider>();
@@ -109,8 +122,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final ap = context.watch<AttendeeProvider>();
-    final dateStr = DateFormat('d MMMM yyyy  hh:mm a')
-        .format(widget.event.startDate.toDate());
+    context.watch<SmartBillProvider>();
+    final dateStr = widget.event.formattedDateRange;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isHost = _isHost;
     final memberCount = ap.attendees.length;
@@ -216,7 +229,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                         // Bills card
                         const SizedBox(height: AppSizes.paddingM),
-                        const _BillsCard(),
+                        _BillsCard(
+                          communityId:  widget.communityId,
+                          eventId:      widget.event.id,
+                          isHost:       isHost,
+                          onCreateBill: _onCreateBillTap,
+                        ),
 
                         SizedBox(height: AppSizes.paddingXL + bottomPad),
                       ],
@@ -521,58 +539,123 @@ class _AvatarCircle extends StatelessWidget {
 // ── Event's bills card ────────────────────────────────────────────────────────
 
 class _BillsCard extends StatelessWidget {
-  const _BillsCard();
+  final String       communityId;
+  final String       eventId;
+  final bool         isHost;
+  final VoidCallback onCreateBill;
+
+  const _BillsCard({
+    required this.communityId,
+    required this.eventId,
+    required this.isHost,
+    required this.onCreateBill,
+  });
+
+  Widget _card({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.paddingM,
+          vertical: AppSizes.paddingM,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+          border: Border.all(color: const Color(0xFFE8DFD8)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontXXS,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFFF6B4A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSizes.paddingS),
+            Text(
+              '→',
+              style: GoogleFonts.poppins(
+                fontSize: AppSizes.fontL,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingM,
-        vertical: AppSizes.paddingM,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: const Color(0xFFE8DFD8)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Event's bills",
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontSM,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'view bill summary that each need to pay',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontXXS,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFFF6B4A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSizes.paddingS),
-          Text(
-            '→',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontL,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
+    final provider = context.watch<SmartBillProvider>();
+    final bill     = provider.bill;
+    final hasBill  = bill != null;
+
+    // isHost + no bill: show Create Bill
+    if (isHost && !hasBill) {
+      return _card(
+        context:  context,
+        title:    'Create Bill',
+        subtitle: 'Create & manage the bill for this event',
+        onTap:    onCreateBill,
+      );
+    }
+
+    // isHost + has bill: show Manage Bill → BillSummaryScreen
+    if (isHost && hasBill) {
+      return _card(
+        context:  context,
+        title:    'Manage Bill',
+        subtitle: 'View and manage the bill summary',
+        onTap: () => context.push('/bill-summary', extra: {
+          'communityId':       communityId,
+          'eventId':           eventId,
+          'billId':            bill.id,
+          'isCurrentUserHost': true,
+        }),
+      );
+    }
+
+    // member + no bill: hide section
+    if (!hasBill) return const SizedBox.shrink();
+
+    // member + has bill: show View Bill → BillSummaryScreen (member view)
+    return _card(
+      context:  context,
+      title:    'View Bill',
+      subtitle: 'View the bill and pay your share',
+      onTap: () => context.push('/bill-summary', extra: {
+        'communityId':       communityId,
+        'eventId':           eventId,
+        'billId':            bill.id,
+        'isCurrentUserHost': false,
+      }),
     );
   }
 }

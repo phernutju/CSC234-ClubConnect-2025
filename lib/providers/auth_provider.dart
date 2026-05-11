@@ -1,14 +1,30 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+
+class AuthException implements Exception {
+  final String message;
+  final String code;
+  const AuthException(this.message, [this.code = '']);
+  @override
+  String toString() => message;
+}
 
 enum OtpState { idle, sendingOtp, codeSent, verifying, verified, error }
 
 class AppAuthProvider extends ChangeNotifier {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final AuthService _authService = AuthService();
 
   User? user;
+  String? role;
+  bool isBanned = false;
+  bool isMuted = false;
+  String? banReason;
+  DateTime? banExpiresAt;
+  String? durationLabel;
   bool isLoading = false;
 
   OtpState _otpState = OtpState.idle;
@@ -30,10 +46,61 @@ class AppAuthProvider extends ChangeNotifier {
   String? _photoURL;
 
   AppAuthProvider() {
-    _authService.authStateChanges.listen((u) {
+    _auth.authStateChanges().listen((u) {
       user = u;
-      notifyListeners();
+      if (u != null) {
+        _fetchRole(u.uid);
+      } else {
+        role = null;
+        isBanned = false;
+        isMuted = false;
+        banReason = null;
+        banExpiresAt = null;
+        durationLabel = null;
+        notifyListeners();
+      }
     });
+  }
+
+  Future<void> _fetchRole(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = doc.data() ?? {};
+      role = (data['role'] as String?) ?? 'user';
+
+      final bannedInDb = (data['isBanned'] as bool?) ?? false;
+      final expiresTs = data['banExpiresAt'] as Timestamp?;
+
+      if (bannedInDb && expiresTs != null && expiresTs.toDate().isBefore(DateTime.now())) {
+        // Ban expired — auto-unban
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+          'isBanned': false,
+          'banReason': FieldValue.delete(),
+          'durationLabel': FieldValue.delete(),
+          'banExpiresAt': FieldValue.delete(),
+          'bannedAt': FieldValue.delete(),
+          'bannedBy': FieldValue.delete(),
+        });
+        isBanned = false;
+        banReason = null;
+        banExpiresAt = null;
+        durationLabel = null;
+      } else {
+        isBanned = bannedInDb;
+        banReason = data['banReason'] as String?;
+        banExpiresAt = expiresTs?.toDate();
+        durationLabel = data['durationLabel'] as String?;
+      }
+      isMuted = (data['isMuted'] as bool?) ?? false;
+    } catch (_) {
+      role = 'user';
+      isBanned = false;
+      isMuted = false;
+    }
+    notifyListeners();
   }
 
   void setEmailPassword(String email, String password) {
@@ -44,26 +111,26 @@ class AppAuthProvider extends ChangeNotifier {
   void setPhoneNumber(String phonenum) {
     _phone = formatPhoneNumber(phonenum);
   }
+
   String formatPhoneNumber(String phone) {
-  // Remove any spaces or dashes
-  phone = phone.replaceAll(' ', '').replaceAll('-', '');
-  
-  // Replace leading 0 with +66
-  if (phone.startsWith('0')) {
-    phone = '+66' + phone.substring(1);
+    // Remove any spaces or dashes
+    phone = phone.replaceAll(' ', '').replaceAll('-', '');
+
+    // Replace leading 0 with +66
+    if (phone.startsWith('0')) {
+      phone = '+66${phone.substring(1)}';
+    }
+
+    return phone; // +6680000000
   }
-  
-  return phone; // +6680000000
-}
+
   void setExtraInfo(String photoURL, String displayName, String bio) {
     _photoURL = photoURL;
     _displayName = displayName;
     _bio = bio;
   }
 
-  void setInterests(List<String> tags) {
-    _tags = tags;
-  }
+  void setInterests(List<String> tags) => _tags = tags;
 
   Future<void> sendOtp() async {
     if (_phone == null || _phone!.isEmpty) return;
@@ -124,31 +191,30 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   Future<void> signUp() async {
-  isLoading = true;
-  notifyListeners();
-  try {
-    if (_email == null || _password == null || _displayName == null) {
-      print('Signup data missing: email=$_email, password=${_password != null ? '***' : null}, displayName=$_displayName');
-      throw Exception('Missing required signup data');
-    }
-    await _authService.signUp(
-      email: _email!,
-      password: _password!,
-      displayName: _displayName!,
-      phoneNumber: _phone ?? '',
-      interests: _tags ?? [],
-      bio: _bio ?? '',
-      photoURL: _photoURL ?? '',
-    );
-    _clearSignupData();
-  } catch (e) {
-    debugPrint('SignUp error: $e');
-    rethrow;
-  } finally {
-    isLoading = false;
+    isLoading = true;
     notifyListeners();
+    try {
+      if (_email == null || _password == null || _displayName == null) {
+        throw Exception('Missing required signup data');
+      }
+      await _authService.signUp(
+        email: _email!,
+        password: _password!,
+        displayName: _displayName!,
+        phoneNumber: _phone ?? '',
+        interests: _tags ?? [],
+        bio: _bio ?? '',
+        photoURL: _photoURL ?? '',
+      );
+      _clearSignupData();
+    } catch (e) {
+      debugPrint('SignUp error: $e');
+      rethrow;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
-}
   Future<void> signIn({
     required String email,
     required String password,
@@ -156,20 +222,20 @@ class AppAuthProvider extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      final credential = await _authService.signIn(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
       user = credential.user;
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapError(e.code));
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> signOut() async {
-    await _authService.signOut();
-  }
+  Future<void> signOut() async => _auth.signOut();
 
   void _clearSignupData() {
     _email = null;
@@ -179,6 +245,21 @@ class AppAuthProvider extends ChangeNotifier {
     _tags = null;
     _bio = null;
     _photoURL = null;
+  }
+
+  String _mapError(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No user found with this email';
+      case 'wrong-password':
+        return 'Incorrect password';
+      case 'invalid-email':
+        return 'Invalid email format';
+      case 'email-already-in-use':
+        return 'This email is already registered';
+      default:
+        return 'Something went wrong';
+    }
   }
 
   @override

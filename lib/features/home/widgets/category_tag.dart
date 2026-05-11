@@ -34,6 +34,8 @@ class CategoryTag extends StatelessWidget {
               padding: const EdgeInsets.all(AppSizes.paddingS),
               child: Text(
                 label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: AppSizes.fontS,
                   fontWeight: FontWeight.w600,

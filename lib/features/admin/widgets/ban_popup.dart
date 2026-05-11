@@ -1,6 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../models/report_model.dart';
+import '../../../services/report_service.dart';
+import '../../../services/user_service.dart';
 import '../models/report_model.dart';
 
 class BanPopup extends StatefulWidget {
@@ -25,6 +29,7 @@ class _BanPopupState extends State<BanPopup> {
   final Set<String> _selectedReasons = {};
   String? _selectedDuration;
   final _descController = TextEditingController();
+  bool _isBanning = false;
 
   static const _reasons = ['Hate Speech', 'Harassment', 'Scam', 'Threat', 'Others'];
   static const _durations = ['Permanently', '1 Month', '7 Days', '24 hours', '12 hours', '6 hours', '1 hours'];
@@ -33,6 +38,48 @@ class _BanPopupState extends State<BanPopup> {
   void dispose() {
     _descController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onConfirm() async {
+    if (widget.report.targetUserId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot ban: no target user ID available.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
+    final reasonText = _selectedReasons.isNotEmpty
+        ? _selectedReasons.join(', ')
+        : _descController.text.trim();
+    final description = reasonText.isNotEmpty ? reasonText : 'Violation of community guidelines';
+
+    setState(() => _isBanning = true);
+    try {
+      await UserService.banUser(widget.report.targetUserId, description, _selectedDuration ?? 'Permanently');
+      // Update report status
+      try {
+        final adminUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        await ReportService().updateReportStatus(
+          widget.report.id,
+          ReportStatus.banned,
+          adminUid,
+        );
+      } catch (_) {}
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User has been banned.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isBanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to ban user: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -171,7 +218,7 @@ class _BanPopupState extends State<BanPopup> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isBanning ? null : _onConfirm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFF6868),
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -181,37 +228,29 @@ class _BanPopupState extends State<BanPopup> {
                         side: const BorderSide(color: Color(0xFFFF6868)),
                       ),
                     ),
-                    child: Text(
-                      'Confirm ban',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isBanning
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'Confirm ban',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ],
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BanIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      '.claude/traffic.png',
-      width: 64,
-      height: 64,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const Icon(
-        Icons.block,
-        color: Colors.red,
-        size: 64,
       ),
     );
   }

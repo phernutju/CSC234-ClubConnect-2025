@@ -27,15 +27,12 @@ class ClubCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: AppSizes.paddingM),
         padding: const EdgeInsets.all(AppSizes.paddingM),
         decoration: BoxDecoration(
-          color: AppColors.cardWhite,
-          borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
+          color: AppColors.chatBackground,
+          borderRadius: BorderRadius.circular(AppSizes.clubCardRadius),
+          border: Border.all(
+            color: AppColors.rateCardBorder,
+            width: AppSizes.clubCardBorderWidth,
+          ),
         ),
         child: Row(
           children: [
@@ -65,8 +62,8 @@ class _ClubThumbnail extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppSizes.radiusS),
       child: Container(
-        width: AppSizes.cardThumbnailSize,
-        height: AppSizes.cardThumbnailSize,
+        width: AppSizes.clubThumbnailSize,
+        height: AppSizes.clubThumbnailSize,
         color: AppColors.inputFill,
         child: NetworkImageView(
           url: coverImageUrl,

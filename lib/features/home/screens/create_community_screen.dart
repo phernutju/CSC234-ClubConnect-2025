@@ -62,7 +62,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
        return RuleModel(
         id: 'rule_${index + 1}',
         text: text,
-        severity: 'medium', //dfeualt for now, can be extended later
+        severity: 'medium', //default for now, can be extended later
       );
     })
     .where((r) => r.text.isNotEmpty)

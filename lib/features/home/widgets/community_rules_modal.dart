@@ -35,14 +35,18 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
 
   @override
   Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.85;
     return Dialog(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
       ),
       clipBehavior: Clip.hardEdge,
       insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
-      child: SizedBox(
-        width: AppSizes.communityModalWidth,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: AppSizes.communityModalWidth,
+          maxHeight: maxHeight,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -77,10 +81,10 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
             ),
 
             // ── White scrollable rules + accept checkbox ───────────────────
-            Container(
+            Flexible(
+              child: Container(
               color: AppColors.cardWhite,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
                     child: SingleChildScrollView(
@@ -182,6 +186,7 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
                   ),
                 ],
               ),
+            ),
             ),
           ],
         ),

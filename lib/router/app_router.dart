@@ -25,17 +25,23 @@ import '../models/event_chat_args.dart';
 import '../models/event_detail_args.dart';
 import '../features/admin/screens/admin_reports_screen.dart';
 import '../features/admin/screens/admin_report_detail_screen.dart';
+import '../features/community/screens/bill_summary_screen.dart';
+import '../features/community/screens/bill_payment_screen.dart';
+import '../features/community/screens/payment_success_screen.dart';
+import '../features/community/screens/create_bill_screen.dart';
+import '../models/bill_payment_args.dart';
+import '../models/smart_pay_bill_args.dart';
+import '../features/auth/screens/banned_screen.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
-import '../models/report_model.dart';
 import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
 import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';
 
 GoRouter createAppRouter(AppAuthProvider authProvider) {
-    String? redirect(BuildContext context, GoRouterState state) {
+  String? redirect(BuildContext context, GoRouterState state) {
     final signedIn = authProvider.user != null;
 
     final authRoutes = {
@@ -58,6 +64,18 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
 
     if (signedIn && isAuthRoute) {
       return '/home';
+    }
+
+    if (signedIn && authProvider.isBanned && location != '/banned') {
+      return '/banned';
+    }
+
+    if (signedIn && !authProvider.isBanned && location == '/banned') {
+      return '/home';
+    }
+
+    if (signedIn && location.startsWith('/admin')) {
+      if (authProvider.role != 'admin') return '/home';
     }
 
     return null;
@@ -192,6 +210,65 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         },
       ),
 
+      // ── Bill / payment flow ───────────────────────────────────────────────────
+      GoRoute(
+        path: '/create-bill',
+        builder: (context, state) {
+          final args = state.extra as Map<String, dynamic>;
+          return CreateBillScreen(
+            communityId: args['communityId'] as String? ?? '',
+            eventId: args['eventId'] as String? ?? '',
+            eventName: args['eventName'] as String,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/bill-summary',
+        builder: (context, state) {
+          final args = state.extra as Map<String, dynamic>? ?? {};
+          return BillSummaryScreen(
+            communityId:       args['communityId']       as String? ?? '',
+            eventId:           args['eventId']           as String? ?? '',
+            billId:            args['billId']            as String? ?? '',
+            isCurrentUserHost: args['isCurrentUserHost'] as bool?   ?? false,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/bill-payment',
+        pageBuilder: (context, state) {
+          final args = state.extra as SmartPayBillArgs?;
+          if (args == null) return const NoTransitionPage(child: SizedBox.shrink());
+          return CustomTransitionPage(
+            child: BillPaymentScreen(args: args),
+            transitionsBuilder: (_, animation, __, child) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              child: child,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/payment-success',
+        pageBuilder: (context, state) {
+          final args = state.extra as BillPaymentArgs?;
+          if (args == null) return const NoTransitionPage(child: SizedBox.shrink());
+          return CustomTransitionPage(
+            child: PaymentSuccessScreen(args: args),
+            transitionsBuilder: (_, animation, __, child) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              child: child,
+            ),
+          );
+        },
+      ),
+
       // ── Admin routes ──────────────────────────────────────────────────────────
       GoRoute(
         path: '/admin',
@@ -207,6 +284,11 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           final report = state.extra as AdminReportModel;
           return AdminReportDetailScreen(report: report);
         },
+      ),
+
+      GoRoute(
+        path: '/banned',
+        builder: (context, state) => const BannedScreen(),
       ),
 
       GoRoute(

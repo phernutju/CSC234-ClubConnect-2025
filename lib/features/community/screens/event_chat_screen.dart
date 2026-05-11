@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_model.dart';
@@ -225,7 +224,6 @@ class _EventChatScreenState extends State<EventChatScreen> {
     final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     final statusBarHeight = MediaQuery.of(context).padding.top;
     final isEnded = widget.event.status == EventStatus.ended;
-    print(widget.event.status);
 
     for (final msg in ep.eventMessages) {
       if (!_fetchedUids.contains(msg.senderId)) {
@@ -555,8 +553,7 @@ class _EventInfoDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr =
-        DateFormat('d MMMM yyyy  hh:mm a').format(event.startDate.toDate());
+    final dateStr = event.formattedDateRange;
 
     return Dialog(
       backgroundColor: Colors.transparent,

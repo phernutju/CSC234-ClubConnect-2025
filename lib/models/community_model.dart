@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:csc234_clubconnect/models/rule_model.dart';
-import 'package:csc234_clubconnect/models/category_model.dart';
+import '../models/rule_model.dart';
+import '../models/category_model.dart';
 
 enum RoomType { community, event }
 
@@ -35,7 +35,7 @@ class RoomModel {
 
   /// Whether this room is permanent (community room)
   bool get isPermanent => type == RoomType.community;
-  
+
   factory RoomModel.fromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
@@ -100,7 +100,7 @@ class RoomModel {
       name: name,
       createdBy: createdBy,
       tags: tags,
-      rules: [RuleModel(id: "rule_1" ,text: 'This room is tied to an event. Please stay on topic.' , severity: "high")],
+      rules: [RuleModel(id: "rule_1", text: 'This room is tied to an event. Please stay on topic.', severity: "high")],
       type: RoomType.event,
       createdAt: Timestamp.now(),
       eventId: eventId,
@@ -209,4 +209,24 @@ class CommunityModel {
       'stats': stats.toMap(),
     };
   }
+
+  CommunityModel copyWith({
+    String? communityName,
+    String? description,
+    List<CategoryModel>? tags,
+    String? coverImageURL,
+    List<RuleModel>? rules,
+    int? memberCount,
+  }) =>
+      CommunityModel(
+        id: id,
+        communityName: communityName ?? this.communityName,
+        description: description ?? this.description,
+        tags: tags ?? this.tags,
+        coverImageURL: coverImageURL ?? this.coverImageURL,
+        rules: rules ?? this.rules,
+        memberCount: memberCount ?? this.memberCount,
+        createdBy: createdBy,
+        createdAt: createdAt,
+      );
 }

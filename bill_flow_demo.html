@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClubConnect — Event Bill Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & base ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #161616;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 16px 56px;
+  font-family: 'Poppins', -apple-system, sans-serif;
+  color-scheme: light;
+}
+
+/* ── Page title ─────────────────────────────────────────────────────────────── */
+.page-title {
+  color: #888;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+/* ── Demo switcher ──────────────────────────────────────────────────────────── */
+.switcher {
+  display: flex;
+  gap: 6px;
+  background: #252525;
+  border-radius: 100px;
+  padding: 5px;
+  margin-bottom: 20px;
+}
+.sw-btn {
+  padding: 7px 22px;
+  border: none;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, color .2s;
+  font-family: inherit;
+  color: #666;
+  background: transparent;
+}
+.sw-btn.active { background: #f07050; color: #fff; }
+
+/* ── Phone shell ────────────────────────────────────────────────────────────── */
+.phone {
+  width: 375px;
+  height: 780px;
+  background: #faf3f0;
+  border-radius: 44px;
+  border: 8px solid #252525;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+}
+.phone::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 120px; height: 28px;
+  background: #252525;
+  border-radius: 0 0 18px 18px;
+  z-index: 20;
+}
+
+/* ── Views ──────────────────────────────────────────────────────────────────── */
+.view {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.view.active { display: flex; }
+
+/* ── App bar ────────────────────────────────────────────────────────────────── */
+.app-bar {
+  background: #f07050;
+  padding: 36px 8px 12px 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+.ab-back {
+  color: #fff;
+  font-size: 22px;
+  padding: 4px 8px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ab-title {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* ── Scrollable content ─────────────────────────────────────────────────────── */
+.scr {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 14px 108px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.scr::-webkit-scrollbar { display: none; }
+
+/* ── Section label ──────────────────────────────────────────────────────────── */
+.lbl {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 12px 0 7px;
+}
+.lbl:first-child { margin-top: 0; }
+
+/* ── Summary bar ────────────────────────────────────────────────────────────── */
+.sumbar {
+  display: flex;
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.scell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 13px 6px;
+  border-right: .5px solid #ede5df;
+}
+.scell:last-child { border-right: none; }
+.sv  { font-size: 21px; font-weight: 700; color: #1a1a1a; line-height: 1.1; }
+.sv.or { color: #f07050; }
+.ssub { font-size: 9.5px; color: #aaa; margin-top: 1px; }
+.slbl { font-size: 9.5px; color: #888; }
+
+/* ── Generic card ───────────────────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  margin-bottom: 6px;
+}
+
+/* ── Bill item card (member) ────────────────────────────────────────────────── */
+.bi-card {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.bi-name { flex: 1; font-size: 13.5px; color: #1a1a1a; }
+.bi-amt  { font-size: 13.5px; font-weight: 500; color: #1a1a1a; }
+.bi-card.total-row { background: #fff8f5; }
+.bi-card.total-row .bi-name { font-weight: 700; }
+.bi-card.total-row .bi-amt  { color: #f07050; font-weight: 700; font-size: 14.5px; }
+
+/* ── Member split card ──────────────────────────────────────────────────────── */
+.mc {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 6px;
+}
+.av {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.minfo { flex: 1; min-width: 0; }
+.mrow  { display: flex; align-items: center; gap: 4px; }
+.mname { font-size: 11.5px; font-weight: 600; color: #1a1a1a; }
+.hbadge {
+  background: rgba(240,112,80,.12);
+  color: #f07050;
+  font-size: 8.5px; font-weight: 700;
+  padding: 1px 5px; border-radius: 4px;
+}
+.mrole { font-size: 9.5px; color: #888; margin-top: 1px; }
+.mamt  { font-size: 11.5px; font-weight: 600; color: #1a1a1a; margin-right: 8px; white-space: nowrap; }
+.sdot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Legend ─────────────────────────────────────────────────────────────────── */
+.legend {
+  display: flex; gap: 12px;
+  margin: 2px 0 12px;
+}
+.leg-it  { display: flex; align-items: center; gap: 4px; font-size: 9.5px; color: #888; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── My-share cards ─────────────────────────────────────────────────────────── */
+.sh-card {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.sh-name { flex: 1; font-size: 12px; color: #1a1a1a; }
+.sh-calc { font-size: 9.5px; color: #aaa; margin-right: 8px; white-space: nowrap; }
+.sh-amt  { font-size: 12px; font-weight: 500; color: #1a1a1a; white-space: nowrap; }
+.sh-total {
+  background: #fff0ec;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+/* ── Host — input card ──────────────────────────────────────────────────────── */
+.hi-card {
+  background: #faf3f0;
+  border-radius: 14px;
+  border: .5px solid #e0d8d2;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color-scheme: light;
+}
+.ni {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13.5px;
+  font-family: inherit;
+  color-scheme: light;
+  background-color: #faf3f0 !important;
+  -webkit-text-fill-color: #1a1a1a !important;
+  color: #1a1a1a !important;
+}
+.ni::placeholder { color: #bbb !important; -webkit-text-fill-color: #bbb !important; }
+.pw {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background-color: #fff !important;
+  border-radius: 9px;
+  border: .5px solid #ddd;
+  padding: 5px 8px;
+  color-scheme: light;
+}
+.bs { color: #f07050; font-weight: 700; font-size: 13.5px; }
+.pi {
+  width: 56px;
+  border: none;
+  outline: none;
+  text-align: right;
+  font-size: 13.5px;
+  font-family: inherit;
+  color-scheme: light;
+  -moz-appearance: textfield;
+  background-color: #fff !important;
+  -webkit-text-fill-color: #1a1a1a !important;
+  color: #1a1a1a !important;
+}
+.pi::placeholder { color: #bbb !important; -webkit-text-fill-color: #bbb !important; }
+.pi::-webkit-outer-spin-button,
+.pi::-webkit-inner-spin-button { -webkit-appearance: none; }
+.del-btn {
+  background: none; border: none;
+  color: #ccc; font-size: 17px;
+  cursor: pointer; line-height: 1;
+  padding: 2px 3px;
+  transition: color .15s;
+  flex-shrink: 0;
+}
+.del-btn:hover { color: #f07050; }
+
+/* ── Empty items hint ───────────────────────────────────────────────────────── */
+.empty-items {
+  font-size: 12px;
+  color: #bbb;
+  text-align: center;
+  padding: 14px 0 6px;
+}
+
+/* ── Add-item button ────────────────────────────────────────────────────────── */
+.add-btn {
+  width: 100%;
+  border: 1.5px dashed rgba(240,112,80,.45);
+  background: transparent;
+  border-radius: 14px;
+  padding: 11px;
+  color: #f07050;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 14px;
+  font-family: inherit;
+  transition: background .15s;
+}
+.add-btn:hover { background: rgba(240,112,80,.05); }
+
+/* ── Toggle row ─────────────────────────────────────────────────────────────── */
+.tog-row {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 13px 14px;
+  margin-bottom: 10px;
+}
+.tog-lbl { flex: 1; font-size: 13.5px; color: #1a1a1a; }
+.tog {
+  width: 42px; height: 24px;
+  background: #f07050;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background .2s;
+  flex-shrink: 0;
+}
+.tog.off { background: #ddd; }
+.tog-th {
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px; right: 3px;
+  transition: right .2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.tog.off .tog-th { right: 21px; }
+
+/* ── QR upload area ─────────────────────────────────────────────────────────── */
+.qr-area {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px dashed rgba(240,112,80,.4);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: border-color .15s;
+}
+.qr-area:hover { border-color: #f07050; }
+.qr-icon { font-size: 26px; }
+.qr-lbl  { font-size: 13px; font-weight: 600; color: #f07050; }
+.qr-sub  { font-size: 10px; color: #999; }
+
+/* ── QR uploaded state ──────────────────────────────────────────────────────── */
+.qr-done {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.qr-preview {
+  width: 56px; height: 56px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+}
+.qr-done-info { flex: 1; }
+.qr-done-name { font-size: 12px; font-weight: 600; color: #1a1a1a; }
+.qr-done-sub  { font-size: 10px; color: #4caf50; margin-top: 1px; }
+
+/* ── Sticky footer ──────────────────────────────────────────────────────────── */
+.footer {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  pointer-events: none;
+}
+.fg {
+  height: 36px;
+  background: linear-gradient(to bottom, transparent, #faf3f0);
+}
+.fp {
+  background: #faf3f0;
+  padding: 0 14px 22px;
+  pointer-events: all;
+}
+.foot-btn {
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 30px;
+  background: #f07050;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity .2s, transform .1s;
+}
+.foot-btn:active { transform: scale(.98); }
+.foot-btn:disabled { opacity: .4; cursor: default; }
+
+/* ── Publish flash overlay ──────────────────────────────────────────────────── */
+.pub-flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  animation: fadeIn .15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.pub-box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.15);
+}
+.pub-icon  { font-size: 40px; }
+.pub-title { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+.pub-sub   { font-size: 11px; color: #888; }
+
+/* ── Avatar colors ──────────────────────────────────────────────────────────── */
+.av-0 { background: #FFB347; } .av-1 { background: #77DD77; }
+.av-2 { background: #89CFF0; } .av-3 { background: #CDA4DE; }
+.av-4 { background: #FF9F80; } .av-5 { background: #AEC6CF; }
+.av-6 { background: #FFD1DC; } .av-7 { background: #B5EAD7; }
+
+/* ── Members preview (host) ─────────────────────────────────────────────────── */
+.mhost-row {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* ── Empty state (member view) ──────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px 20px;
+  gap: 10px;
+}
+.empty-state-icon  { font-size: 52px; opacity: .35; }
+.empty-state-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+.empty-state-sub   { font-size: 12px; color: #aaa; text-align: center; line-height: 1.6; }
+
+/* ── Payment view ───────────────────────────────────────────────────────────── */
+.pay-amount-card {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 18px 14px;
+  text-align: center;
+  margin-bottom: 14px;
+}
+.pay-amt-label { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+.pay-amt       { font-size: 36px; font-weight: 700; color: #f07050; line-height: 1.1; }
+
+.qr-box {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 18px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+#qr-canvas {
+  border-radius: 8px;
+  display: block;
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
+}
+.qr-host-name {
+  font-size: 12px;
+  color: #888;
+  font-weight: 500;
+}
+
+.slip-area {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px dashed rgba(240,112,80,.4);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: border-color .15s;
+}
+.slip-area:hover { border-color: #f07050; }
+.slip-icon { font-size: 26px; }
+.slip-lbl  { font-size: 13px; font-weight: 600; color: #f07050; }
+.slip-sub  { font-size: 10px; color: #999; }
+
+.slip-preview {
+  background: #fff;
+  border-radius: 14px;
+  border: .5px solid #ede5df;
+  padding: 10px;
+  margin-bottom: 14px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 90px;
+}
+.slip-preview img {
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 10px;
+  display: block;
+  object-fit: cover;
+}
+.slip-remove {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: rgba(0,0,0,.5);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  width: 24px; height: 24px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+
+/* ── Success view ───────────────────────────────────────────────────────────── */
+.suc-scr {
+  flex: 1;
+  overflow-y: auto;
+  padding: 44px 14px 30px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+}
+.suc-scr::-webkit-scrollbar { display: none; }
+.suc-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.suc-check {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: #e8f5e9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34px;
+}
+.suc-heading { font-size: 19px; font-weight: 700; color: #1a1a1a; }
+.suc-sub     { font-size: 12px; color: #aaa; margin-top: -4px; }
+.suc-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 16px;
+  border: .5px solid #ede5df;
+  padding: 6px 0;
+  margin-top: 4px;
+}
+.suc-row {
+  display: flex;
+  align-items: center;
+  padding: 11px 16px;
+  border-bottom: .5px solid #f5ede8;
+}
+.suc-row:last-child { border-bottom: none; }
+.suc-key   { flex: 1; font-size: 12px; color: #888; }
+.suc-val   { font-size: 12.5px; font-weight: 600; color: #1a1a1a; }
+.suc-val.or { color: #f07050; font-size: 14px; }
+.suc-badge {
+  background: rgba(255,193,7,.15);
+  color: #e6ac00;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+.suc-back {
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 30px;
+  background: #f07050;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 8px;
+  transition: opacity .15s, transform .1s;
+}
+.suc-back:active { transform: scale(.98); }
+
+/* ── Toast notice ───────────────────────────────────────────────────────────── */
+.toast {
+  position: absolute;
+  bottom: 90px; left: 20px; right: 20px;
+  background: #333;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 11px 16px;
+  border-radius: 12px;
+  text-align: center;
+  z-index: 40;
+  animation: fadeIn .2s ease;
+}
+</style>
+</head>
+<body>
+
+<div class="page-title">ClubConnect — Event Bill Flow</div>
+
+<!-- Demo switcher -->
+<div class="switcher">
+  <button class="sw-btn active" id="sw-host"   onclick="goHost()">👤 Host</button>
+  <button class="sw-btn"        id="sw-member" onclick="goMember()">👥 Member</button>
+</div>
+
+<!-- Phone shell -->
+<div class="phone" id="phone">
+
+  <!-- ── HOST VIEW: Create Bill ─────────────────────────────────────────────── -->
+  <div class="view active" id="v-host">
+    <div class="app-bar">
+      <span class="ab-back">←</span>
+      <span class="ab-title">Create Bill</span>
+    </div>
+    <div class="scr" id="scr-host">
+
+      <div class="sumbar" id="h-sumbar"></div>
+
+      <div class="lbl">Bill items</div>
+      <div id="h-items"></div>
+      <button class="add-btn" onclick="addItem()">+ Add item</button>
+
+      <div class="lbl">Members splitting</div>
+      <div id="h-members"></div>
+
+      <div class="tog-row">
+        <span class="tog-lbl">Split equally</span>
+        <div class="tog" id="togEl" onclick="toggleSplit()">
+          <div class="tog-th"></div>
+        </div>
+      </div>
+
+      <div class="lbl">PromptPay QR</div>
+      <div id="qr-wrap">
+        <div class="qr-area" onclick="uploadQr()">
+          <span class="qr-icon">📤</span>
+          <span class="qr-lbl">Upload your PromptPay QR</span>
+          <span class="qr-sub">JPG or PNG · members scan to pay</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="footer">
+      <div class="fg"></div>
+      <div class="fp">
+        <button class="foot-btn" onclick="publishBill()">Publish bill to members</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MEMBER VIEW: Bill Summary ─────────────────────────────────────────── -->
+  <div class="view" id="v-member">
+    <div class="app-bar">
+      <span class="ab-back">←</span>
+      <span class="ab-title">Bill Summary</span>
+    </div>
+    <div class="scr" id="scr-member">
+      <div id="m-content"></div>
+    </div>
+    <div class="footer">
+      <div class="fg"></div>
+      <div class="fp">
+        <button class="foot-btn" id="pay-btn" onclick="goPayment()" style="display:none">Pay my share ฿—</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAYMENT VIEW ───────────────────────────────────────────────────────── -->
+  <div class="view" id="v-payment">
+    <div class="app-bar">
+      <span class="ab-back" onclick="goMember()" style="cursor:pointer">←</span>
+      <span class="ab-title">Pay Bill</span>
+    </div>
+    <div class="scr" id="scr-payment">
+
+      <div class="pay-amount-card">
+        <div class="pay-amt-label">Your share</div>
+        <div class="pay-amt" id="pay-amount">฿—</div>
+      </div>
+
+      <div class="lbl">Scan to pay</div>
+      <div class="qr-box">
+        <canvas id="qr-canvas"></canvas>
+        <div class="qr-host-name" id="pay-host-name">Host's PromptPay</div>
+      </div>
+
+      <div class="lbl">Upload payment slip</div>
+      <div id="slip-wrap"></div>
+
+    </div>
+    <div class="footer">
+      <div class="fg"></div>
+      <div class="fp">
+        <button class="foot-btn" id="confirm-btn" onclick="confirmPayment()" disabled>
+          Confirm payment
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUCCESS VIEW ───────────────────────────────────────────────────────── -->
+  <div class="view" id="v-success">
+    <div class="suc-scr">
+      <div class="suc-container">
+        <div class="suc-check">✅</div>
+        <div class="suc-heading">Payment Submitted!</div>
+        <div class="suc-sub">Your payment is pending review</div>
+        <div class="suc-card">
+          <div class="suc-row">
+            <span class="suc-key">Event</span>
+            <span class="suc-val">KMUTT Summer Festival</span>
+          </div>
+          <div class="suc-row">
+            <span class="suc-key">Amount</span>
+            <span class="suc-val or" id="suc-amount">฿—</span>
+          </div>
+          <div class="suc-row">
+            <span class="suc-key">Submitted</span>
+            <span class="suc-val" id="suc-submitted">—</span>
+          </div>
+          <div class="suc-row">
+            <span class="suc-key">Status</span>
+            <span class="suc-badge">Pending review</span>
+          </div>
+        </div>
+        <button class="suc-back" onclick="backToEvent()">Back to event</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /phone -->
+
+<!-- Hidden file input for slip upload -->
+<input type="file" id="slip-input" accept="image/*" style="display:none" onchange="handleSlip(event)">
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let uid         = 10;
+let splitOn     = true;
+let items       = [];           // starts empty — host fills from scratch
+let billPublished = false;
+let qrUploaded  = false;
+let slipUrl     = null;
+
+// Members have names but NO bill data pre-filled
+const members = [
+  { id:1, ini:'AC', name:'Alex Chen',    role:'Organizer', host:true,  s:'unpaid' },
+  { id:2, ini:'SK', name:'Sarah Kim',    role:'Member',    host:false, s:'unpaid' },
+  { id:3, ini:'MJ', name:'Mike Johnson', role:'Member',    host:false, s:'unpaid' },
+  { id:4, ini:'EW', name:'Emma Wilson',  role:'Member',    host:false, s:'unpaid' },
+  { id:5, ini:'JB', name:'James Brown',  role:'Member',    host:false, s:'unpaid' },
+  { id:6, ini:'LP', name:'Lisa Park',    role:'Member',    host:false, s:'unpaid' },
+  { id:7, ini:'TD', name:'Tom Davis',    role:'Member',    host:false, s:'unpaid' },
+  { id:8, ini:'AL', name:'Amy Lee',      role:'Member',    host:false, s:'unpaid' },
+];
+
+// Snapshot published when host taps "Publish"
+let publishedItems   = [];
+let publishedMembers = [];
+
+// ── Computed helpers ──────────────────────────────────────────────────────────
+
+const total  = arr  => (arr || items).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+const perPer = (arr, mems) => {
+  const n = (mems || members).length;
+  return n ? Math.floor(total(arr) / n) : 0;
+};
+const fmt = n  => Number(n).toLocaleString();
+const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const dot = s  => s === 'paid' ? '#4caf50' : s === 'pending' ? '#ffc107' : '#bbb';
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setSwitcherActive(which) {
+  document.getElementById('sw-host').classList.toggle('active',   which === 'host');
+  document.getElementById('sw-member').classList.toggle('active', which === 'member');
+}
+
+function goHost() {
+  setSwitcherActive('host');
+  showView('v-host');
+  renderHost();
+}
+
+function goMember() {
+  setSwitcherActive('member');
+  showView('v-member');
+  renderMember();
+}
+
+function goPayment() {
+  showView('v-payment');
+  renderPayment();
+}
+
+function goSuccess() {
+  showView('v-success');
+  const pp = perPer(publishedItems, publishedMembers);
+  document.getElementById('suc-amount').textContent = '฿' + fmt(pp);
+  const now = new Date();
+  document.getElementById('suc-submitted').textContent =
+    now.toLocaleDateString('en-US', { day:'numeric', month:'short' }) +
+    ' · ' +
+    now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+}
+
+function backToEvent() {
+  setSwitcherActive('member');
+  showView('v-member');
+  renderMember();
+  document.getElementById('scr-member').scrollTop = 0;
+}
+
+// ── View switch (keeps backward compat) ──────────────────────────────────────
+
+function switchTo(v) {
+  if (v === 'host')   goHost();
+  if (v === 'member') goMember();
+}
+
+// ── Host view ─────────────────────────────────────────────────────────────────
+
+function renderHost() {
+  renderHSumbar();
+  renderHItems();
+  renderHMembers();
+}
+
+function renderHSumbar() {
+  const t  = total(items);
+  const pp = perPer(items, members);
+  const n  = members.length;
+  document.getElementById('h-sumbar').innerHTML = `
+    <div class="scell">
+      <span class="sv or">฿${fmt(t)}</span>
+      <span class="slbl">Total</span>
+    </div>
+    <div class="scell">
+      <span class="sv">฿${fmt(pp)}</span>
+      <span class="slbl">Per person</span>
+    </div>
+    <div class="scell">
+      <span class="sv">${n}</span>
+      <span class="slbl">Members</span>
+    </div>`;
+}
+
+function renderHItems() {
+  if (items.length === 0) {
+    document.getElementById('h-items').innerHTML =
+      '<div class="empty-items">No items yet — tap "+ Add item" below</div>';
+    return;
+  }
+  document.getElementById('h-items').innerHTML = items.map(it => `
+    <div class="hi-card">
+      <input class="ni" value="${esc(it.name)}" placeholder="Item name"
+        oninput="setName(${it.id}, this.value)" />
+      <div class="pw">
+        <span class="bs">฿</span>
+        <input class="pi" type="number" min="0" value="${it.amount || ''}"
+          placeholder="0" oninput="setAmt(${it.id}, this.value)" />
+      </div>
+      <button class="del-btn" onclick="delItem(${it.id})" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function renderHMembers() {
+  document.getElementById('h-members').innerHTML = members.map((m, i) => `
+    <div class="mhost-row">
+      <div class="av av-${i % 8}" style="width:32px;height:32px;font-size:9.5px;">${m.ini}</div>
+      <span style="flex:1;font-size:12.5px;color:#1a1a1a;">${m.name}</span>
+      ${m.host ? '<span class="hbadge">Host</span>' : ''}
+    </div>`).join('');
+}
+
+function setName(id, v) {
+  const it = items.find(i => i.id === id);
+  if (it) { it.name = v; renderHSumbar(); }
+}
+
+function setAmt(id, v) {
+  const it = items.find(i => i.id === id);
+  if (it) { it.amount = parseFloat(v) || 0; renderHSumbar(); }
+}
+
+function addItem() {
+  items.push({ id: uid++, name: '', amount: 0 });
+  renderHItems();
+  renderHSumbar();
+  const s = document.getElementById('scr-host');
+  setTimeout(() => s.scrollTo({ top: s.scrollHeight, behavior: 'smooth' }), 40);
+}
+
+function delItem(id) {
+  items = items.filter(i => i.id !== id);
+  renderHItems();
+  renderHSumbar();
+}
+
+function toggleSplit() {
+  splitOn = !splitOn;
+  document.getElementById('togEl').classList.toggle('off', !splitOn);
+}
+
+function uploadQr() {
+  qrUploaded = true;
+  document.getElementById('qr-wrap').innerHTML = `
+    <div class="qr-done">
+      <div class="qr-preview">🧾</div>
+      <div class="qr-done-info">
+        <div class="qr-done-name">promptpay_qr.png</div>
+        <div class="qr-done-sub">✓ PromptPay QR ready</div>
+      </div>
+      <button class="del-btn" onclick="removeQr()">✕</button>
+    </div>`;
+}
+
+function removeQr() {
+  qrUploaded = false;
+  document.getElementById('qr-wrap').innerHTML = `
+    <div class="qr-area" onclick="uploadQr()">
+      <span class="qr-icon">📤</span>
+      <span class="qr-lbl">Upload your PromptPay QR</span>
+      <span class="qr-sub">JPG or PNG · members scan to pay</span>
+    </div>`;
+}
+
+function publishBill() {
+  if (items.length === 0) {
+    showToast('Add at least one bill item first');
+    return;
+  }
+  // Snapshot items and reset member statuses
+  publishedItems   = items.map(i => ({ ...i }));
+  publishedMembers = members.map(m => ({ ...m, s: 'unpaid' }));
+  billPublished    = true;
+
+  const phone = document.getElementById('phone');
+  const flash = document.createElement('div');
+  flash.className = 'pub-flash';
+  flash.innerHTML = `
+    <div class="pub-box">
+      <div class="pub-icon">✅</div>
+      <div class="pub-title">Bill Published!</div>
+      <div class="pub-sub">Switching to member view…</div>
+    </div>`;
+  phone.appendChild(flash);
+  setTimeout(() => {
+    phone.removeChild(flash);
+    goMember();
+    document.getElementById('scr-member').scrollTop = 0;
+  }, 1300);
+}
+
+// ── Member view ───────────────────────────────────────────────────────────────
+
+function renderMember() {
+  if (!billPublished) {
+    renderMemberEmpty();
+  } else {
+    renderMFull();
+  }
+}
+
+function renderMemberEmpty() {
+  document.getElementById('m-content').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">🧾</div>
+      <div class="empty-state-title">No bill yet</div>
+      <div class="empty-state-sub">The host hasn't published a bill for this event yet.</div>
+    </div>`;
+  const btn = document.getElementById('pay-btn');
+  btn.style.display = 'none';
+}
+
+function renderMFull() {
+  const itm  = publishedItems;
+  const mems = publishedMembers;
+  const t    = total(itm);
+  const pp   = perPer(itm, mems);
+  const collected = mems.filter(m => m.s === 'paid').length * pp;
+
+  document.getElementById('m-content').innerHTML = `
+    <div class="sumbar">
+      <div class="scell">
+        <span class="sv">${mems.length}</span>
+        <span class="slbl">Members</span>
+      </div>
+      <div class="scell">
+        <span class="sv or">฿${fmt(pp)}</span>
+        <span class="slbl">Per person</span>
+      </div>
+      <div class="scell">
+        <span class="sv">฿${fmt(collected)}</span>
+        <span class="ssub">of ฿${fmt(t)}</span>
+        <span class="slbl">Collected</span>
+      </div>
+    </div>
+
+    <div class="lbl">Bill items</div>
+    ${renderMItems(itm)}
+
+    <div class="lbl">Split bills</div>
+    ${renderMSplits(mems, pp)}
+
+    <div class="legend">
+      <div class="leg-it"><div class="leg-dot" style="background:#4caf50"></div>Paid</div>
+      <div class="leg-it"><div class="leg-dot" style="background:#ffc107"></div>Pending</div>
+      <div class="leg-it"><div class="leg-dot" style="background:#bbb"></div>Unpaid</div>
+    </div>
+
+    <div class="lbl">My share</div>
+    ${renderMShare(itm, mems.length, pp)}
+  `;
+
+  const btn = document.getElementById('pay-btn');
+  btn.style.display = '';
+  btn.textContent = 'Pay my share  ฿' + fmt(pp);
+}
+
+function renderMItems(itm) {
+  return itm.map(i => `
+    <div class="bi-card">
+      <span class="bi-name">${esc(i.name || '—')}</span>
+      <span class="bi-amt">฿${fmt(Number(i.amount) || 0)}</span>
+    </div>`).join('') +
+    `<div class="bi-card total-row">
+      <span class="bi-name">Total</span>
+      <span class="bi-amt">฿${fmt(total(itm))}</span>
+    </div>`;
+}
+
+function renderMSplits(mems, pp) {
+  return mems.map((m, i) => `
+    <div class="mc">
+      <div class="av av-${i % 8}">${m.ini}</div>
+      <div class="minfo">
+        <div class="mrow">
+          <span class="mname">${m.name}</span>
+          ${m.host ? '<span class="hbadge">Host</span>' : ''}
+        </div>
+        <div class="mrole">${m.role}</div>
+      </div>
+      <span class="mamt">฿${fmt(pp)}</span>
+      <div class="sdot" style="background:${dot(m.s)}"></div>
+    </div>`).join('');
+}
+
+function renderMShare(itm, n, pp) {
+  return itm.map(i => {
+    const share = Math.floor((Number(i.amount) || 0) / n);
+    return `
+      <div class="sh-card">
+        <span class="sh-name">${esc(i.name || '—')}</span>
+        <span class="sh-calc">฿${fmt(Number(i.amount) || 0)} ÷ ${n}</span>
+        <span class="sh-amt">฿${fmt(share)}</span>
+      </div>`;
+  }).join('') +
+  `<div class="sh-total">
+    <span style="flex:1;font-size:13.5px;font-weight:700;color:#1a1a1a">Total to pay</span>
+    <span style="font-size:15px;font-weight:700;color:#f07050">฿${fmt(pp)}</span>
+  </div>`;
+}
+
+// ── Payment view ──────────────────────────────────────────────────────────────
+
+function renderPayment() {
+  const pp       = perPer(publishedItems, publishedMembers);
+  const hostMem  = publishedMembers.find(m => m.host) || { name: 'Host' };
+
+  document.getElementById('pay-amount').textContent    = '฿' + fmt(pp);
+  document.getElementById('pay-host-name').textContent = hostMem.name + "'s PromptPay";
+
+  drawQR(document.getElementById('qr-canvas'), hostMem.name + pp);
+
+  slipUrl = null;
+  renderSlipArea();
+  updateConfirmBtn();
+}
+
+function renderSlipArea() {
+  const wrap = document.getElementById('slip-wrap');
+  if (slipUrl) {
+    wrap.innerHTML = `
+      <div class="slip-preview">
+        <img src="${slipUrl}" alt="Payment slip" />
+        <button class="slip-remove" onclick="removeSlip()">✕</button>
+      </div>`;
+  } else {
+    wrap.innerHTML = `
+      <div class="slip-area" onclick="document.getElementById('slip-input').click()">
+        <span class="slip-icon">📎</span>
+        <span class="slip-lbl">Attach payment slip</span>
+        <span class="slip-sub">JPG or PNG</span>
+      </div>`;
+  }
+}
+
+function handleSlip(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (slipUrl) URL.revokeObjectURL(slipUrl);
+  slipUrl = URL.createObjectURL(file);
+  renderSlipArea();
+  updateConfirmBtn();
+  e.target.value = '';
+}
+
+function removeSlip() {
+  if (slipUrl) URL.revokeObjectURL(slipUrl);
+  slipUrl = null;
+  renderSlipArea();
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn() {
+  document.getElementById('confirm-btn').disabled = !slipUrl;
+}
+
+function confirmPayment() {
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled  = true;
+  btn.textContent = 'Submitting…';
+  setTimeout(() => {
+    // Mark member[1] (Sarah Kim, the "current user") as pending
+    if (publishedMembers[1]) publishedMembers[1].s = 'pending';
+    goSuccess();
+  }, 700);
+}
+
+// ── QR canvas painter (mock — visual only) ────────────────────────────────────
+
+function drawQR(canvas, seed) {
+  const N = 160;
+  canvas.width  = N;
+  canvas.height = N;
+  const ctx   = canvas.getContext('2d');
+  const CELLS = 25;
+  const cell  = N / CELLS;
+
+  // Seeded xorshift32
+  let s = 0x12345678;
+  for (const c of String(seed)) s = (((s << 5) - s) + c.charCodeAt(0)) >>> 0;
+  const rnd = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 0xFFFFFFFF; };
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, N, N);
+  ctx.fillStyle = '#1a1a1a';
+
+  const finderBit = (lx, ly) => {
+    if (lx < 0 || lx > 6 || ly < 0 || ly > 6) return false;
+    if (lx === 0 || lx === 6 || ly === 0 || ly === 6) return true;
+    if (lx === 1 || lx === 5 || ly === 1 || ly === 5) return false;
+    return true;
+  };
+
+  for (let y = 0; y < CELLS; y++) {
+    for (let x = 0; x < CELLS; x++) {
+      let fill = false;
+      if      (x < 7 && y < 7)                    fill = finderBit(x, y);
+      else if (x >= CELLS - 7 && y < 7)            fill = finderBit(x - (CELLS - 7), y);
+      else if (x < 7 && y >= CELLS - 7)            fill = finderBit(x, y - (CELLS - 7));
+      else if (x === 7 || y === 7 || x === CELLS - 8 || y === CELLS - 8) fill = false;
+      else                                          fill = rnd() > 0.47;
+
+      if (fill) ctx.fillRect(
+        Math.round(x * cell), Math.round(y * cell),
+        Math.ceil(cell), Math.ceil(cell)
+      );
+    }
+  }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function showToast(msg) {
+  const phone = document.getElementById('phone');
+  const t = document.createElement('div');
+  t.className   = 'toast';
+  t.textContent = msg;
+  phone.appendChild(t);
+  setTimeout(() => t && phone.contains(t) && phone.removeChild(t), 2200);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+renderHost();
+</script>
+</body>
+</html>

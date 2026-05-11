@@ -254,37 +254,6 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
-/// Horizontal scrollable row showing the user's interests from sign-up.
-class _CategoryRow extends StatelessWidget {
-  final List<String> interests;
-
-  static const List<Color> _colors = [
-    AppColors.categoryGreen,
-    AppColors.categoryBlue,
-    AppColors.categoryPurple,
-  ];
-
-  const _CategoryRow({required this.interests});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        children: [
-          for (int i = 0; i < interests.length; i++) ...[
-            if (i > 0) const SizedBox(width: AppSizes.paddingS),
-            CategoryTag(
-              label: interests[i],
-              color: _colors[i % _colors.length],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
 
 class _TabContent extends StatelessWidget {
   final int selectedTab;
@@ -424,8 +393,7 @@ class _DiscoverTab extends StatelessWidget {
             .where((c) => c.tags.any((t) => t.name == selectedCategory))
             .toList();
 
-    // Define colors for categories
-    final categoryColors = [
+    const categoryColors = [
       AppColors.categoryGreen,
       AppColors.categoryBlue,
       AppColors.categoryPurple,
@@ -433,19 +401,22 @@ class _DiscoverTab extends StatelessWidget {
 
     return ListView(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: userInterests.asMap().entries.map((entry) {
-            final index = entry.key;
-            final interest = entry.value;
-            final color = categoryColors[index % categoryColors.length];
-            return _SelectableCategory(
-              label: interest,
-              color: color,
-              isSelected: selectedCategory == interest,
-              onTap: () => onCategoryChanged(interest),
-            );
-          }).toList(),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              for (int i = 0; i < userInterests.length; i++) ...[
+                if (i > 0) const SizedBox(width: AppSizes.paddingS),
+                _SelectableCategory(
+                  label: userInterests[i],
+                  color: categoryColors[i % categoryColors.length],
+                  isSelected: selectedCategory == userInterests[i],
+                  onTap: () => onCategoryChanged(userInterests[i]),
+                ),
+              ],
+            ],
+          ),
         ),
         const SizedBox(height: AppSizes.paddingM),
         if (filtered.isEmpty)

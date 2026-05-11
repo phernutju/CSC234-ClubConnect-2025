@@ -6,12 +6,24 @@ import '../models/community_model.dart';
 import '../models/member_model.dart';
 import '../models/message_model.dart';
 import '../models/rule_model.dart';
+import 'ai_service.dart';
+import 'notification_service.dart';
+import 'report_service.dart';
 import 'storage_service.dart';
+
+class ContentViolationException implements Exception {
+  final String message;
+  final int violationCount; // -1 = muted block, 1-N = violation count
+  const ContentViolationException(this.message, {this.violationCount = 0});
+  bool get isMuteBlock => violationCount == -1;
+}
 
 class CommunityService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final StorageService _storage;
+  final NotificationService _notifications;
+  final ReportService _reportService;
 
   static const _allowedCommunityFields = {
     'communityName',
@@ -21,10 +33,16 @@ class CommunityService {
     'rules',
   };
 
-  CommunityService({FirebaseFirestore? db, FirebaseAuth? auth, StorageService? storage})
-    : _db = db ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance,
-      _storage = storage ?? StorageService();
+  CommunityService({
+    FirebaseFirestore? db,
+    FirebaseAuth? auth,
+    StorageService? storage,
+    NotificationService? notifications,
+  })  : _db = db ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        _storage = storage ?? StorageService(),
+        _notifications = notifications ?? NotificationService(),
+        _reportService = ReportService();
 
   // ── Collection refs ────────────────────────────────────────────────────────
 
@@ -52,7 +70,6 @@ class CommunityService {
           (snap) => snap.docs
               .map((doc) => CommunityModel.fromJson(doc))
               .toList(),
-              
         );
   }
 
@@ -105,16 +122,16 @@ class CommunityService {
   Stream<List<CommunityModel>> getMyCommunities() async* {
     final user = _requireAuth();
 
-    // ✅ Fetch communities ONCE
+    // Fetch communities ONCE
     final communitiesSnapshot = await _communities.get();
     final communityDocs = communitiesSnapshot.docs;
 
-    // ✅ Check membership
+    // Check membership
     final memberChecks = await Future.wait(
       communityDocs.map((doc) => _members(doc.id).doc(user.uid).get()),
     );
 
-    // ✅ Extract IDs safely
+    // Extract IDs safely
     final communityIds = <String>[];
 
     for (int i = 0; i < memberChecks.length; i++) {
@@ -128,7 +145,7 @@ class CommunityService {
       return;
     }
 
-    // ⚠️ Firestore limit: whereIn max 10
+    // Firestore limit: whereIn max 10
     final limitedIds = communityIds.take(10).toList();
 
     yield* _communities
@@ -155,7 +172,7 @@ class CommunityService {
     return CommunityModel.fromJson(doc);
   }
 
-  Future<void> createCommunity({
+  Future<String> createCommunity({
     required String communityName,
     required List<CategoryModel> category,
     required String description,
@@ -188,6 +205,7 @@ class CommunityService {
       'role': 'creator',
     });
     await batch.commit();
+    return communityRef.id;
   }
 
   Future<void> editCommunity(
@@ -230,6 +248,13 @@ class CommunityService {
       throw Exception('Already a member of this community');
     }
 
+    final displayName = await getUserDisplayName(user.uid);
+    final communityDoc = await _communities.doc(communityId).get();
+    final communityName =
+        communityDoc.data()?['communityName'] as String? ?? '';
+    final createdById =
+        communityDoc.data()?['createdById'] as String?;
+
     final batch = _db.batch();
     batch.set(memberRef, {
       'joinedAt': FieldValue.serverTimestamp(),
@@ -238,6 +263,14 @@ class CommunityService {
     batch.update(_communities.doc(communityId), {
       'memberCount': FieldValue.increment(1),
       'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(_messages(communityId).doc(), {
+      'senderId': 'system',
+      'isSystem': true,
+      'text': '$displayName joined the group',
+      'imageURL': '',
+      'timestamp': FieldValue.serverTimestamp(),
+      'seenBy': [],
     });
     await batch.commit();
     _fireAndForget(_incrementStat(communityId, 'joins24h'));
@@ -322,9 +355,12 @@ class CommunityService {
     String communityId, {
     required String text,
     String imageURL = '',
+    String rules = '',
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
+    String? replyToSenderId,
+    List<String> mentions = const [],
   }) async {
     final user = _requireAuth();
     await _requireMemberDoc(communityId, user.uid);
@@ -334,7 +370,18 @@ class CommunityService {
       throw ArgumentError('Message must have text or an image');
     }
 
-    await _messages(communityId).add({
+    // Check if user is muted before adding message
+    if (trimmed.isNotEmpty) {
+      final userDoc = await _db.collection('users').doc(user.uid).get(const GetOptions(source: Source.server));
+      if ((userDoc.data()?['isMuted'] as bool?) == true) {
+        throw const ContentViolationException(
+          'You have been restricted from sending messages.',
+          violationCount: -1,
+        );
+      }
+    }
+
+    final ref = await _messages(communityId).add({
       'senderId': user.uid,
       'text': trimmed,
       'imageURL': imageURL,
@@ -353,6 +400,11 @@ class CommunityService {
     required Uint8List bytes,
   }) async {
     _requireAuth();
+    final isNSFW = await GeminiService.moderateImageBytes(bytes);
+    if (isNSFW) {
+      throw Exception(
+          'Message failed to send. This content goes against our community standards.');
+    }
     final imageURL = await _storage.uploadChatImage(bytes, communityId);
     await sendMessage(communityId, text: '', imageURL: imageURL);
   }

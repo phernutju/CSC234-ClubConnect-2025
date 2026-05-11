@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 import 'network_image_view.dart';
@@ -16,14 +17,16 @@ class ChatMessage {
   /// Download URL of an image stored in Firebase Storage.
   final String? imageUrl;
 
-  final bool isSent;       // true = current user's message (right side)
+  final bool isSent;
   final String senderName;
-  final String senderId;     // needed for tapping sender name/avatar to view profile
+  final String senderId;
   final DateTime timestamp;
-  final String time;       // displayed as "HH:mm"
-  final String? readCount; // e.g. "Read 3" — only used for sent messages
-  final String? replyToName; // sender name being replied to
-  final String? replyToText; // text snippet of the message being replied to
+  final String time;
+  final String? readCount;
+  final String? replyToName;
+  final String? replyToText;
+  final bool isSystemMessage;
+  final Map<String, String> mentionMap;
 
   const ChatMessage({
     required this.id,
@@ -38,6 +41,8 @@ class ChatMessage {
     this.readCount,
     this.replyToName,
     this.replyToText,
+    this.isSystemMessage = false,
+    this.mentionMap = const {},
   });
 }
 
@@ -47,30 +52,66 @@ class ChatMessage {
 /// tap position so the caller can anchor showMenu() next to the bubble.
 /// [onSenderTap] fires when the user taps the avatar or name of a received
 /// message — typically navigates to the sender's profile.
+/// [onMentionTap] fires with the UID when a highlighted @mention is tapped.
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final void Function(Offset globalPosition)? onLongPress;
-
-  /// Called when the user taps the avatar or sender name of a received bubble.
-  /// Not used for sent messages (isSent == true).
   final VoidCallback? onSenderTap;
+  final void Function(String uid)? onMentionTap;
 
   const MessageBubble({
     super.key,
     required this.message,
     this.onLongPress,
     this.onSenderTap,
+    this.onMentionTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (message.isSystemMessage) return _SystemPill(text: message.text);
     return GestureDetector(
       onLongPressStart: onLongPress == null
           ? null
           : (details) => onLongPress!(details.globalPosition),
       child: message.isSent
-          ? _SentBubble(message: message)
-          : _ReceivedBubble(message: message, onSenderTap: onSenderTap),
+          ? _SentBubble(message: message, onMentionTap: onMentionTap)
+          : _ReceivedBubble(
+              message: message,
+              onSenderTap: onSenderTap,
+              onMentionTap: onMentionTap,
+            ),
+    );
+  }
+}
+
+// ── System message pill (centered, LINE-style) ────────────────────────────────
+
+class _SystemPill extends StatelessWidget {
+  final String text;
+  const _SystemPill({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: AppSizes.systemPillMarginV),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.systemPillPadH,
+          vertical: AppSizes.systemPillPadV,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.systemPillBg,
+          borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+        ),
+        child: Text(
+          text,
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontXS,
+            color: AppColors.systemPillText,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -79,7 +120,8 @@ class MessageBubble extends StatelessWidget {
 
 class _SentBubble extends StatelessWidget {
   final ChatMessage message;
-  const _SentBubble({required this.message});
+  final void Function(String uid)? onMentionTap;
+  const _SentBubble({required this.message, this.onMentionTap});
 
   // All corners 18, bottom-right 4 → tail pointing toward the sender
   static final _shape = BorderRadius.only(
@@ -145,7 +187,7 @@ class _SentBubble extends StatelessWidget {
                 BoxShadow(color: Color(0x0A000000), blurRadius: 4),
               ],
             ),
-            child: _BubbleBody(message: message),
+            child: _BubbleBody(message: message, onMentionTap: onMentionTap),
           ),
         ],
       ),
@@ -157,11 +199,14 @@ class _SentBubble extends StatelessWidget {
 
 class _ReceivedBubble extends StatelessWidget {
   final ChatMessage message;
-
-  /// Fires when the user taps the avatar or sender name.
   final VoidCallback? onSenderTap;
+  final void Function(String uid)? onMentionTap;
 
-  const _ReceivedBubble({required this.message, this.onSenderTap});
+  const _ReceivedBubble({
+    required this.message,
+    this.onSenderTap,
+    this.onMentionTap,
+  });
 
   // All corners 18, bottom-left 4 → tail pointing toward the receiver
   static final _shape = BorderRadius.only(
@@ -230,7 +275,10 @@ class _ReceivedBubble extends StatelessWidget {
                       BoxShadow(color: Color(0x0A000000), blurRadius: 4),
                     ],
                   ),
-                  child: _BubbleBody(message: message),
+                  child: _BubbleBody(
+                    message: message,
+                    onMentionTap: onMentionTap,
+                  ),
                 ),
                 const SizedBox(width: 4),
 
@@ -257,7 +305,9 @@ class _ReceivedBubble extends StatelessWidget {
 /// Renders the optional reply strip followed by the message content.
 class _BubbleBody extends StatelessWidget {
   final ChatMessage message;
-  const _BubbleBody({required this.message});
+  final void Function(String uid)? onMentionTap;
+
+  const _BubbleBody({required this.message, this.onMentionTap});
 
   bool get _hasImage => message.imageBytes != null || message.imageUrl != null;
 
@@ -266,6 +316,48 @@ class _BubbleBody extends StatelessWidget {
       return _ImageContent(bytes: message.imageBytes!, context: context);
     }
     return _NetworkImageContent(url: message.imageUrl!, context: context);
+  }
+
+  /// Parses [text] for @mention patterns and returns a RichText with
+  /// known @names highlighted in blue with a tap recognizer.
+  Widget _buildText(String text, Color baseColor) {
+    if (message.mentionMap.isEmpty) {
+      return Text(text, style: AppTextStyles.body(fontSize: AppSizes.fontM, color: baseColor));
+    }
+
+    final spans = <TextSpan>[];
+    final regex = RegExp(r'@(\w+)');
+    int lastEnd = 0;
+
+    for (final match in regex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
+      }
+      final name = match.group(1)!;
+      final uid = message.mentionMap[name];
+      if (uid != null && onMentionTap != null) {
+        final recognizer = TapGestureRecognizer()..onTap = () => onMentionTap!(uid);
+        spans.add(TextSpan(
+          text: '@$name',
+          style: const TextStyle(color: Color(0xFF2196F3), fontWeight: FontWeight.bold),
+          recognizer: recognizer,
+        ));
+      } else {
+        spans.add(TextSpan(text: '@$name'));
+      }
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: AppTextStyles.body(fontSize: AppSizes.fontM, color: baseColor),
+        children: spans,
+      ),
+    );
   }
 
   @override
@@ -288,13 +380,7 @@ class _BubbleBody extends StatelessWidget {
         if (_hasImage)
           _imageContent(context)
         else
-          Text(
-            message.text,
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontM,
-              color: AppColors.textDark,
-            ),
-          ),
+          _buildText(message.text, AppColors.textDark),
       ],
     );
   }

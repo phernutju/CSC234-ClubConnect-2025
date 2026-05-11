@@ -404,7 +404,7 @@ class _ChatAppBar extends StatelessWidget {
 
 /// Coral drop-down menu bar.
 /// Row 1: Mute · Members · Leave
-/// Row 2 (centered): Info · Events
+/// Row 2 (centered, balanced with spacer): Info · Events
 class _ChatMenuBar extends StatelessWidget {
   final bool muted;
   final VoidCallback onInfo;
@@ -425,46 +425,29 @@ class _ChatMenuBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      height: AppSizes.chatMenuHeight,
-      color: AppColors.primary,
+      color: const Color(0xFFE8563A),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Row 1: Mute · Members · Leave
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MenuItem(
-                icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
-                label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
-                onTap: onMute,
-              ),
-              _MenuItem(
-                icon: Icons.group_outlined,
-                label: AppStrings.chatMenuMembers,
-                onTap: onShowMembers,
-              ),
-              _MenuItem(
-                icon: Icons.exit_to_app,
-                label: AppStrings.chatMenuLeave,
-                onTap: onLeave,
-              ),
+              _MenuItem(icon: Icons.notifications_off, label: 'Mute', onTap: onMute),
+              _MenuItem(icon: Icons.group, label: 'Members', onTap: onShowMembers),
+              _MenuItem(icon: Icons.exit_to_app, label: 'leave', onTap: onLeave),
             ],
           ),
-          // Row 2: Info · Events
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MenuItem(
-                icon: Icons.description_outlined,
-                label: AppStrings.chatMenuInfo,
-                onTap: onInfo,
-              ),
-              _MenuItem(
-                icon: Icons.event_outlined,
-                label: AppStrings.chatMenuEvents,
-                onTap: onEvents,
+              _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo, cardStyle: true),
+              _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents, cardStyle: true),
+              IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  child: _MenuItem(icon: Icons.subject, label: 'Info', onTap: () {}, cardStyle: true),
+                ),
               ),
             ],
           ),
@@ -474,16 +457,20 @@ class _ChatMenuBar extends StatelessWidget {
   }
 }
 
-/// One icon + label item inside the menu bar.
+/// Menu item with two styles:
+/// - plain (default): large white icon directly on coral background — used in Row 1
+/// - cardStyle: white rounded-card container with coral icon inside — used in Row 2
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool cardStyle;
 
   const _MenuItem({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.cardStyle = false,
   });
 
   @override
@@ -491,20 +478,26 @@ class _MenuItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: AppColors.cardWhite,
-            size: AppSizes.chatMenuIconSize,
-          ),
-          const SizedBox(height: 4),
+          if (cardStyle)
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: const Color(0xFFE8563A), size: 32),
+            )
+          else
+            Icon(icon, color: Colors.white, size: 44),
+          const SizedBox(height: 8),
           Text(
             label,
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontSM,
+            style: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.bold,
-              color: AppColors.cardWhite,
+              fontSize: 13,
             ),
           ),
         ],
