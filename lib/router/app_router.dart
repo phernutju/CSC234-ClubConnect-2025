@@ -12,7 +12,6 @@ import '../features/home/screens/shell_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/home/screens/notification_screen.dart';
 import '../features/home/screens/my_profile_screen.dart';
-import '../features/home/screens/global_events_screen.dart';
 import '../features/home/screens/other_profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
@@ -115,10 +114,6 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           GoRoute(
             path: '/notification',
             builder: (context, state) => const NotificationScreen(),
-          ),
-          GoRoute(
-            path: '/events-global',
-            builder: (context, state) => const GlobalEventsScreen(),
           ),
           GoRoute(
             path: '/profile',

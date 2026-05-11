@@ -34,7 +34,6 @@ class AppBottomNavBar extends StatelessWidget {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home, size: 28), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.notifications, size: 28), label: 'Notification'),
-          BottomNavigationBarItem(icon: Icon(Icons.event, size: 28), label: 'Events'),
           BottomNavigationBarItem(icon: Icon(Icons.person, size: 28), label: 'You'),
         ],
       ),

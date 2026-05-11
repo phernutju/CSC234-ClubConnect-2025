@@ -13,9 +13,8 @@ class ShellScreen extends StatelessWidget {
 
   /// Maps the current route path to a bottom-nav index.
   int _indexFromLocation(String location) {
-    if (location.startsWith('/notification'))  return 1;
-    if (location.startsWith('/events-global')) return 2;
-    if (location.startsWith('/profile'))       return 3;
+    if (location.startsWith('/notification')) return 1;
+    if (location.startsWith('/profile'))      return 2;
     return 0;
   }
 
@@ -25,8 +24,6 @@ class ShellScreen extends StatelessWidget {
       case 1:
         context.go('/notification');
       case 2:
-        context.go('/events-global');
-      case 3:
         context.go('/profile');
       default:
         context.go('/home');
