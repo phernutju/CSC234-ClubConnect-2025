@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           builder: (_) => CommunityRulesModal(
             community: community,
-            onJoined: () => context.push(
+            onJoined: () => context.go(
               '/chat',
               extra: ChatArgs(
                 communityId: community.id,
@@ -97,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _goToChat(CommunityModel community) {
-    context.push(
+    context.go(
       '/chat',
       extra: ChatArgs(
         communityId: community.id,

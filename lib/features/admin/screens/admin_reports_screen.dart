@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +24,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -111,8 +112,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                   labelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
                   unselectedLabelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w400),
                   tabs: const [
-                    Tab(text: 'Reports Queue'),
-                    Tab(text: 'Banned Users'),
+                    Tab(text: 'Reports'),
+                    Tab(text: 'Muted'),
+                    Tab(text: 'Banned'),
                   ],
                 ),
               ],
@@ -123,6 +125,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
               controller: _tabController,
               children: [
                 _ReportsTab(),
+                _MutedUsersTab(),
                 _BannedUsersTab(),
               ],
             ),
@@ -314,6 +317,81 @@ class _ReportsTab extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _MutedUsersTab extends StatelessWidget {
+  String _formatExpiry(dynamic ts) {
+    if (ts == null) return 'Unknown';
+    final dt = (ts as Timestamp).toDate();
+    final remaining = dt.difference(DateTime.now());
+    if (remaining.isNegative) return 'Expiring soon';
+    final h = remaining.inHours;
+    final m = remaining.inMinutes % 60;
+    return h > 0 ? '${h}h ${m}m remaining' : '${m}m remaining';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: UserService.streamMutedUsers(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B4A)));
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}', style: GoogleFonts.poppins(color: Colors.red)));
+        }
+        final users = snapshot.data ?? [];
+        if (users.isEmpty) {
+          return Center(child: Text('No muted users', style: GoogleFonts.poppins(fontSize: 16, color: const Color(0xFF797979))));
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final u = users[index];
+            final uid = u['uid'] as String? ?? '';
+            final username = u['username'] as String? ?? u['displayName'] as String? ?? uid;
+            final muteCount = (u['muteCount'] as int?) ?? 1;
+            final expiry = _formatExpiry(u['muteExpiresAt']);
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Color(0xFFFFB74D),
+                    child: Icon(Icons.volume_off, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('@$username',
+                            style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text('Mute #$muteCount • $expiry',
+                            style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF797979))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _UnbanButton(userId: uid),
+                ],
               ),
             );
           },

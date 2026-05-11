@@ -42,10 +42,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isInitializing = true;
   bool _menuOpen = false;
 
-  // Ban state
+  // Ban/mute state
   bool _isBanned = false;
   bool _isMuted = false;
+  DateTime? _muteExpiresAt;
   StreamSubscription<DocumentSnapshot>? _banSub;
+  Timer? _muteTimer;
 
   // Mention autocomplete
   String? _mentionQuery;
@@ -91,12 +93,28 @@ class _ChatScreenState extends State<ChatScreen> {
         .doc(uid)
         .snapshots()
         .listen((snap) {
-      if (mounted && snap.exists) {
+      if (!mounted || !snap.exists) return;
+      final data = snap.data()!;
+      final banned = (data['isBanned'] as bool?) ?? false;
+      final muted = (data['isMuted'] as bool?) ?? false;
+      final muteTs = data['muteExpiresAt'] as Timestamp?;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         setState(() {
-          _isBanned = (snap.data()?['isBanned'] as bool?) ?? false;
-          _isMuted = (snap.data()?['isMuted'] as bool?) ?? false;
+          _isBanned = banned;
+          _isMuted = muted;
+          _muteExpiresAt = muteTs?.toDate();
         });
-      }
+        if (muted) {
+          _muteTimer?.cancel();
+          _muteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+            if (mounted) setState(() {});
+          });
+        } else {
+          _muteTimer?.cancel();
+          _muteTimer = null;
+        }
+      });
     });
   }
 
@@ -104,6 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _provider?.removeListener(_onProviderChange);
     _banSub?.cancel();
+    _muteTimer?.cancel();
     _provider?.clearActiveCommunity();
     _inputController.removeListener(_onTextChanged);
     _inputController.dispose();
@@ -195,7 +214,8 @@ class _ChatScreenState extends State<ChatScreen> {
   ChatMessage _toUIMessage(MessageModel m, String currentUid, CommunityProvider cp) {
     final isSent = m.senderId == currentUid;
     final cachedName = cp.displayNameOf(m.senderId);
-    final senderName = isSent ? 'You' : (cachedName.isNotEmpty ? cachedName : '…');
+    final fallback = m.senderName.isNotEmpty ? m.senderName : '…';
+    final senderName = isSent ? 'You' : (cachedName.isNotEmpty ? cachedName : fallback);
 
     final mentionMap = <String, String>{};
     for (final uid in m.mentions) {
@@ -221,6 +241,7 @@ class _ChatScreenState extends State<ChatScreen> {
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   Future<void> _sendTextMessage() async {
+    if (widget.communityId.isEmpty) return;
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSending || _isBanned) return;
     if (_isMuted) {
@@ -372,7 +393,7 @@ class _ChatScreenState extends State<ChatScreen> {
         onYes: () async {
           Navigator.of(ctx).pop();
           await context.read<CommunityProvider>().leaveCommunity(widget.communityId);
-          if (mounted) context.pop();
+          if (mounted) context.go('/home');
         },
       ),
     );
@@ -486,6 +507,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
               // ── Ban banner ───────────────────────────────────────────────
               if (_isBanned) const _BanBanner(),
+
+              // ── Mute banner ──────────────────────────────────────────────
+              if (_isMuted && !_isBanned)
+                _MuteBanner(muteExpiresAt: _muteExpiresAt),
 
               // ── Input bar ────────────────────────────────────────────────
               MessageInputBar(
@@ -657,6 +682,44 @@ class _BanBanner extends StatelessWidget {
   }
 }
 
+class _MuteBanner extends StatelessWidget {
+  final DateTime? muteExpiresAt;
+  const _MuteBanner({this.muteExpiresAt});
+
+  String _formatRemaining() {
+    if (muteExpiresAt == null) return 'Temporarily muted';
+    final remaining = muteExpiresAt!.difference(DateTime.now());
+    if (remaining.isNegative) return 'Mute expiring soon...';
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes % 60;
+    if (hours > 0) return 'Muted • ${hours}h ${minutes}m remaining';
+    return 'Muted • ${minutes}m remaining';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFF9800),
+        boxShadow: [
+          BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, -2)),
+        ],
+      ),
+      child: Text(
+        _formatRemaining(),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatAppBar extends StatelessWidget {
   final String communityName;
   final String memberCount;
@@ -686,7 +749,7 @@ class _ChatAppBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             GestureDetector(
-              onTap: () => context.pop(),
+              onTap: () => context.go('/home'),
               child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
             ),
             const SizedBox(width: AppSizes.paddingM),

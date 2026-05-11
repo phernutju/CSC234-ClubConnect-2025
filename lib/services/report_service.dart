@@ -80,10 +80,35 @@ class ReportService {
 
     await _db.runTransaction((tx) async {
       final snap = await tx.get(userRef);
-      final current = (snap.data()?['violationCount'] as int?) ?? 0;
+      final data = snap.data() ?? {};
+      final current = (data['violationCount'] as int?) ?? 0;
+      final muteCount = (data['muteCount'] as int?) ?? 0;
       newCount = current + 1;
+
       final updates = <String, dynamic>{'violationCount': newCount};
-      if (newCount >= 5) updates['isMuted'] = true;
+
+      if (newCount >= 5) {
+        if (muteCount >= 3) {
+          updates['isBanned'] = true;
+          updates['isMuted'] = false;
+          updates['banReason'] = 'Repeated violations of community guidelines';
+          updates['durationLabel'] = 'Permanently';
+          updates['bannedAt'] = FieldValue.serverTimestamp();
+          updates['violationCount'] = 0;
+        } else {
+          const muteDurations = [
+            Duration(hours: 1),
+            Duration(hours: 5),
+            Duration(hours: 10),
+          ];
+          final expiry = DateTime.now().add(muteDurations[muteCount]);
+          updates['isMuted'] = true;
+          updates['muteCount'] = muteCount + 1;
+          updates['muteExpiresAt'] = Timestamp.fromDate(expiry);
+          updates['violationCount'] = 0;
+        }
+      }
+
       tx.update(userRef, updates);
     });
 

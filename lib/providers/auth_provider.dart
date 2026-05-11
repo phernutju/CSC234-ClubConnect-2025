@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../services/auth_service.dart';
 
 class AuthException implements Exception {
@@ -25,6 +26,7 @@ class AppAuthProvider extends ChangeNotifier {
   String? banReason;
   DateTime? banExpiresAt;
   String? durationLabel;
+  DateTime? muteExpiresAt;
   bool isLoading = false;
 
   OtpState _otpState = OtpState.idle;
@@ -32,10 +34,22 @@ class AppAuthProvider extends ChangeNotifier {
   String? _otpError;
   bool _canResend = false;
   Timer? _resendTimer;
+  StreamSubscription<DocumentSnapshot>? _userSub;
 
   OtpState get otpState => _otpState;
   String? get otpError => _otpError;
   bool get canResend => _canResend;
+
+  bool _pendingNotify = false;
+
+  void _safeNotify() {
+    if (_pendingNotify || !hasListeners) return;
+    _pendingNotify = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _pendingNotify = false;
+      if (hasListeners) notifyListeners();
+    });
+  }
 
   String? _email;
   String? _password;
@@ -49,8 +63,10 @@ class AppAuthProvider extends ChangeNotifier {
     _auth.authStateChanges().listen((u) {
       user = u;
       if (u != null) {
-        _fetchRole(u.uid);
+        _startUserStream(u.uid);
       } else {
+        _userSub?.cancel();
+        _userSub = null;
         role = null;
         isBanned = false;
         isMuted = false;
@@ -62,12 +78,13 @@ class AppAuthProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> _fetchRole(String uid) async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+  void _startUserStream(String uid) {
+    _userSub?.cancel();
+    _userSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .listen((doc) async {
       final data = doc.data() ?? {};
       role = (data['role'] as String?) ?? 'user';
 
@@ -78,6 +95,8 @@ class AppAuthProvider extends ChangeNotifier {
         // Ban expired — auto-unban
         await FirebaseFirestore.instance.collection('users').doc(uid).update({
           'isBanned': false,
+          'isMuted': false,
+          'violationCount': 0,
           'banReason': FieldValue.delete(),
           'durationLabel': FieldValue.delete(),
           'banExpiresAt': FieldValue.delete(),
@@ -94,13 +113,27 @@ class AppAuthProvider extends ChangeNotifier {
         banExpiresAt = expiresTs?.toDate();
         durationLabel = data['durationLabel'] as String?;
       }
-      isMuted = (data['isMuted'] as bool?) ?? false;
-    } catch (_) {
+      final mutedInDb = (data['isMuted'] as bool?) ?? false;
+      final muteExpiresTs = data['muteExpiresAt'] as Timestamp?;
+      if (mutedInDb && muteExpiresTs != null && muteExpiresTs.toDate().isBefore(DateTime.now())) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+          'isMuted': false,
+          'muteExpiresAt': FieldValue.delete(),
+          'violationCount': 0,
+        });
+        isMuted = false;
+        muteExpiresAt = null;
+      } else {
+        isMuted = mutedInDb;
+        muteExpiresAt = muteExpiresTs?.toDate();
+      }
+      _safeNotify();
+    }, onError: (_) {
       role = 'user';
       isBanned = false;
       isMuted = false;
-    }
-    notifyListeners();
+      _safeNotify();
+    });
   }
 
   void setEmailPassword(String email, String password) {
@@ -272,6 +305,7 @@ class AppAuthProvider extends ChangeNotifier {
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _userSub?.cancel();
     super.dispose();
   }
 }
