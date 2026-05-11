@@ -247,7 +247,7 @@ class CommunityService {
     final communityName =
         communityDoc.data()?['communityName'] as String? ?? '';
     final createdById =
-        communityDoc.data()?['createdById'] as String?;
+        communityDoc.data()?['createdBy'] as String?;
 
     final batch = _db.batch();
     batch.set(memberRef, {
@@ -269,14 +269,16 @@ class CommunityService {
     await batch.commit();
 
     if (createdById != null && createdById != user.uid) {
-      final joinerName = await getUserDisplayName(user.uid);
-      await _notifications.createNotification(createdById, {
-        'communityId': communityId,
-        'mentionedBy': user.uid,
-        'title': joinerName,
-        'description': '$joinerName joined $communityName',
-        'type': 'join',
-      });
+      try {
+        final joinerName = await getUserDisplayName(user.uid);
+        await _notifications.createNotification(createdById, {
+          'communityId': communityId,
+          'mentionedBy': user.uid,
+          'title': joinerName,
+          'description': '$joinerName joined $communityName',
+          'type': 'join',
+        });
+      } catch (_) {}
     }
   }
 
@@ -419,32 +421,34 @@ class CommunityService {
             mentions.any((uid) => uid != user.uid);
 
     if (needsNotification) {
-      final communityDoc = await _communities.doc(communityId).get();
-      final communityName =
-          communityDoc.data()?['communityName'] as String? ?? '';
-      final senderName = await getUserDisplayName(user.uid);
+      try {
+        final communityDoc = await _communities.doc(communityId).get();
+        final communityName =
+            communityDoc.data()?['communityName'] as String? ?? '';
+        final senderName = await getUserDisplayName(user.uid);
 
-      if (replyToSenderId != null && replyToSenderId != user.uid) {
-        await _notifications.createNotification(replyToSenderId, {
-          'communityId': communityId,
-          'mentionedBy': user.uid,
-          'title': senderName,
-          'description':
-              '$senderName replied to your message in $communityName',
-          'type': 'reply',
-        });
-      }
+        if (replyToSenderId != null && replyToSenderId != user.uid) {
+          await _notifications.createNotification(replyToSenderId, {
+            'communityId': communityId,
+            'mentionedBy': user.uid,
+            'title': senderName,
+            'description':
+                '$senderName replied to your message in $communityName',
+            'type': 'reply',
+          });
+        }
 
-      for (final uid in mentions) {
-        if (uid == user.uid) continue;
-        await _notifications.createNotification(uid, {
-          'communityId': communityId,
-          'mentionedBy': user.uid,
-          'title': senderName,
-          'description': '$senderName mentioned you in $communityName',
-          'type': 'mention',
-        });
-      }
+        for (final uid in mentions) {
+          if (uid == user.uid) continue;
+          await _notifications.createNotification(uid, {
+            'communityId': communityId,
+            'mentionedBy': user.uid,
+            'title': senderName,
+            'description': '$senderName mentioned you in $communityName',
+            'type': 'mention',
+          });
+        }
+      } catch (_) {}
     }
   }
 
