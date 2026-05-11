@@ -165,44 +165,47 @@ class _OtpBoxRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(6, (i) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingS),
-          child: SizedBox(
-            width: AppSizes.otpBoxSize,
-            height: AppSizes.otpBoxSize,
-            child: TextField(
-              controller: controllers[i],
-              focusNode: focusNodes[i],
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              maxLength: 1,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (v) => onChanged(v, i),
-              style: AppTextStyles.body(
-                fontSize: AppSizes.fontXL,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
-              decoration: const InputDecoration(
-                counterText: '',
-                filled: true,
-                fillColor: Colors.white,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1),
+    const double spacing = 8.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boxWidth = (constraints.maxWidth - spacing * 5) / 6;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(6, (i) {
+            return SizedBox(
+              width: boxWidth,
+              height: AppSizes.otpBoxSize,
+              child: TextField(
+                controller: controllers[i],
+                focusNode: focusNodes[i],
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 1,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (v) => onChanged(v, i),
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontXL,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide(color: Color(0xFFFF6B4A), width: 2),
+                decoration: const InputDecoration(
+                  counterText: '',
+                  filled: true,
+                  fillColor: Colors.white,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(color: Color(0xFFFF6B4A), width: 2),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         );
-      }),
+      },
     );
   }
 }

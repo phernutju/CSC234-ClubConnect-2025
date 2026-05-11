@@ -13,6 +13,7 @@ class MessageModel {
   final String? replyToSenderName;
   final String? replyToText;
   final bool isSystem;
+  final String type;
   final List<String> mentions;
 
   MessageModel({
@@ -28,6 +29,7 @@ class MessageModel {
     this.replyToSenderName,
     this.replyToText,
     this.isSystem = false,
+    this.type = '',
     this.mentions = const [],
   });
 
@@ -47,6 +49,7 @@ class MessageModel {
       replyToSenderName: json['replyToSenderName'] as String?,
       replyToText: json['replyToText'] as String?,
       isSystem: (json['isSystem'] as bool? ?? false) || senderId == 'system',
+      type: (json['type'] as String? ?? '').trim(),
       mentions: List<String>.from(json['mentions'] ?? []),
     );
   }
@@ -64,6 +67,7 @@ class MessageModel {
         replyToId: json['replyToId'] as String?,
         replyToSenderName: json['replyToSenderName'] as String?,
         replyToText: json['replyToText'] as String?,
+        type: (json['type'] as String? ?? '').trim(),
       );
 
   Map<String, dynamic> toJson() {
@@ -78,6 +82,7 @@ class MessageModel {
       if (replyToId != null) 'replyToId': replyToId,
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
+      if (type.isNotEmpty) 'type': type,
       if (mentions.isNotEmpty) 'mentions': mentions,
     };
   }

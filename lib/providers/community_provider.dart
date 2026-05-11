@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/category_model.dart';
 import '../models/community_model.dart';
@@ -27,6 +28,7 @@ class CommunityProvider extends ChangeNotifier {
   String? recommendedError;
   String? violationWarning;
 
+  StreamSubscription<User?>? _authSub;
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
   StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
   StreamSubscription<List<CommunityModel>>? _trendingSub;
@@ -93,7 +95,25 @@ class CommunityProvider extends ChangeNotifier {
 
   CommunityProvider({CommunityService? service})
       : _service = service ?? CommunityService() {
-    _listenToCommunities(_service.getCommunities());
+    // Only subscribe to Firestore after Firebase Auth confirms a valid session.
+    // authStateChanges() fires asynchronously, so currentUser may be null at
+    // construction time even when a session exists — never query before this fires.
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        _listenToCommunities(_service.getCommunities());
+      } else {
+        _communitiesSub?.cancel();
+        _myCommunitiesSub?.cancel();
+        _messagesSub?.cancel();
+        _membersSub?.cancel();
+        communities = [];
+        myCommunities = [];
+        activeCommunity = null;
+        messages = [];
+        members = [];
+        notifyListeners();
+      }
+    });
   }
 
   void loadCommunities() {
@@ -337,6 +357,7 @@ class CommunityProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _communitiesSub?.cancel();
     _myCommunitiesSub?.cancel();
     _trendingSub?.cancel();

@@ -259,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
             top: statusBarH + 8,
             left: 4,
             child: IconButton(
-              onPressed: () => context.pop(),
+              onPressed: () => context.go('/'),
               icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)),
               iconSize: 24,
               tooltip: 'Back',

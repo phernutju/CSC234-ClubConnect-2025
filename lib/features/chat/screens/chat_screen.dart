@@ -441,14 +441,8 @@ class _ChatMenuBar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo, cardStyle: true),
-              _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents, cardStyle: true),
-              IgnorePointer(
-                child: Opacity(
-                  opacity: 0,
-                  child: _MenuItem(icon: Icons.subject, label: 'Info', onTap: () {}, cardStyle: true),
-                ),
-              ),
+              _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo),
+              _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents),
             ],
           ),
         ],
@@ -457,20 +451,15 @@ class _ChatMenuBar extends StatelessWidget {
   }
 }
 
-/// Menu item with two styles:
-/// - plain (default): large white icon directly on coral background — used in Row 1
-/// - cardStyle: white rounded-card container with coral icon inside — used in Row 2
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool cardStyle;
 
   const _MenuItem({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.cardStyle = false,
   });
 
   @override
@@ -479,18 +468,7 @@ class _MenuItem extends StatelessWidget {
       onTap: onTap,
       child: Column(
         children: [
-          if (cardStyle)
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: const Color(0xFFE8563A), size: 32),
-            )
-          else
-            Icon(icon, color: Colors.white, size: 44),
+          Icon(icon, color: Colors.white, size: 60),
           const SizedBox(height: 8),
           Text(
             label,

@@ -206,11 +206,12 @@ class _ChatScreenState extends State<ChatScreen> {
         id: m.id,
         text: m.text,
         isSent: false,
-        senderName: '',
+        senderName: m.senderName,
         senderId: m.senderId,
         timestamp: m.timestamp,
         time: _formatTime(m.timestamp),
         isSystemMessage: true,
+        type: m.type,
       );
     }
     final isSent = m.senderId == currentUid;
@@ -842,7 +843,7 @@ class _ChatMenuBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.primary,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -858,12 +859,18 @@ class _ChatMenuBar extends StatelessWidget {
               _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
               _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
+              IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  child: _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: () {}),
+                ),
+              ),
             ],
           ),
         ],
@@ -877,7 +884,11 @@ class _MenuItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _MenuItem({required this.icon, required this.label, required this.onTap});
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -886,14 +897,14 @@ class _MenuItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.cardWhite, size: AppSizes.chatMenuIconSize),
-          const SizedBox(height: 4),
+          Icon(icon, color: Colors.white, size: 44),
+          const SizedBox(height: 8),
           Text(
             label,
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontSM,
+            style: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.bold,
-              color: AppColors.cardWhite,
+              fontSize: 13,
             ),
           ),
         ],
@@ -997,15 +1008,74 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      color: AppColors.alertRed.withValues(alpha: 0.1),
-      padding: const EdgeInsets.symmetric(
+      margin: const EdgeInsets.symmetric(
         horizontal: AppSizes.paddingM,
         vertical: AppSizes.paddingS,
       ),
-      child: Text(
-        message,
-        style: AppTextStyles.body(fontSize: AppSizes.fontXS, color: AppColors.alertRed),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.30),
+          width: 1,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingM,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$message Repeated offenses will result in a ban.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontSM,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: AppSizes.paddingS),
+          GestureDetector(
+            onTap: () {
+              final community =
+                  context.read<CommunityProvider>().activeCommunity;
+              if (community != null) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierColor: Colors.black45,
+                  builder: (_) => CommunityInfoModal(community: community),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Open the Info menu to view community rules.'),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              'Review rules',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ).copyWith(
+                decoration: TextDecoration.underline,
+                decorationColor: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

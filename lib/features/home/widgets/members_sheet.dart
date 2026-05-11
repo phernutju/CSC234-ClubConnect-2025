@@ -92,7 +92,6 @@ class _MembersSheetState extends State<_MembersSheet> {
         );
 
     if (mounted) {
-      widget.onSystemMessage?.call('$displayName was removed from the group');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$displayName ${AppStrings.memberKickedToast}'),

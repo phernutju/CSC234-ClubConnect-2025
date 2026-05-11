@@ -27,7 +27,7 @@ class ReviewModel {
         communityName: (json['communityName'] as String? ?? '').trim(),
         score: json['score'] as double? ?? 0.0,
         comment: (json['comment'] as String? ?? '').trim(),
-        createdAt: json['createdAt'] as Timestamp,
+        createdAt: json['createdAt'] as Timestamp? ?? Timestamp.now(),
       );
 
   Map<String, dynamic> toJson() => {
