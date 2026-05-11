@@ -150,9 +150,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                     : _TabContent(
                         selectedTab: _selectedTab,
-                        communities: _selectedTab == 1 ? cp.myCommunities : cp.communities,
-                        myCommunities: cp.myCommunities,
-                        trendingCommunities: cp.trendingCommunities,
+                        communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
+                        myCommunities: _filtered(cp.myCommunities),
+                        trendingCommunities: _filtered(cp.trendingCommunities),
                         isTrendingLoading: cp.isTrendingLoading,
                         trendingError: cp.trendingError,
                         onRetryTrending: () =>
