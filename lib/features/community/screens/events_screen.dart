@@ -161,7 +161,7 @@ class _EventList extends StatelessWidget {
       itemCount: events.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) =>
-          _EventCard(event: events[index], communityId: communityId , currentMembers: events[index].attendeeCount),
+          _EventCard(event: events[index], communityId: communityId, currentMembers: events[index].attendeeCount),
     );
   }
 }
@@ -171,7 +171,6 @@ class _EventList extends StatelessWidget {
 class _EventCard extends StatelessWidget {
   final EventModel event;
   final String communityId;
-
   final int currentMembers;
 
   const _EventCard({
@@ -256,7 +255,7 @@ class _EventCard extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSizes.paddingS),
                     Text(
-                      '$currentMembers/${event.maxAttendees} members',
+                      '${event.attendeeCount}/${event.maxAttendees} members',
                       style: GoogleFonts.poppins(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.w500,
@@ -291,8 +290,6 @@ class _EventCard extends StatelessWidget {
                 // Avatars row + details
                 Row(
                   children: [
-                    // Member avatar circles
-
                     const Spacer(),
 
                     // Details link

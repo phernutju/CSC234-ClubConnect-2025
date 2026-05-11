@@ -19,6 +19,7 @@ class CommunityProvider extends ChangeNotifier {
   bool isLoading = false;
   bool isUploading = false;
   String? error;
+  String? violationWarning;
 
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
   StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
@@ -214,15 +215,37 @@ class CommunityProvider extends ChangeNotifier {
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
-  }) =>
-      _run(() => _service.sendMessage(
-            communityId,
-            text: text,
-            imageURL: imageURL,
-            replyToId: replyToId,
-            replyToSenderName: replyToSenderName,
-            replyToText: replyToText,
-          ));
+    String? replyToSenderId,
+    List<String> mentions = const [],
+  }) {
+    error = null;
+    notifyListeners();
+    // fire-and-forget: save + moderate in background, return immediately
+    _service
+        .sendMessage(
+          communityId,
+          text: text,
+          imageURL: imageURL,
+          replyToId: replyToId,
+          replyToSenderName: replyToSenderName,
+          replyToText: replyToText,
+          replyToSenderId: replyToSenderId,
+          mentions: mentions,
+        )
+        .catchError((e) {
+      // ignore: avoid_print
+      print('[PROVIDER] catchError fired: $e');
+      if (e is ContentViolationException && !e.isMuteBlock && e.violationCount >= 3) {
+        final remaining = 5 - e.violationCount;
+        violationWarning = 'Warning: $remaining more violation${remaining == 1 ? '' : 's'} will result in an admin ban review.';
+      } else {
+        violationWarning = null;
+      }
+      error = e is ContentViolationException ? e.message : e.toString();
+      notifyListeners();
+    });
+    return Future.value();
+  }
 
   Future<void> sendImageMessage(String communityId, Uint8List bytes) async {
     isUploading = true;

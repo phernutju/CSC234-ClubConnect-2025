@@ -44,7 +44,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       _attendeeProvider!.loadAttendees(widget.communityId, widget.event.id);
       await _attendeeProvider!
           .checkIsAttending(widget.communityId, widget.event.id);
-      // replaced mock — using provider: subscribe to bills stream for this event
       if (!mounted) return;
       context.read<BillProvider>().loadBills(widget.communityId, widget.event.id);
     });
@@ -69,12 +68,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     await context.push(
       '/create-bill',
       extra: {
-        'communityId': widget.communityId, // connected to BillProvider
+        'communityId': widget.communityId,
         'eventId': widget.event.id,
         'eventName': widget.event.title,
       },
     );
-    // replaced mock — bills updated automatically via BillProvider stream
   }
 
   void _goToChat() {
@@ -124,7 +122,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final ap = context.watch<AttendeeProvider>();
-    context.watch<BillProvider>(); // replaced mock — watch for bill stream updates
+    context.watch<BillProvider>();
     final dateStr = widget.event.formattedDateRange;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isHost = _isHost;

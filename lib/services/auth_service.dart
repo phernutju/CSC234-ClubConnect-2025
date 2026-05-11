@@ -31,7 +31,7 @@ class AuthService {
         'interests': interests,
         'role': 'user',
         'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),  
+        'updatedAt': FieldValue.serverTimestamp(),
         'mutedCommunities': [], // Initialize with empty list for muted communities
       });
       return credential.user!;
@@ -50,14 +50,14 @@ class AuthService {
         password: password,
       );
     } on FirebaseAuthException catch (e) {
-      // Preserve the raw Firebase code so callers can map to AuthResult.
-      throw AuthException(_mapError(e.code), e.code);
+      throw _AuthServiceException(_mapError(e.code));
     }
   }
 
   Future<void> signOut() async => _auth.signOut();
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
 
   Future<void> verifyPhone({
     required String phoneNumber,
@@ -99,10 +99,9 @@ class AuthService {
   }
 }
 
-class AuthException implements Exception {
+class _AuthServiceException implements Exception {
   final String message;
-  final String code;
-  AuthException(this.message, [this.code = '']);
+  _AuthServiceException(this.message);
 }
 
 String _mapError(String code) {

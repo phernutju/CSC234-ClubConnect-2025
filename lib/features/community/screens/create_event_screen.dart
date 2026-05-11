@@ -151,6 +151,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final ep = context.read<EventProvider>();
 
     try {
+      final ep = context.read<EventProvider>();
+
       String coverImageUrl = '';
       if (_coverBytes != null) {
         coverImageUrl = await StorageService()

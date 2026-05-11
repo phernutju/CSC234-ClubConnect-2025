@@ -373,8 +373,7 @@ class _DiscoverTab extends StatelessWidget {
             .where((c) => c.tags.any((t) => t.name == selectedCategory))
             .toList();
 
-    // Define colors for categories
-    final categoryColors = [
+    const categoryColors = [
       AppColors.categoryGreen,
       AppColors.categoryBlue,
       AppColors.categoryPurple,

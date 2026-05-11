@@ -121,7 +121,7 @@ class ProfileProvider extends ChangeNotifier {
           score: score,
           comment: comment,
         );
-        reviewsResult = await _service.getReviews(targetUserId);
+        viewedReviewsResult = await _service.getReviews(targetUserId);
       });
 
   Future<void> updateReview(

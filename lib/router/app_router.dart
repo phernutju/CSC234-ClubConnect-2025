@@ -30,17 +30,17 @@ import '../features/community/screens/bill_payment_screen.dart';
 import '../features/community/screens/payment_success_screen.dart';
 import '../features/community/screens/create_bill_screen.dart';
 import '../models/bill_payment_args.dart';
+import '../features/auth/screens/banned_screen.dart';
 import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
-import '../models/report_model.dart';
 import '../providers/auth_provider.dart';
 import '../constants/app_constants.dart';
 import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';
 
 GoRouter createAppRouter(AppAuthProvider authProvider) {
-    String? redirect(BuildContext context, GoRouterState state) {
+  String? redirect(BuildContext context, GoRouterState state) {
     final signedIn = authProvider.user != null;
 
     final authRoutes = {
@@ -63,6 +63,18 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
 
     if (signedIn && isAuthRoute) {
       return '/home';
+    }
+
+    if (signedIn && authProvider.isBanned && location != '/banned') {
+      return '/banned';
+    }
+
+    if (signedIn && !authProvider.isBanned && location == '/banned') {
+      return '/home';
+    }
+
+    if (signedIn && location.startsWith('/admin')) {
+      if (authProvider.role != 'admin') return '/home';
     }
 
     return null;
@@ -212,7 +224,6 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       GoRoute(
         path: '/bill-summary',
         builder: (context, state) {
-          // replaced mock — using provider
           final args = state.extra as Map<String, dynamic>? ?? {};
           return BillSummaryScreen(
             communityId:       args['communityId']       as String? ?? '',
@@ -272,6 +283,11 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           final report = state.extra as AdminReportModel;
           return AdminReportDetailScreen(report: report);
         },
+      ),
+
+      GoRoute(
+        path: '/banned',
+        builder: (context, state) => const BannedScreen(),
       ),
 
       GoRoute(

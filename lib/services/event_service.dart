@@ -36,7 +36,6 @@ class EventService {
   // ── Events ─────────────────────────────────────────────────────────────────
 
   Stream<List<EventModel>> getEvents(String communityId) {
-    final events = _events(communityId);  
     return _events(communityId)
         .orderBy('startDate', descending: false)
         .snapshots()
@@ -99,8 +98,9 @@ class EventService {
 
     final event = EventModel.fromDoc(doc);
     if (event.isFull) throw Exception('Event is full');
-    if (event.isAttending(user.uid))
+    if (event.isAttending(user.uid)) {
       throw Exception('Already attending this event');
+    }
 
     await eventRef.update({
       'attendees': FieldValue.arrayUnion([user.uid]),
@@ -115,8 +115,9 @@ class EventService {
     if (!doc.exists) throw Exception('Event not found');
 
     final event = EventModel.fromDoc(doc);
-    if (!event.isAttending(user.uid))
+    if (!event.isAttending(user.uid)) {
       throw Exception('Not attending this event');
+    }
 
     await eventRef.update({
       'attendees': FieldValue.arrayRemove([user.uid]),

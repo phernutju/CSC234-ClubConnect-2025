@@ -224,7 +224,6 @@ class _EventChatScreenState extends State<EventChatScreen> {
     final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     final statusBarHeight = MediaQuery.of(context).padding.top;
     final isEnded = widget.event.status == EventStatus.ended;
-    print(widget.event.status);
 
     for (final msg in ep.eventMessages) {
       if (!_fetchedUids.contains(msg.senderId)) {

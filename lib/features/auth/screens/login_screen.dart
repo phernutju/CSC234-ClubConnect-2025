@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/auth_result.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/auth_service.dart';
 import '../../../services/google_auth_service.dart';
 import '../../../utils/validators.dart';
 import '../widgets/auth_error_banner.dart';
