@@ -214,6 +214,22 @@ class CommunityService {
     await _communities.doc(communityId).update(updates);
   }
 
+  /// Permanently removes the community and its members subcollection.
+  /// Only the creator is authorised to call this.
+  Future<void> deleteCommunity(String communityId) async {
+    final user = _requireAuth();
+    await _requireCreator(communityId, user.uid);
+
+    // Fetch and batch-delete all member documents before removing the community.
+    final membersSnap = await _members(communityId).get();
+    final batch = _db.batch();
+    for (final doc in membersSnap.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(_communities.doc(communityId));
+    await batch.commit();
+  }
+
   // ── Membership ─────────────────────────────────────────────────────────────
 
   Future<void> joinCommunity(String communityId) async {

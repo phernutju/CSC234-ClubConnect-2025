@@ -6,10 +6,12 @@ import '../services/event_service.dart';
 class EventProvider extends ChangeNotifier {
   final EventService _service;
   List<EventModel> events = [];
+  List<EventModel> publishedEvents = [];
   bool isLoading = false;
   String? error;
 
   StreamSubscription<List<EventModel>>? _eventsSub;
+  StreamSubscription<List<EventModel>>? _publishedSub;
 
   EventProvider({EventService? service}) : _service = service ?? EventService();
 
@@ -37,6 +39,7 @@ class EventProvider extends ChangeNotifier {
     required String detail,
     required int memberLimit,
     String coverImageUrl = '',
+    bool isPublished = false,
   }) async {
     isLoading = true;
     error = null;
@@ -52,6 +55,7 @@ class EventProvider extends ChangeNotifier {
         detail: detail,
         memberLimit: memberLimit,
         coverImageUrl: coverImageUrl,
+        isPublished: isPublished,
       );
     } catch (e) {
       error = e.toString();
@@ -67,9 +71,31 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Subscribes to all published events across all communities.
+  void loadPublishedEvents() {
+    _publishedSub?.cancel();
+    _publishedSub = _service.getPublishedEvents().listen(
+      (list) {
+        publishedEvents = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  void clearPublishedEvents() {
+    publishedEvents = [];
+    _publishedSub?.cancel();
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _eventsSub?.cancel();
+    _publishedSub?.cancel();
     super.dispose();
   }
 }

@@ -22,6 +22,20 @@ class EventService {
             .toList());
   }
 
+  // Collection-group query across all communities' events subcollections.
+  // Returns only events where isPublished == true, ordered by start date.
+  // Requires a Firestore composite index: isPublished ASC + startDate ASC.
+  Stream<List<EventModel>> getPublishedEvents() {
+    return _db
+        .collectionGroup('events')
+        .where('isPublished', isEqualTo: true)
+        .orderBy('startDate', descending: false)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => EventModel.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
   Future<void> createEvent(
     String communityId, {
     required String title,
@@ -32,6 +46,7 @@ class EventService {
     required String detail,
     required int memberLimit,
     String coverImageUrl = '',
+    bool isPublished = false,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
@@ -50,6 +65,7 @@ class EventService {
       'coverImageUrl': coverImageUrl,
       'createdById': user.uid,
       'createdAt': FieldValue.serverTimestamp(),
+      'isPublished': isPublished,
     });
   }
 }

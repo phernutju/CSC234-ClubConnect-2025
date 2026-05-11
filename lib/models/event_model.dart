@@ -15,6 +15,8 @@ class EventModel {
   final String coverImageUrl;
   final String createdById;
   final DateTime createdAt;
+  /// Whether the event is publicly visible in the community feed.
+  final bool isPublished;
 
   EventModel({
     required this.id,
@@ -29,6 +31,7 @@ class EventModel {
     required this.coverImageUrl,
     required this.createdById,
     required this.createdAt,
+    this.isPublished = false,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json, String id) {
@@ -47,6 +50,7 @@ class EventModel {
       coverImageUrl: json['coverImageUrl'] as String? ?? '',
       createdById: json['createdById'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isPublished: json['isPublished'] as bool? ?? false,
     );
   }
 
@@ -64,6 +68,7 @@ class EventModel {
         'coverImageUrl': coverImageUrl,
         'createdById': createdById,
         'createdAt': Timestamp.fromDate(createdAt),
+        'isPublished': isPublished,
       };
 
   /// Smart date-range label.

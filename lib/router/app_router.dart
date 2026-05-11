@@ -7,10 +7,12 @@ import '../features/auth/screens/verify_phone_screen.dart';
 import '../features/auth/screens/otp_screen.dart';
 import '../features/auth/screens/set_profile_screen.dart';
 import '../features/auth/screens/category_screen.dart';
+import '../features/auth/screens/community_standards_screen.dart';
 import '../features/home/screens/shell_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/home/screens/notification_screen.dart';
 import '../features/home/screens/my_profile_screen.dart';
+import '../features/home/screens/global_events_screen.dart';
 import '../features/home/screens/other_profile_screen.dart';
 import '../features/home/screens/chat_screen.dart';
 import '../features/home/screens/create_community_screen.dart';
@@ -44,14 +46,16 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       '/otp',
       '/set-profile',
       '/category',
+      '/community-standards',
     };
 
     final location = state.matchedLocation;
 
     final isAuthRoute = authRoutes.contains(location);
 
+    // Unauthenticated user on a protected route → send to landing page, not login.
     if (!signedIn && !isAuthRoute) {
-      return '/login';
+      return '/';
     }
 
     if (signedIn && isAuthRoute) {
@@ -95,6 +99,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         path: '/category',
         builder: (context, state) => const CategoryScreen(),
       ),
+      GoRoute(
+        path: '/community-standards',
+        builder: (context, state) => const CommunityStandardsScreen(),
+      ),
 
       // ── Main-app shell (bottom nav shared across these three routes) ─────────
       ShellRoute(
@@ -107,6 +115,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           GoRoute(
             path: '/notification',
             builder: (context, state) => const NotificationScreen(),
+          ),
+          GoRoute(
+            path: '/events-global',
+            builder: (context, state) => const GlobalEventsScreen(),
           ),
           GoRoute(
             path: '/profile',

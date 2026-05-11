@@ -78,6 +78,16 @@ class ProfileService {
     await _users.doc(userId).update(updates);
   }
 
+  /// Writes only the interests field for the currently signed-in user.
+  /// Used by ProfileProvider.saveProfile() to persist category selections.
+  Future<void> saveCurrentUserInterests(List<String> interests) async {
+    final user = _requireAuth();
+    await _users.doc(user.uid).update({
+      'interests': interests,
+      'updatedAt': Timestamp.now(),
+    });
+  }
+
   Future<void> deleteUserProfile(String userId) async {
     final current = _requireAuth();
     if (current.uid != userId) await _requireAdmin(current.uid);

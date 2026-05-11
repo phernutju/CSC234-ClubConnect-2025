@@ -1,17 +1,24 @@
 import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
+import '../models/category_model.dart';
 import '../models/review_model.dart';
 import '../models/user_model.dart';
+import '../services/category_service.dart';
 import '../services/profile_service.dart';
 import '../services/user_service.dart';
 
 class ProfileProvider extends ChangeNotifier {
   final ProfileService _service;
+  final CategoryService _categoryService;
 
   UserModel? profile;
   ReviewsResult? reviewsResult;
   bool isLoading = false;
   String? error;
+
+  // Populated once by loadCategories(); drives the category selection popup.
+  List<CategoryModel> categories = [];
+  bool _categoriesLoaded = false;
 
   // ── Local UI state (HEAD-branch screens) ─────────────────────────────────
   String _username = 'Username';
@@ -30,8 +37,25 @@ class ProfileProvider extends ChangeNotifier {
     _username = username.isEmpty ? 'Username' : username;
     _bio = bio.isEmpty ? _bio : bio;
     if (interests != null) { _selectedInterests..clear()..addAll(interests); }
+    // Stub for other profile fields (username, bio) — replace when backend is ready.
     UserService.updateProfile(username: _username, bio: _bio, interests: Set.unmodifiable(_selectedInterests));
+    // Persist interests to Firestore immediately (fire-and-forget; UI is already updated).
+    if (interests != null) {
+      _service.saveCurrentUserInterests(_selectedInterests.toList());
+    }
     notifyListeners();
+  }
+
+  /// Fetches categories from Firestore once; no-ops on subsequent calls.
+  Future<void> loadCategories() async {
+    if (_categoriesLoaded) return;
+    try {
+      categories = await _categoryService.getCategories();
+      _categoriesLoaded = true;
+      notifyListeners();
+    } catch (_) {
+      // categories stays empty; UI handles the empty state gracefully.
+    }
   }
 
   void saveInterests(Set<String> interests) {
@@ -61,8 +85,9 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  ProfileProvider({ProfileService? service})
-      : _service = service ?? ProfileService();
+  ProfileProvider({ProfileService? service, CategoryService? categoryService})
+      : _service = service ?? ProfileService(),
+        _categoryService = categoryService ?? CategoryService();
 
   // ── Profile ───────────────────────────────────────────────────────────────
 

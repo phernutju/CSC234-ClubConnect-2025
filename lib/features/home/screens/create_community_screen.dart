@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../providers/community_provider.dart';
 import '../../../models/rule_model.dart';
+import '../widgets/category_picker_popup.dart';
+import '../widgets/interest_chip.dart';
 
 /// "Host" screen — create a new community.
 class CreateCommunityScreen extends StatefulWidget {
@@ -21,7 +23,39 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   final List<TextEditingController> _rulesControllers = [TextEditingController()];
 
   Uint8List? _coverImageBytes;
-  String?    _selectedCategory;
+  final Set<String> _selectedCategories = {};
+
+  String? _nameError;
+  String? _aboutError;
+  String? _categoryError;
+  String? _rulesError;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_clearNameError);
+    _aboutController.addListener(_clearAboutError);
+    _rulesControllers.first.addListener(_clearRulesError);
+  }
+
+  void _clearNameError() {
+    if (_nameError != null && _nameController.text.trim().isNotEmpty) {
+      setState(() => _nameError = null);
+    }
+  }
+
+  void _clearAboutError() {
+    if (_aboutError != null && _aboutController.text.trim().isNotEmpty) {
+      setState(() => _aboutError = null);
+    }
+  }
+
+  void _clearRulesError() {
+    if (_rulesError != null &&
+        _rulesControllers.any((c) => c.text.trim().isNotEmpty)) {
+      setState(() => _rulesError = null);
+    }
+  }
 
   @override
   void dispose() {
@@ -43,32 +77,41 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   }
 
   void _addRule() {
-    setState(() => _rulesControllers.add(TextEditingController()));
+    final ctrl = TextEditingController();
+    ctrl.addListener(_clearRulesError);
+    setState(() => _rulesControllers.add(ctrl));
   }
 
   Future<void> _onCreate() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    final name  = _nameController.text.trim();
+    final about = _aboutController.text.trim();
+    final hasRule = _rulesControllers.any((c) => c.text.trim().isNotEmpty);
+
+    setState(() {
+      _nameError     = name.isEmpty     ? 'Please enter a community name'          : null;
+      _aboutError    = about.isEmpty    ? 'Please tell us about your community'    : null;
+      _categoryError = _selectedCategories.isEmpty ? 'Please select a category'     : null;
+      _rulesError    = !hasRule         ? 'Please add at least one community rule' : null;
+    });
+
+    if (_nameError != null || _aboutError != null ||
+        _categoryError != null || _rulesError != null) { return; }
 
     final rules = _rulesControllers
-    .asMap()
-    .entries
-    .map((entry) {
-      final index = entry.key;
-      final text = entry.value.text.trim();
+        .asMap()
+        .entries
+        .map((entry) => RuleModel(
+              id: 'rule_${entry.key + 1}',
+              text: entry.value.text.trim(),
+              severity: 'medium',
+            ))
+        .where((r) => r.text.isNotEmpty)
+        .toList();
 
-       return RuleModel(
-        id: 'rule_${index + 1}',
-        text: text,
-        severity: 'medium', //dfeualt for now, can be extended later
-      );
-    })
-    .where((r) => r.text.isNotEmpty)
-    .toList();
     await context.read<CommunityProvider>().addCommunity(
           communityName: name,
-          description: _aboutController.text.trim(),
-          category: _selectedCategory != null ? [_selectedCategory!] : [],
+          description: about,
+          category: _selectedCategories.toList(),
           coverImageBytes: _coverImageBytes,
           rules: rules,
         );
@@ -108,6 +151,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                         controller: _nameController,
                         hint: AppStrings.createNameHint,
                         maxLength: 50,
+                        errorText: _nameError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
 
@@ -117,20 +161,30 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                         hint: AppStrings.createAboutHint,
                         maxLength: 500,
                         maxLines: 4,
+                        errorText: _aboutError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
 
                       const _SectionLabel(label: AppStrings.createCategoryLabel),
                       const SizedBox(height: AppSizes.paddingS),
-                      _CategoryChips(
-                        selected: _selectedCategory,
-                        onSelected: (c) => setState(() => _selectedCategory = c),
+                      _CategoryEditRow(
+                        selected: _selectedCategories,
+                        onToggle: (cat) => setState(() {
+                          if (_selectedCategories.contains(cat)) {
+                            _selectedCategories.remove(cat);
+                          } else {
+                            _selectedCategories.add(cat);
+                            _categoryError = null;
+                          }
+                        }),
+                        errorText: _categoryError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
 
                       _RulesSection(
                         controllers: _rulesControllers,
                         onAddRule: _addRule,
+                        errorText: _rulesError,
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
 
@@ -279,12 +333,14 @@ class _FormField extends StatelessWidget {
   final String hint;
   final int maxLength;
   final int maxLines;
+  final String? errorText;
 
   const _FormField({
     required this.controller,
     required this.hint,
     required this.maxLength,
     this.maxLines = 1,
+    this.errorText,
   });
 
   @override
@@ -329,53 +385,90 @@ class _FormField extends StatelessWidget {
             width: AppSizes.fieldBorderWidth,
           ),
         ),
+        errorText: errorText,
+        errorStyle: AppTextStyles.poppins(
+          fontSize: AppSizes.fontXS,
+          color: Colors.red,
+        ),
       ),
     );
   }
 }
 
-// ── Category chips ────────────────────────────────────────────────────────────
+// ── Category row (chips + popup) ──────────────────────────────────────────────
 
-class _CategoryChips extends StatelessWidget {
-  final String? selected;
-  final ValueChanged<String> onSelected;
+/// Same design as the interests row on Edit Profile: shows first 3 selected
+/// categories as coral chips, plus a "+" button that opens [CategoryPickerPopup].
+class _CategoryEditRow extends StatelessWidget {
+  final Set<String> selected;
+  final void Function(String) onToggle;
+  final String? errorText;
 
-  const _CategoryChips({required this.selected, required this.onSelected});
+  const _CategoryEditRow({
+    required this.selected,
+    required this.onToggle,
+    this.errorText,
+  });
+
+  void _openPopup(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => CategoryPickerPopup(
+        selectedInterests: selected,
+        onToggle: onToggle,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSizes.paddingS,
-      runSpacing: AppSizes.paddingS,
-      children: AppStrings.createCategories.map((cat) {
-        final isSelected = cat == selected;
-        return GestureDetector(
-          onTap: () => onSelected(cat),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSizes.paddingM,
-              vertical: AppSizes.paddingS,
-            ),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.chipSelected : AppColors.cardWhite,
-              borderRadius: BorderRadius.circular(64),
-              border: Border.all(
-                color: isSelected ? AppColors.chipSelected : AppColors.chipBorder,
+    final preview = selected.take(3).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: AppSizes.paddingS,
+          runSpacing: AppSizes.paddingS,
+          children: [
+            ...preview.map(
+              (cat) => InterestChip(
+                label: cat,
+                selected: true,
+                onTap: () => onToggle(cat),
               ),
             ),
-            child: Text(
-              cat,
-              style: AppTextStyles.poppins(
-                fontSize: AppSizes.fontSM,
-                fontWeight: FontWeight.w600,
-                color: isSelected
-                    ? AppColors.chipSelectedText
-                    : AppColors.textDark,
+            GestureDetector(
+              onTap: () => _openPopup(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingM,
+                  vertical: AppSizes.paddingXS,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+                  border: Border.all(color: AppColors.chipBorder),
+                ),
+                child: const Icon(Icons.add, size: 14, color: AppColors.textDark),
               ),
+            ),
+          ],
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            errorText!,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXS,
+              color: Colors.red,
             ),
           ),
-        );
-      }).toList(),
+        ],
+      ],
     );
   }
 }
@@ -385,8 +478,13 @@ class _CategoryChips extends StatelessWidget {
 class _RulesSection extends StatefulWidget {
   final List<TextEditingController> controllers;
   final VoidCallback onAddRule;
+  final String? errorText;
 
-  const _RulesSection({required this.controllers, required this.onAddRule});
+  const _RulesSection({
+    required this.controllers,
+    required this.onAddRule,
+    this.errorText,
+  });
 
   @override
   State<_RulesSection> createState() => _RulesSectionState();
@@ -536,6 +634,16 @@ class _RulesSectionState extends State<_RulesSection> {
             ),
           ),
         ),
+        if (widget.errorText != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            widget.errorText!,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXS,
+              color: Colors.red,
+            ),
+          ),
+        ],
       ],
     );
   }
