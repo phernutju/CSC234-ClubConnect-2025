@@ -35,7 +35,6 @@ class GeminiService {
       return const ModerationResult(
           isViolating: false, violatedRules: [], reason: '');
     }
-
     final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
 
     final prompt = '''
@@ -72,7 +71,7 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
         {'role': 'user', 'content': prompt},
       ],
     });
-
+    print('[AI] prompt="$prompt"');
     for (var attempt = 0; attempt < _maxRetries; attempt++) {
       final response = await http.post(
         Uri.parse(_endpoint),
