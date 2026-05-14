@@ -571,9 +571,8 @@ class _InterestsEditRow extends StatefulWidget {
 }
 
 class _InterestsEditRowState extends State<_InterestsEditRow> {
-  late final Future<List<String>> _categoriesFuture = CategoryService()
-      .getDefaultCategories()
-      .then((list) => list.map((c) => c.name).toList());
+  late final Future<List<String>> _categoriesFuture =
+      CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first ;
 
   void _openPopup(BuildContext context) {
     showModalBottomSheet(

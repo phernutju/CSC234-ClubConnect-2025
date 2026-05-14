@@ -85,6 +85,7 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
               child: Container(
               color: AppColors.cardWhite,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
                     child: SingleChildScrollView(
@@ -144,7 +145,7 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
                               ),
                             ],
                           ),
-                          SizedBox(height: AppSizes.rulesPreButtonGap),
+                          const SizedBox(height: 8),
                         ],
                       ),
                     ),
@@ -156,7 +157,7 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
                       AppSizes.rulesContentPadH,
                       0,
                       AppSizes.rulesContentPadH,
-                      AppSizes.rulesContentPadV,
+                      AppSizes.paddingL,
                     ),
                     child: Center(
                       child: GestureDetector(

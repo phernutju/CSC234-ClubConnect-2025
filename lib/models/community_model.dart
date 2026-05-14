@@ -188,7 +188,7 @@ class CommunityModel {
       coverImageURL: data['coverImageURL'] ?? '',
       rules: (data['rules'] as List<dynamic>?)?.map((r) => RuleModel.fromMap(r)).toList() ?? [],
       memberCount: data['memberCount'] ?? 0,
-      createdBy: data['createdBy'] ?? '',
+      createdBy: data['createdBy'] ?? data['createdById'] ?? '',
       createdAt: data['createdAt'] ?? Timestamp.now(),
       stats: data['stats'] != null
           ? CommunityStats.fromMap(data['stats'] as Map<String, dynamic>)

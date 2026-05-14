@@ -200,7 +200,7 @@ class CommunityService {
       'memberCount': 1,
       'createdAt': createdAt,
       'updatedAt': createdAt,
-      'createdById': user.uid,
+      'createdBy': user.uid,
       'stats': const CommunityStats().toMap(),
     });
     batch.set(_members(communityRef.id).doc(user.uid), {
@@ -271,7 +271,7 @@ class CommunityService {
     final communityDoc = await _communities.doc(communityId).get();
     final communityName =
         communityDoc.data()?['communityName'] as String? ?? '';
-    final createdById = communityDoc.data()?['createdById'] as String?;
+    final createdById = (communityDoc.data()?['createdBy'] ?? communityDoc.data()?['createdById']) as String?;
 
     final batch = _db.batch();
     batch.set(memberRef, {
@@ -400,7 +400,6 @@ class CommunityService {
     String communityId, {
     required String text,
     String imageURL = '',
-    String rules = '',
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
@@ -409,6 +408,10 @@ class CommunityService {
   }) async {
     final user = _requireAuth();
     await _requireMemberDoc(communityId, user.uid);
+
+    final communityDoc = await _communities.doc(communityId).get();
+    final rulesList = (communityDoc.data()?['rules'] as List<dynamic>?)?.map((r) => RuleModel.fromMap(r)).toList() ?? [];
+    final rulesString = rulesList.asMap().entries.map((e) => '${e.key + 1}. ${e.value.text}').join('\n');
 
     final trimmed = text.trim();
     if (trimmed.isEmpty && imageURL.isEmpty) {
@@ -440,7 +443,7 @@ class CommunityService {
       if (replyToText != null) 'replyToText': replyToText,
     });
     if (trimmed.isNotEmpty) {
-      final result = await GeminiService.moderateMessage(trimmed, rules: rules);
+      final result = await GeminiService.moderateMessage(trimmed, rules: rulesString);
       if (result.isViolating) {
         final count = await _reportService.submitAiViolation(
           userId: user.uid,
