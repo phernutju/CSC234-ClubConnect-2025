@@ -451,6 +451,7 @@ class _MemberTile extends StatelessWidget {
                 ),
               ),
             ),
+
         ],
       ),
     );

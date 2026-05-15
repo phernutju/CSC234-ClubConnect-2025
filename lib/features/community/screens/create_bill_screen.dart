@@ -171,6 +171,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   }
 
   void _removeMember(String uid) {
+    if (_members.length <= 1) return;
     setState(() {
       _members.removeWhere((m) => m.uid == uid);
       for (final item in _items) {

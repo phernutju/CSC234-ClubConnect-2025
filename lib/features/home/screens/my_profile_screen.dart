@@ -569,7 +569,8 @@ class _InterestsGrid extends StatelessWidget {
     if (catProvider.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final interests = catProvider.approvedCategories.map((c) => c.name).toList();
+    final interests = catProvider.approvedCategories.map((c) => c.name).toList()
+      ..sort((a, b) => a.compareTo(b));
     return Wrap(
       spacing: AppSizes.paddingS,
       runSpacing: AppSizes.paddingS,

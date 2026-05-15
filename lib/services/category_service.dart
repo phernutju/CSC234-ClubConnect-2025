@@ -11,7 +11,8 @@ class CategoryService {
         .where('isApproved', isEqualTo: true)
         .orderBy('usageCount', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(CategoryModel.fromDoc).toList());
+        .map((snap) => snap.docs.map(CategoryModel.fromDoc).toList()
+          ..sort((a, b) => a.name.compareTo(b.name)));
   }
 
   Future<List<CategoryModel>> getDefaultCategories() async {
@@ -19,7 +20,8 @@ class CategoryService {
         .collection(_col)
         .where('isDefault', isEqualTo: true)
         .get();
-    return snap.docs.map(CategoryModel.fromDoc).toList();
+    return snap.docs.map(CategoryModel.fromDoc).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
   }
 
   Future<void> createUserCategory(String name, String createdBy) async {

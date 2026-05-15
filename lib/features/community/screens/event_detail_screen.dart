@@ -7,6 +7,7 @@ import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/event_provider.dart';
 import '../../../providers/smart_bill_provider.dart';
 
 class EventDetailScreen extends StatefulWidget {
@@ -117,6 +118,34 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
+  void _onEditTap() {
+    context.push('/edit-event', extra: widget.event);
+  }
+
+  Future<void> _onDeleteTap() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Event'),
+        content: const Text('Are you sure? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    await context.read<EventProvider>().deleteEvent(widget.communityId, widget.event.id);
+    if (!mounted) return;
+    context.pop();
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
@@ -146,6 +175,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           _DetailAppBar(
             title: widget.event.title,
             memberCount: '$memberCount/${widget.event.maxAttendees}',
+            isHost: isHost,
+            onEdit: isHost ? _onEditTap : null,
+            onDelete: isHost ? _onDeleteTap : null,
           ),
 
           // ── Scrollable content ────────────────────────────────────────────
@@ -334,8 +366,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 class _DetailAppBar extends StatelessWidget {
   final String title;
   final String memberCount;
+  final bool isHost;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const _DetailAppBar({required this.title, required this.memberCount});
+  const _DetailAppBar({
+    required this.title,
+    required this.memberCount,
+    this.isHost = false,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -370,6 +411,20 @@ class _DetailAppBar extends StatelessWidget {
                 ),
               ),
             ),
+            if (isHost) ...[
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: AppColors.cardWhite, size: 20),
+                onPressed: onEdit,
+                tooltip: 'Edit event',
+                padding: EdgeInsets.zero,
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: AppColors.cardWhite, size: 20),
+                onPressed: onDelete,
+                tooltip: 'Delete event',
+                padding: EdgeInsets.zero,
+              ),
+            ],
           ],
         ),
       ),

@@ -353,7 +353,8 @@ class _CategoryChips extends StatelessWidget {
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    final categories = catProvider.approvedCategories;
+    final categories = catProvider.approvedCategories.toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
     return Wrap(
       spacing: AppSizes.paddingS,
       runSpacing: AppSizes.paddingS,

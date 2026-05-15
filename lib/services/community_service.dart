@@ -236,6 +236,12 @@ class CommunityService {
     await _communities.doc(communityId).update(updates);
   }
 
+  Future<void> deleteCommunity(String communityId) async {
+    final user = _requireAuth();
+    await _requireCreator(communityId, user.uid);
+    await _communities.doc(communityId).delete();
+  }
+
   // ── Membership ─────────────────────────────────────────────────────────────
 
   Future<void> joinCommunity(String communityId) async {

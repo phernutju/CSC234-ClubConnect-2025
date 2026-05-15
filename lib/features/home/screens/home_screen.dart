@@ -111,7 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final cp = context.watch<CommunityProvider>();
     final pp = context.watch<ProfileProvider>();
-    final userInterests = pp.profile?.interests ?? [];
+    final userInterests = (pp.profile?.interests ?? []).toList()
+      ..sort((a, b) => a.compareTo(b));
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
@@ -306,18 +307,25 @@ class _MyClubList extends StatelessWidget {
         ),
       );
     }
+    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     return ListView(
       children: communities
-          .map((c) => ClubCard(
-                name: c.communityName,
-                description: c.description.isEmpty
-                    ? c.tags.map((t) => t.name).join(', ')
-                    : c.description,
-                memberCount:
-                    '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-                coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
-                onTap: () => onTap(c),
-              ))
+          .map((c) {
+            final isOwner = currentUid.isNotEmpty && c.createdBy == currentUid;
+            return ClubCard(
+              name: c.communityName,
+              description: c.description.isEmpty
+                  ? c.tags.map((t) => t.name).join(', ')
+                  : c.description,
+              memberCount:
+                  '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+              coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+              onTap: () => onTap(c),
+              isOwner: isOwner,
+              onEdit: isOwner ? () => context.push('/edit-community', extra: c) : null,
+              onDelete: isOwner ? () => _confirmDeleteCommunity(context, c.id) : null,
+            );
+          })
           .toList(),
     );
   }
@@ -367,6 +375,7 @@ class _DiscoverTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     final filtered = selectedCategory == null
         ? communities
         : communities
@@ -410,7 +419,7 @@ class _DiscoverTab extends StatelessWidget {
             ),
           )
         else
-          ..._buildCommunityCards(filtered, onTap),
+          ..._buildCommunityCards(filtered, onTap, context, currentUid),
       ],
     );
   }
@@ -432,23 +441,52 @@ class _CommunityList extends StatelessWidget {
         ),
       );
     }
-    return ListView(children: _buildCommunityCards(communities, onTap));
+    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
+    return ListView(children: _buildCommunityCards(communities, onTap, context, currentUid));
   }
+}
+
+Future<void> _confirmDeleteCommunity(BuildContext context, String communityId) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete Community'),
+      content: const Text(
+        'Are you sure? This will permanently delete the community and all its messages. This cannot be undone.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  await context.read<CommunityProvider>().deleteCommunity(communityId);
 }
 
 List<Widget> _buildCommunityCards(
   List<CommunityModel> communities,
   void Function(CommunityModel) onTap,
+  BuildContext context,
+  String currentUid,
 ) {
-  return communities
-      .map((c) => ClubCard(
-            name: c.communityName,
-            description:
-                c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
-            memberCount:
-                '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-            coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
-            onTap: () => onTap(c),
-          ))
-      .toList();
+  return communities.map((c) {
+    final isOwner = currentUid.isNotEmpty && c.createdBy == currentUid;
+    return ClubCard(
+      name: c.communityName,
+      description: c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
+      memberCount: '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+      coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+      onTap: () => onTap(c),
+      isOwner: isOwner,
+      onEdit: isOwner ? () => context.push('/edit-community', extra: c) : null,
+      onDelete: isOwner ? () => _confirmDeleteCommunity(context, c.id) : null,
+    );
+  }).toList();
 }

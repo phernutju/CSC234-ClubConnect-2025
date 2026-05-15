@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../providers/profile_provider.dart';
 
@@ -182,6 +183,8 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateLine = event.formattedDateRange;
+    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
+    final isCurrentUserHost = uid.isNotEmpty && event.createdBy == uid;
 
     return Container(
       decoration: BoxDecoration(
@@ -290,6 +293,39 @@ class _EventCard extends StatelessWidget {
                 // Avatars row + details
                 Row(
                   children: [
+                    if (isCurrentUserHost) ...[
+                      GestureDetector(
+                        onTap: () => context.push('/edit-event', extra: event),
+                        child: const Icon(Icons.edit_outlined, size: 18, color: AppColors.primary),
+                      ),
+                      const SizedBox(width: AppSizes.paddingS),
+                      GestureDetector(
+                        onTap: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete Event'),
+                              content: const Text('Are you sure? This cannot be undone.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm != true) return;
+                          if (!context.mounted) return;
+                          await context.read<EventProvider>().deleteEvent(communityId, event.id);
+                        },
+                        child: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      ),
+                      const SizedBox(width: AppSizes.paddingS),
+                    ],
                     const Spacer(),
 
                     // Details link

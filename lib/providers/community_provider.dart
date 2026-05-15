@@ -190,6 +190,9 @@ class CommunityProvider extends ChangeNotifier {
   ) =>
       _run(() => _service.editCommunity(communityId, data));
 
+  Future<void> deleteCommunity(String communityId) =>
+      _run(() => _service.deleteCommunity(communityId));
+
   Future<void> joinCommunity(String communityId) =>
       _run(() => _service.joinCommunity(communityId));
 
