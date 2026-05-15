@@ -154,6 +154,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     onAvatarTap: _pickAvatar,
                     coverBytes: _coverBytes,
                     onCoverTap: _pickCover,
+                    photoUrl: profile?.photoURL,
                   )
                 else
                   _ProfileHeader(

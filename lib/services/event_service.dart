@@ -39,10 +39,13 @@ class EventService {
     return _events(communityId)
         .orderBy('startDate', descending: false)
         .snapshots()
-        .map((snap) {
-      return snap.docs.map((doc) => EventModel.fromDoc(doc)).toList();
-    });
+        .map((snap) => snap.docs
+            .map((doc) => EventModel.fromJson(
+                  {...doc.data(), 'id': doc.id, 'communityId': communityId},
+                ))
+            .toList());
   }
+
 
   Future<void> createEvent({
     required String communityId,
@@ -157,7 +160,11 @@ class EventService {
         .orderBy('startDate', descending: false)
         .snapshots()
         .map((snap) => snap.docs
-            .map((doc) => EventModel.fromJson({...doc.data(), 'id': doc.id}))
+            .map((doc) => EventModel.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                  'communityId': doc.reference.parent.parent?.id ?? '',
+                }))
             .toList());
   }
 

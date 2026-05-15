@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
+import '../../../models/community_model.dart';
 import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/community_provider.dart';
 import '../../../providers/smart_bill_provider.dart';
 
 class EventDetailScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ class EventDetailScreen extends StatefulWidget {
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
   AttendeeProvider? _attendeeProvider;
+  Future<CommunityModel?>? _communityFuture;
 
   static const _avatarColors = [
     Color(0xFFFFB347),
@@ -46,6 +49,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           .checkIsAttending(widget.communityId, widget.event.id);
       if (!mounted) return;
       context.read<SmartBillProvider>().loadBillByEvent(widget.communityId, widget.event.id);
+      _communityFuture = context.read<CommunityProvider>().fetchCommunity(widget.communityId);
+      setState(() {});
     });
   }
 
@@ -235,6 +240,43 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           isHost:       isHost,
                           isAttending:  ap.isAttending,
                           onCreateBill: _onCreateBillTap,
+                        ),
+
+                        // Rules section
+                        FutureBuilder<CommunityModel?>(
+                          future: _communityFuture,
+                          builder: (context, snapshot) {
+                            final rules = snapshot.data?.rules ?? [];
+                            if (rules.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: AppSizes.paddingM),
+                                Text(
+                                  'Rules',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: AppSizes.fontSM,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSizes.paddingXS),
+                                ...rules.asMap().entries.map(
+                                  (e) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      '${e.key + 1}. ${e.value.text}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: AppSizes.fontSM,
+                                        fontWeight: FontWeight.w300,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
 
                         SizedBox(height: AppSizes.paddingXL + bottomPad),

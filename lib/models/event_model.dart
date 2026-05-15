@@ -3,7 +3,7 @@ import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:intl/intl.dart';
 import 'package:csc234_clubconnect/models/category_model.dart';
 
-enum EventStatus { upcoming, ongoing, ended }
+enum EventStatus { upcoming, ongoing, ended, closed }
 
 class EventModel {
   final String id;
@@ -21,6 +21,7 @@ class EventModel {
   final Timestamp endDate;
   final EventStatus status;
   final bool isPublished;
+  final String communityId;
 
   EventModel({
     required this.id,
@@ -37,8 +38,8 @@ class EventModel {
     required this.status,
     this.imageUrl,
     this.maxAttendees,
-    
     this.isPublished = false,
+    this.communityId = '',
   });
 
   // ─── Derived Getters ───────────────────────────
@@ -102,10 +103,12 @@ class EventModel {
       startDate: json['startDate'] ?? Timestamp.now(),
       endDate: json['endDate'] ?? json['expiresAt'] ?? Timestamp.now(),
       status: EventStatus.values.firstWhere(
-        (s) => s.toString() == json['status'],
+        (s) => s.name == json['status'],
         orElse: () => EventStatus.upcoming,
       ),
       location: json['location'] ?? '',
+      communityId: json['communityId'] as String? ?? '',
+      isPublished: json['isPublished'] as bool? ?? false,
     );
   }
 

@@ -39,9 +39,12 @@ class EventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateLine = event.formattedDateRange;
     final hostName = context.read<AppAuthProvider>().user?.displayName ?? '';
+    final isClosed = event.status == EventStatus.closed;
     return GestureDetector(
-      onTap: () => context.push('/event-detail', extra: EventDetailArgs(event: event, communityId: communityId)),
-      child: Container(
+      onTap: isClosed ? null : () => context.push('/event-detail', extra: EventDetailArgs(event: event, communityId: communityId)),
+      child: Opacity(
+        opacity: isClosed ? 0.5 : 1.0,
+        child: Container(
         decoration: BoxDecoration(
           color: AppColors.cardWhite,
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
@@ -63,8 +66,8 @@ class EventCard extends StatelessWidget {
                   Container(
                     width: 7,
                     height: 7,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
+                    decoration: BoxDecoration(
+                      color: isClosed ? Colors.grey : AppColors.primary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -74,9 +77,28 @@ class EventCard extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: AppSizes.fontXS,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.primary,
+                      color: isClosed ? Colors.grey : AppColors.primary,
                     ),
                   ),
+                  if (isClosed) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Text(
+                        'Closed',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppSizes.fontXXS,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -124,7 +146,7 @@ class EventCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   if (hostName.isNotEmpty)
                     Text(
-                      'by ${hostName}',
+                      'by $hostName',
                       style: GoogleFonts.poppins(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.w500,
@@ -155,6 +177,7 @@ class EventCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

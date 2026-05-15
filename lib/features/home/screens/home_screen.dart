@@ -320,6 +320,8 @@ class _TabContent extends StatelessWidget {
   }
 }
 
+enum _EventFilter { all, myClubs, otherClubs }
+
 /// Inline Events tab: loads and shows published events within the Home screen.
 class _GlobalEventsTab extends StatefulWidget {
   const _GlobalEventsTab();
@@ -329,6 +331,8 @@ class _GlobalEventsTab extends StatefulWidget {
 }
 
 class _GlobalEventsTabState extends State<_GlobalEventsTab> {
+  _EventFilter _filter = _EventFilter.all;
+
   @override
   void initState() {
     super.initState();
@@ -346,30 +350,136 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
   @override
   Widget build(BuildContext context) {
     final ep = context.watch<EventProvider>();
-    if (ep.publishedEvents.isEmpty) {
-      return Center(
-        child: Column(
+    final myIds = context
+        .watch<CommunityProvider>()
+        .myCommunities
+        .map((c) => c.id)
+        .toSet();
+
+    final publicEvents = ep.publishedEvents.where((e) => e.isPublished).toList();
+
+    final filtered = switch (_filter) {
+      _EventFilter.all => publicEvents,
+      _EventFilter.myClubs =>
+        publicEvents.where((e) => myIds.contains(e.communityId)).toList(),
+      _EventFilter.otherClubs =>
+        publicEvents.where((e) => !myIds.contains(e.communityId)).toList(),
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.paddingM,
+            AppSizes.paddingS,
+            AppSizes.paddingM,
+            0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _EventFilterDropdown(
+                value: _filter,
+                onChanged: (v) => setState(() => _filter = v),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.event_busy,
+                          size: 64,
+                          color: AppColors.textGray.withValues(alpha: 0.35)),
+                      const SizedBox(height: AppSizes.paddingM),
+                      Text(
+                        'No published events yet',
+                        style: AppTextStyles.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textGray,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(AppSizes.paddingM),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSizes.paddingM),
+                  itemBuilder: (_, i) => EventCard(
+                    event: filtered[i],
+                    communityId: filtered[i].communityId,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EventFilterDropdown extends StatelessWidget {
+  final _EventFilter value;
+  final ValueChanged<_EventFilter> onChanged;
+
+  const _EventFilterDropdown({required this.value, required this.onChanged});
+
+  String _label(_EventFilter f) => switch (f) {
+        _EventFilter.all => 'All Events',
+        _EventFilter.myClubs => 'My Clubs',
+        _EventFilter.otherClubs => 'Other Clubs',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_EventFilter>(
+      offset: const Offset(0, 36),
+      color: AppColors.cardWhite,
+      onSelected: onChanged,
+      itemBuilder: (_) => _EventFilter.values
+          .map((f) => PopupMenuItem<_EventFilter>(
+                value: f,
+                child: Text(
+                  _label(f),
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ))
+          .toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.paddingS,
+          vertical: AppSizes.paddingXS,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.inputFill,
+          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+          border: Border.all(color: AppColors.inputBorder),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.event_busy, size: 64,
-                color: AppColors.textGray.withValues(alpha: 0.35)),
-            const SizedBox(height: AppSizes.paddingM),
             Text(
-              'No published events yet',
+              _label(value),
               style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontXS,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textGray,
+                color: AppColors.textDark,
               ),
             ),
+            const SizedBox(width: AppSizes.paddingXS),
+            const Icon(Icons.keyboard_arrow_down,
+                color: AppColors.primary, size: 16),
           ],
         ),
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppSizes.paddingM),
-      itemCount: ep.publishedEvents.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
-      itemBuilder: (_, i) => EventCard(event: ep.publishedEvents[i]),
+      ),
     );
   }
 }

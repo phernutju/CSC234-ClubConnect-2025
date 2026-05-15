@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_model.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../services/event_service.dart';
 
 class EditEventScreen extends StatefulWidget {
   final EventModel event;
@@ -27,6 +30,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   int _memberLimit = 0;
   Uint8List? _coverBytes;
   String _existingCoverUrl = '';
+  bool _isClosing = false;
 
   static const int _nameMax   = 50;
   static const int _detailMax = 500;
@@ -144,6 +148,73 @@ class _EditEventScreenState extends State<EditEventScreen> {
       builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _endTime = picked);
+  }
+
+  bool get _isHost {
+    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
+    return uid.isNotEmpty && widget.event.createdBy == uid;
+  }
+
+  Future<void> _onCloseEvent() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(
+          'Close this event?',
+          style: AppTextStyles.poppins(
+            fontSize: AppSizes.fontML,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        content: Text(
+          'This will close the event for all members. This action cannot be undone.',
+          style: AppTextStyles.poppins(
+            fontSize: AppSizes.fontSM,
+            color: AppColors.commentBody,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'No',
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                color: AppColors.textDark,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Yes',
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.w600,
+                color: Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _isClosing = true);
+    try {
+      await EventService().deleteEvent(widget.event.communityId, widget.event.id);
+      if (!mounted) return;
+      // pop edit → event_chat → event_detail → events list
+      context.pop();
+      context.pop();
+      context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Failed to close event: $e');
+    } finally {
+      if (mounted) setState(() => _isClosing = false);
+    }
   }
 
   void _onSave() {
@@ -294,29 +365,67 @@ class _EditEventScreenState extends State<EditEventScreen> {
                         ),
                         const SizedBox(height: AppSizes.paddingXL),
 
-                        // ── Save button ──────────────────────────────────────
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _onSave,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                        // ── Close Event / Save buttons ───────────────────────
+                        Row(
+                          children: [
+                            if (_isHost) ...[
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isClosing ? null : _onCloseEvent,
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.red,
+                                    side: const BorderSide(color: Colors.red),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+                                  ),
+                                  child: _isClosing
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.red,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          'Close Event',
+                                          style: AppTextStyles.poppins(
+                                            fontSize: AppSizes.fontTitle,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
-                            ),
-                            child: Text(
-                              'Save',
-                              style: AppTextStyles.poppins(
-                                fontSize: AppSizes.fontTitle,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.cardWhite,
+                              const SizedBox(width: AppSizes.paddingS),
+                            ],
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _isClosing ? null : _onSave,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+                                ),
+                                child: Text(
+                                  'Save',
+                                  style: AppTextStyles.poppins(
+                                    fontSize: AppSizes.fontTitle,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.cardWhite,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
