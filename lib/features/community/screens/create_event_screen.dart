@@ -262,7 +262,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Publish Event',
+                  'Make Event Public',
                   style: AppTextStyles.poppins(
                     fontSize: AppSizes.fontML,
                     fontWeight: FontWeight.w600,
@@ -270,11 +270,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Allow everyone to discover and view this event',
+                  'Club members can always see this. Turn on to make it public.',
                   style: AppTextStyles.poppins(
                     fontSize: AppSizes.fontXS,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
+                    color: AppColors.textGray,
                   ),
                 ),
               ],
