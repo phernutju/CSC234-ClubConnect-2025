@@ -43,4 +43,10 @@ class StorageService {
     await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
     return ref.getDownloadURL();
   }
+
+  Future<String> uploadUserBanner(Uint8List bytes, String userId) async {
+    final ref = _storage.ref().child('user_banners/$userId/banner.jpg');
+    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+    return ref.getDownloadURL();
+  }
 }

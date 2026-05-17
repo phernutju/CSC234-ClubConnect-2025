@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/chat_args.dart';
 import '../../../models/notification_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
@@ -141,6 +143,49 @@ class _NotificationList extends StatelessWidget {
 
   const _NotificationList({required this.grouped, required this.userId});
 
+  VoidCallback? _buildOnTap(BuildContext context, NotificationModel n) {
+    final isNavigable = n.type == 'reply' || n.type == 'mention';
+
+    if (!isNavigable) {
+      // Preserve existing behavior for other notification types
+      // (rating, join, restriction, etc.): tap marks as read only.
+      if (n.isRead) return null;
+      return () => context
+          .read<NotificationProvider>()
+          .markAsRead(userId, n.id);
+    }
+
+    return () async {
+      final notifProvider = context.read<NotificationProvider>();
+      final communityProvider = context.read<CommunityProvider>();
+
+      if (!n.isRead) {
+        notifProvider.markAsRead(userId, n.id);
+      }
+
+      final targetCommunityId =
+          (n.chatRoomId != null && n.chatRoomId!.isNotEmpty)
+              ? n.chatRoomId!
+              : n.communityId;
+      if (targetCommunityId.isEmpty) return;
+
+      final community =
+          await communityProvider.fetchCommunity(targetCommunityId);
+      if (!context.mounted) return;
+      if (community == null) return;
+
+      context.push(
+        '/chat',
+        extra: ChatArgs(
+          communityId: community.id,
+          communityName: community.communityName,
+          memberCount: community.memberCount.toString(),
+          targetMessageId: n.messageId,
+        ),
+      );
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final sections = grouped.entries.toList();
@@ -166,11 +211,7 @@ class _NotificationList extends StatelessWidget {
                 title: n.title,
                 body: n.description,
                 isRead: n.isRead,
-                onTap: n.isRead
-                    ? null
-                    : () => context
-                        .read<NotificationProvider>()
-                        .markAsRead(userId, n.id),
+                onTap: _buildOnTap(context, n),
               ),
             ),
           ],

@@ -9,6 +9,7 @@ class EditProfileHeader extends StatelessWidget {
   final Uint8List? avatarBytes;
   final VoidCallback onAvatarTap;
   final Uint8List? coverBytes;
+  final String? coverUrl;
   final VoidCallback onCoverTap;
 
   const EditProfileHeader({
@@ -16,6 +17,7 @@ class EditProfileHeader extends StatelessWidget {
     required this.avatarBytes,
     required this.onAvatarTap,
     required this.coverBytes,
+    this.coverUrl,
     required this.onCoverTap,
   });
 
@@ -31,6 +33,7 @@ class EditProfileHeader extends StatelessWidget {
             left: 0,
             right: 0,
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: onCoverTap,
               child: SizedBox(
                 height: AppSizes.profileHeaderHeight,
@@ -40,20 +43,26 @@ class EditProfileHeader extends StatelessWidget {
                         fit: BoxFit.cover,
                         width: double.infinity,
                       )
-                    : Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.profileHeaderStart,
-                              AppColors.profileHeaderEnd,
-                              AppColors.profileHeaderEnd,
-                            ],
-                            stops: [0.0, 0.44, 0.9],
+                    : (coverUrl != null && coverUrl!.isNotEmpty)
+                        ? Image.network(
+                            coverUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          )
+                        : Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppColors.profileHeaderStart,
+                                  AppColors.profileHeaderEnd,
+                                  AppColors.profileHeaderEnd,
+                                ],
+                                stops: [0.0, 0.44, 0.9],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
               ),
             ),
           ),

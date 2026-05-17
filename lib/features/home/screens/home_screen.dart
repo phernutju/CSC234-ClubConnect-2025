@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
+import '../../../models/event_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../../../providers/event_provider.dart';
@@ -316,7 +317,7 @@ class _TabContent extends StatelessWidget {
           onRetry: onRetryTrending,
         );
       case 3:
-        return const _GlobalEventsTab();
+        return _GlobalEventsTab(searchQuery: searchQuery);
       default:
         return _DiscoverTab(
           communities: communities,
@@ -336,7 +337,8 @@ enum _DiscoverSort { newestFirst, oldestFirst, mostMembers, leastMembers }
 
 /// Inline Events tab: loads and shows published events within the Home screen.
 class _GlobalEventsTab extends StatefulWidget {
-  const _GlobalEventsTab();
+  final String searchQuery;
+  const _GlobalEventsTab({this.searchQuery = ''});
 
   @override
   State<_GlobalEventsTab> createState() => _GlobalEventsTabState();
@@ -344,12 +346,17 @@ class _GlobalEventsTab extends StatefulWidget {
 
 class _GlobalEventsTabState extends State<_GlobalEventsTab> {
   _EventFilter _filter = _EventFilter.all;
+  final Map<String, String> _communityNames = {};
+  final Set<String> _fetchingIds = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<EventProvider>().loadPublishedEvents();
+      if (mounted) {
+        context.read<EventProvider>().loadPublishedEvents();
+        _fetchMissingNames();
+      }
     });
   }
 
@@ -357,6 +364,34 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
   void reassemble() {
     super.reassemble();
     context.read<EventProvider>().reassemble();
+  }
+
+  void _fetchMissingNames() {
+    final ep = context.read<EventProvider>();
+    final pp = context.read<ProfileProvider>();
+    for (final e in ep.publishedEvents) {
+      final id = e.communityId;
+      if (id.isEmpty || _communityNames.containsKey(id) || _fetchingIds.contains(id)) continue;
+      _fetchingIds.add(id);
+      pp.fetchCommunityName(id).then((name) {
+        if (mounted) {
+          setState(() {
+            _communityNames[id] = name ?? '';
+            _fetchingIds.remove(id);
+          });
+        }
+      });
+    }
+  }
+
+  List<EventModel> _applySearch(List<EventModel> events) {
+    final q = widget.searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return events;
+    return events.where((e) =>
+      e.title.toLowerCase().contains(q) ||
+      e.description.toLowerCase().contains(q) ||
+      (_communityNames[e.communityId] ?? '').toLowerCase().contains(q),
+    ).toList();
   }
 
   @override
@@ -367,6 +402,10 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
   @override
   Widget build(BuildContext context) {
     final ep = context.watch<EventProvider>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fetchMissingNames();
+    });
+
     final myIds = context
         .watch<CommunityProvider>()
         .myCommunities
@@ -375,13 +414,15 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
 
     final publicEvents = ep.publishedEvents.where((e) => e.isPublished).toList();
 
-    final filtered = switch (_filter) {
+    final byFilter = switch (_filter) {
       _EventFilter.all => publicEvents,
       _EventFilter.myClubs =>
         publicEvents.where((e) => myIds.contains(e.communityId)).toList(),
       _EventFilter.otherClubs =>
         publicEvents.where((e) => !myIds.contains(e.communityId)).toList(),
     };
+
+    final filtered = _applySearch(byFilter);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -414,7 +455,9 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
                           color: AppColors.textGray.withValues(alpha: 0.35)),
                       const SizedBox(height: AppSizes.paddingM),
                       Text(
-                        'No published events yet',
+                        widget.searchQuery.isNotEmpty
+                            ? 'No events match "${widget.searchQuery}"'
+                            : 'No published events yet',
                         style: AppTextStyles.poppins(
                           fontWeight: FontWeight.w600,
                           color: AppColors.textGray,
