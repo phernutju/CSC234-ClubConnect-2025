@@ -18,7 +18,7 @@ class ModerationResult {
 
 class GeminiService {
   static const _endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-  static const _model = 'inclusionai/ring-2.6-1t:free';
+  static const _model = 'openrouter/free';
   static const _maxRetries = 3;
 
   static Future<ModerationResult> moderateMessage(

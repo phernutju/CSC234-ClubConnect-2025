@@ -246,37 +246,6 @@ class _SearchRow extends StatelessWidget {
 }
 
 /// Horizontal scrollable row showing the user's interests from sign-up.
-class _CategoryRow extends StatelessWidget {
-  final List<String> interests;
-
-  static const List<Color> _colors = [
-    AppColors.categoryGreen,
-    AppColors.categoryBlue,
-    AppColors.categoryPurple,
-  ];
-
-  const _CategoryRow({required this.interests});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        children: [
-          for (int i = 0; i < interests.length; i++) ...[
-            if (i > 0) const SizedBox(width: AppSizes.paddingS),
-            CategoryTag(
-              label: interests[i],
-              color: _colors[i % _colors.length],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _TabContent extends StatelessWidget {
   final int selectedTab;
   final List<CommunityModel> communities;
