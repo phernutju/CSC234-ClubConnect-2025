@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 
-/// Displays a row of 4 horizontal segments showing how far along
-/// the registration flow the user is (e.g., step 2 of 4).
+/// Displays a row of horizontal segments showing how far along
+/// the registration flow the user is (e.g., step 2 of 5).
 ///
 /// Active segments are dark; inactive segments are light gray.
 class StepProgressBar extends StatelessWidget {
-  /// Number of steps that are filled/active (1–4)
+  /// Number of steps that are filled/active (1–totalSteps)
   final int currentStep;
 
   /// Total number of steps in the flow
@@ -15,7 +15,7 @@ class StepProgressBar extends StatelessWidget {
   const StepProgressBar({
     super.key,
     required this.currentStep,
-    this.totalSteps = 4,
+    this.totalSteps = 5,
   });
 
   @override

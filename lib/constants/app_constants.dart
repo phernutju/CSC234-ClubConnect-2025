@@ -398,6 +398,7 @@ class AppStrings {
   static const String tabDiscover    = 'Discover';
   static const String tabMyClub      = 'My club';
   static const String tabTrending    = 'Trending';
+  static const String tabEvents      = 'Events';
 
   // Bottom navigation bar
   static const String navHome         = 'Home';
@@ -477,7 +478,7 @@ class AppStrings {
   static const String createErrCover    = 'Please add a cover photo';
   static const String createErrName     = 'Please enter a community name';
   static const String createErrAbout    = 'Please tell us about your community';
-  static const String createErrCategory = 'Please select at least one category';
+  static const String createErrCategory = 'Please select a category';
   static const String createErrRules    = 'Please add at least one community rule';
 
   static const List<String> createCategories = [
@@ -565,6 +566,12 @@ class AppStrings {
   static const String eventsEmpty        = 'No events yet';
   static const String eventsMaxMembers   = 'Max members:';
 
+  // Delete Community
+  static const String deleteCommunityButton  = 'Delete';
+  static const String deleteCommunityTitle   = 'Delete this community?';
+  static const String deleteCommunityCancel  = 'Cancel';
+  static const String deleteCommunityConfirm = 'Delete';
+
   // Create Event screen
   static const String createEventTitle        = 'Events';
   static const String createEventName        = 'Event Name';
@@ -588,7 +595,33 @@ class AppStrings {
   static const String createEventSuccess     = 'Event created!';
   static const String createEventCoverHint    = 'Tap to add cover image';
   static const String createEventErrName     = 'Please enter an event name';
-  static const String createEventErrDate     = 'Please select a date';
+  static const String createEventErrDate     = 'Please select a start date';
+  static const String createEventErrLocation = 'Please enter a location';
+  static const String createEventErrDetail   = 'Please enter event details';
+  static const String createEventErrMembers  = 'Member limit must be at least 1';
+
+  // Community Standards screen
+  static const String communityStandardsTitle    = 'Community standards';
+  static const String communityStandardsSubtitle =
+      'Before you join, please read and agree to our community rules.';
+  static const String communityStandardsAccept   = 'Accept & Continue';
+  static const String communityStandardsDecline  = 'Decline & Exit';
+  static const String communityStandardsAgreementPrefix = 'I have read and agree to the ';
+  static const String communityStandardsGuidelinesLink   = 'Community Guidelines';
+  static const String communityStandardsRule1 =
+      'Follow the rules set by each community host';
+  static const String communityStandardsRule2 =
+      'No harassment, bullying, or doxxing';
+  static const String communityStandardsRule3 =
+      'No hate speech or discrimination';
+  static const String communityStandardsRule4 =
+      'No threats or violent content';
+  static const String communityStandardsRule5 =
+      'No spam, bots, or unsolicited promotion';
+  static const String communityStandardsRule6 =
+      "Respect everyone's privacy and personal data";
+  static const String communityStandardsRule7 =
+      'No illegal content, fraud, piracy, or CSAM';
 
   // Member sheet
   static const String membersEmpty       = 'No members yet';

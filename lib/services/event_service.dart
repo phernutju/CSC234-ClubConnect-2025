@@ -39,10 +39,13 @@ class EventService {
     return _events(communityId)
         .orderBy('startDate', descending: false)
         .snapshots()
-        .map((snap) {
-      return snap.docs.map((doc) => EventModel.fromDoc(doc)).toList();
-    });
+        .map((snap) => snap.docs
+            .map((doc) => EventModel.fromJson(
+                  {...doc.data(), 'id': doc.id, 'communityId': communityId},
+                ))
+            .toList());
   }
+
 
   Future<void> createEvent({
     required String communityId,
@@ -55,6 +58,7 @@ class EventService {
     required String roomId,
     String? imageUrl,
     int? maxAttendees,
+    required bool isPublished,  
   }) async {
     try {
       final user = _requireAuth();
@@ -74,6 +78,7 @@ class EventService {
         'maxAttendees': maxAttendees,
         'startDate': startDate,
         'endDate': endDate,
+        'isPublished': isPublished,
       });
 
       // Seed host in attendees subcollection (best-effort).
@@ -145,6 +150,21 @@ class EventService {
         .snapshots()
         .map((snap) => snap.docs
             .map((doc) => MessageModel.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  Stream<List<EventModel>> getPublishedEvents() {
+    return _db
+        .collectionGroup('events')
+        .where('isPublished', isEqualTo: true)
+        .orderBy('startDate', descending: false)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => EventModel.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                  'communityId': doc.reference.parent.parent?.id ?? '',
+                }))
             .toList());
   }
 

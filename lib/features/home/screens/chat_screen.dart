@@ -392,12 +392,20 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       return;
     }
-    showDialog(
-      context: context,
-      barrierColor: Colors.black45,
-      barrierDismissible: true,
-      builder: (_) => CommunityInfoModal(community: community),
-    );
+
+    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
+    final isHost = community.createdBy == currentUid;
+
+    if (isHost) {
+      context.push('/edit-community', extra: community);
+    } else {
+      showDialog(
+        context: context,
+        barrierColor: Colors.black45,
+        barrierDismissible: true,
+        builder: (_) => CommunityInfoModal(community: community),
+      );
+    }
   }
 
   void _onMute() {

@@ -25,7 +25,8 @@ class AppAuthProvider extends ChangeNotifier {
   String? banReason;
   DateTime? banExpiresAt;
   String? durationLabel;
-  bool isLoading = false;
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
   OtpState _otpState = OtpState.idle;
   String? _verificationId;
@@ -191,7 +192,7 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   Future<void> signUp() async {
-    isLoading = true;
+    _isLoading = true;
     notifyListeners();
     try {
       if (_email == null || _password == null || _displayName == null) {
@@ -211,7 +212,7 @@ class AppAuthProvider extends ChangeNotifier {
       debugPrint('SignUp error: $e');
       rethrow;
     } finally {
-      isLoading = false;
+      _isLoading = false;
       notifyListeners();
     }
   }
@@ -219,7 +220,7 @@ class AppAuthProvider extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    isLoading = true;
+    _isLoading = true;
     notifyListeners();
     try {
       final credential = await _auth.signInWithEmailAndPassword(
@@ -230,7 +231,7 @@ class AppAuthProvider extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapError(e.code));
     } finally {
-      isLoading = false;
+      _isLoading = false;
       notifyListeners();
     }
   }

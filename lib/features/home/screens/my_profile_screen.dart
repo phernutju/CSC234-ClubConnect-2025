@@ -5,10 +5,11 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/review_model.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/category_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../../../services/category_service.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
+import '../widgets/category_picker_popup.dart';
 import '../widgets/view_all_reviews_modal.dart';
 import '../widgets/network_image_view.dart';
 
@@ -153,6 +154,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     onAvatarTap: _pickAvatar,
                     coverBytes: _coverBytes,
                     onCoverTap: _pickCover,
+                    photoUrl: profile?.photoURL,
                   )
                 else
                   _ProfileHeader(
@@ -196,7 +198,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       const _SectionLabel(AppStrings.profileInterests),
                       const SizedBox(height: AppSizes.paddingS),
                       if (_isEditing)
-                        _InterestsGrid(
+                        _InterestsEditRow(
                           selectedInterests: _selectedInterests,
                           onToggle: (interest) => setState(() {
                             if (_selectedInterests.contains(interest)) {
@@ -554,33 +556,83 @@ class _BioField extends StatelessWidget {
   }
 }
 
-class _InterestsGrid extends StatelessWidget {
+/// Edit-mode interests row: shows first 3 selected chips + a "+" button.
+/// Tapping a chip deselects it; tapping "+" opens the full category popup.
+class _InterestsEditRow extends StatefulWidget {
   final Set<String> selectedInterests;
   final void Function(String) onToggle;
 
-  const _InterestsGrid({
+  const _InterestsEditRow({
     required this.selectedInterests,
     required this.onToggle,
   });
 
   @override
+  State<_InterestsEditRow> createState() => _InterestsEditRowState();
+}
+
+class _InterestsEditRowState extends State<_InterestsEditRow> {
+  late final Future<List<String>> _categoriesFuture =
+      CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first ;
+
+  void _openPopup(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => CategoryPickerPopup(
+        selectedInterests: widget.selectedInterests,
+        onToggle: widget.onToggle,
+      ),
+    );
+  }
+
+  // Selected first, then fill remaining slots from unselected. Always 3 real names.
+  List<String> _buildPreview(List<String> all) {
+    final selected =
+        all.where((c) => widget.selectedInterests.contains(c)).toList();
+    final unselected =
+        all.where((c) => !widget.selectedInterests.contains(c)).toList();
+    return [...selected, ...unselected].take(3).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final catProvider = context.watch<CategoryProvider>();
-    if (catProvider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final interests = catProvider.approvedCategories.map((c) => c.name).toList()
-      ..sort((a, b) => a.compareTo(b));
-    return Wrap(
-      spacing: AppSizes.paddingS,
-      runSpacing: AppSizes.paddingS,
-      children: interests.map((interest) {
-        return InterestChip(
-          label: interest,
-          selected: selectedInterests.contains(interest),
-          onTap: () => onToggle(interest),
+    return FutureBuilder<List<String>>(
+      future: _categoriesFuture,
+      builder: (context, snapshot) {
+        final preview = _buildPreview(snapshot.data ?? []);
+        return Wrap(
+          spacing: AppSizes.paddingS,
+          runSpacing: AppSizes.paddingS,
+          children: [
+            ...preview.map(
+              (cat) => InterestChip(
+                label: cat,
+                selected: widget.selectedInterests.contains(cat),
+                onTap: () => widget.onToggle(cat),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => _openPopup(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingM,
+                  vertical: AppSizes.paddingXS,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+                  border: Border.all(color: AppColors.inputBorder),
+                ),
+                child: const Icon(Icons.add, size: 14, color: AppColors.textDark),
+              ),
+            ),
+          ],
         );
-      }).toList(),
+      },
     );
   }
 }

@@ -47,3 +47,4 @@ app.*.map.json
 
 # Environment files — never commit API keys
 .env
+/scripts

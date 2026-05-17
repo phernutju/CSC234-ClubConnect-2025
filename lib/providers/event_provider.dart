@@ -10,18 +10,39 @@ class EventProvider extends ChangeNotifier {
   final EventService _service;
   List<EventModel> events = [];
   List<MessageModel> eventMessages = [];
+  List<EventModel> publishedEvents = [];
   bool isLoading = false;
   String? error;
 
   StreamSubscription<List<EventModel>>? _eventsSub;
   StreamSubscription<List<MessageModel>>? _eventMessagesSub;
   final Map<String, String> _nameCache = {};
+  StreamSubscription<List<EventModel>>? _publishedSub;
 
-  EventProvider({EventService? service})
-      : _service = service ?? EventService();
+  EventProvider({EventService? service}) : _service = service ?? EventService();
 
   // ── Events stream ──────────────────────────────────────────────────────────
 
+ void loadPublishedEvents() {
+    _publishedSub?.cancel();
+    _publishedSub = _service.getPublishedEvents().listen(
+      (list) {
+        publishedEvents = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  void clearPublishedEvents() {
+    publishedEvents = [];
+    _publishedSub?.cancel();
+    notifyListeners();
+  }
+  
   void loadEvents(String communityId) {
     _eventsSub?.cancel();
     _eventsSub = _service.getEvents(communityId).listen(
@@ -60,8 +81,7 @@ class EventProvider extends ChangeNotifier {
 
   void loadEventMessages(String communityId, String eventId) {
     _eventMessagesSub?.cancel();
-    _eventMessagesSub =
-        _service.getEventMessages(communityId, eventId).listen(
+    _eventMessagesSub = _service.getEventMessages(communityId, eventId).listen(
       (list) {
         eventMessages = list;
         notifyListeners();
@@ -101,8 +121,8 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> sendEventImageMessage(
           String communityId, String eventId, Uint8List bytes) =>
-      _run(() => _service.sendEventImageMessage(communityId, eventId,
-          bytes: bytes));
+      _run(() =>
+          _service.sendEventImageMessage(communityId, eventId, bytes: bytes));
 
   // ── Event actions ──────────────────────────────────────────────────────────
 
@@ -117,6 +137,7 @@ class EventProvider extends ChangeNotifier {
     required String roomId,
     String? imageUrl,
     int? maxAttendees,
+    required bool isPublished,  
   }) =>
       _run(() => _service.createEvent(
             communityId: communityId,
@@ -129,6 +150,7 @@ class EventProvider extends ChangeNotifier {
             roomId: roomId,
             imageUrl: imageUrl,
             maxAttendees: maxAttendees,
+            isPublished: isPublished,
           ));
 
   Future<void> joinEvent(String communityId, String eventId) =>
@@ -142,8 +164,7 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> deleteEventMessage(
           String communityId, String eventId, String messageId) =>
-      _run(() =>
-          _service.deleteEventMessage(communityId, eventId, messageId));
+      _run(() => _service.deleteEventMessage(communityId, eventId, messageId));
 
   // ── Helper ─────────────────────────────────────────────────────────────────
 
@@ -165,6 +186,38 @@ class EventProvider extends ChangeNotifier {
   void dispose() {
     _eventsSub?.cancel();
     _eventMessagesSub?.cancel();
-    super.dispose();
+    void clearEvents() {
+      events = [];
+      _eventsSub?.cancel();
+      notifyListeners();
+    }
+
+    // Subscribes to all published events across all communities.
+    void loadPublishedEvents() {
+      _publishedSub?.cancel();
+      _publishedSub = _service.getPublishedEvents().listen(
+        (list) {
+          publishedEvents = list;
+          notifyListeners();
+        },
+        onError: (e) {
+          error = e.toString();
+          notifyListeners();
+        },
+      );
+    }
+
+    void clearPublishedEvents() {
+      publishedEvents = [];
+      _publishedSub?.cancel();
+      notifyListeners();
+    }
+
+    @override
+    void dispose() {
+      _eventsSub?.cancel();
+      _publishedSub?.cancel();
+      super.dispose();
+    }
   }
 }

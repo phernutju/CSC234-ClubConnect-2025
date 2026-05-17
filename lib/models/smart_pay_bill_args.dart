@@ -7,6 +7,8 @@ class SmartPayBillItem {
 
 /// Passed as go_router extra when navigating to /bill-payment.
 class SmartPayBillArgs {
+  final String communityId;
+  final String eventId;
   final String billId;
   final String billName;
   final String memberName;
@@ -16,6 +18,8 @@ class SmartPayBillArgs {
   final String hostName;
 
   const SmartPayBillArgs({
+    required this.communityId,
+    required this.eventId,
     required this.billId,
     required this.billName,
     required this.memberName,

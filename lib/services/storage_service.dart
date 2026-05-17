@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 
 class StorageService {
   final FirebaseStorage _storage;
@@ -26,6 +26,7 @@ class StorageService {
     return ref.getDownloadURL();
     }
     catch(e){
+      debugPrint('Error uploading community image: $e');
       rethrow;
     }
   }

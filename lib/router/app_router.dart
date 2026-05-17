@@ -7,6 +7,7 @@ import '../features/auth/screens/verify_phone_screen.dart';
 import '../features/auth/screens/otp_screen.dart';
 import '../features/auth/screens/set_profile_screen.dart';
 import '../features/auth/screens/category_screen.dart';
+import '../features/auth/screens/community_standards_screen.dart';
 import '../features/home/screens/shell_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/home/screens/notification_screen.dart';
@@ -29,6 +30,7 @@ import '../features/community/screens/bill_summary_screen.dart';
 import '../features/community/screens/bill_payment_screen.dart';
 import '../features/community/screens/payment_success_screen.dart';
 import '../features/community/screens/create_bill_screen.dart';
+import '../models/smart_bill_model.dart';
 import '../models/bill_payment_args.dart';
 import '../models/smart_pay_bill_args.dart';
 import '../features/auth/screens/banned_screen.dart';
@@ -52,14 +54,16 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       '/otp',
       '/set-profile',
       '/category',
+      '/community-standards',
     };
 
     final location = state.matchedLocation;
 
     final isAuthRoute = authRoutes.contains(location);
 
+    // Unauthenticated user on a protected route → send to landing page, not login.
     if (!signedIn && !isAuthRoute) {
-      return '/login';
+      return '/';
     }
 
     if (signedIn && isAuthRoute) {
@@ -117,6 +121,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           final extra = state.extra as Map<String, dynamic>?;
           return CategoryScreen(displayName: extra?['displayName'] as String?);
         },
+      ),
+      GoRoute(
+        path: '/community-standards',
+        builder: (context, state) => const CommunityStandardsScreen(),
       ),
 
       // ── Main-app shell (bottom nav shared across these three routes) ─────────
@@ -218,7 +226,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           return CreateBillScreen(
             communityId: args['communityId'] as String? ?? '',
             eventId: args['eventId'] as String? ?? '',
-            eventName: args['eventName'] as String,
+            eventName: args['eventName'] as String? ?? '',
+            existingBill: args['bill'] as SmartBillModel?,
+            existingItems: args['items'] as List<SmartBillItemModel>?,
+            isEdit: args['isEdit'] as bool? ?? false,
           );
         },
       ),

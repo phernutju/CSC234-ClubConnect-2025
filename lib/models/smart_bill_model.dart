@@ -45,6 +45,7 @@ class SmartBillModel {
   final double totalAmount;
   final SmartBillStatus status;
   final DateTime createdAt;
+  final DateTime? updatedAt;
 
   const SmartBillModel({
     required this.id,
@@ -56,6 +57,7 @@ class SmartBillModel {
     this.totalAmount = 0,
     this.status = SmartBillStatus.draft,
     required this.createdAt,
+    this.updatedAt,
   });
 
   factory SmartBillModel.fromFirestore(DocumentSnapshot doc) {
@@ -75,10 +77,11 @@ class SmartBillModel {
         orElse: () => SmartBillStatus.draft,
       ),
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (d['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 
-  Map<String, dynamic> toMap() => {
+  Map<String, dynamic> toFirestore() => {
         'eventId': eventId,
         'name': name,
         'hostId': hostId,
@@ -87,6 +90,7 @@ class SmartBillModel {
         'totalAmount': totalAmount,
         'status': status.name,
         'createdAt': Timestamp.fromDate(createdAt),
+        'updatedAt': FieldValue.serverTimestamp(),
       };
 
   SmartBillModel copyWith({
@@ -99,6 +103,7 @@ class SmartBillModel {
     double? totalAmount,
     SmartBillStatus? status,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) =>
       SmartBillModel(
         id: id ?? this.id,
@@ -110,6 +115,7 @@ class SmartBillModel {
         totalAmount: totalAmount ?? this.totalAmount,
         status: status ?? this.status,
         createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
       );
 }
 
@@ -141,7 +147,7 @@ class SmartBillItemModel {
     );
   }
 
-  Map<String, dynamic> toMap() => {
+  Map<String, dynamic> toFirestore() => {
         'name': name,
         'price': price,
         'payerIds': payerIds,
@@ -162,6 +168,7 @@ class SmartBillItemModel {
         payerIds: payerIds ?? this.payerIds,
       );
 }
+
 
 /// Embedded inside SmartPaymentModel.aiVerification
 class AiVerificationResult {
@@ -200,7 +207,7 @@ class SmartPaymentModel {
   final String id;
   final String userId;
   final double amountDue;
-  final String? slipUrl;
+  final String? receiptUrl;
   final String status; // 'pending' | 'verifying' | 'verified' | 'rejected'
   final AiVerificationResult? aiVerification;
 
@@ -208,7 +215,7 @@ class SmartPaymentModel {
     required this.id,
     required this.userId,
     required this.amountDue,
-    this.slipUrl,
+    this.receiptUrl,
     this.status = 'pending',
     this.aiVerification,
   });
@@ -219,7 +226,7 @@ class SmartPaymentModel {
       id: doc.id,
       userId: d['userId']?.toString() ?? '',
       amountDue: (d['amountDue'] as num?)?.toDouble() ?? 0,
-      slipUrl: d['slipUrl'] as String?,
+      receiptUrl: d['receiptUrl'] as String?,
       status: d['status']?.toString() ?? 'pending',
       aiVerification: d['aiVerification'] != null
           ? AiVerificationResult.fromMap(
@@ -228,10 +235,10 @@ class SmartPaymentModel {
     );
   }
 
-  Map<String, dynamic> toMap() => {
+  Map<String, dynamic> toFirestore() => {
         'userId': userId,
         'amountDue': amountDue,
-        if (slipUrl != null) 'slipUrl': slipUrl,
+        if (receiptUrl != null) 'receiptUrl': receiptUrl,
         'status': status,
         if (aiVerification != null)
           'aiVerification': aiVerification!.toMap(),
@@ -241,7 +248,7 @@ class SmartPaymentModel {
     String? id,
     String? userId,
     double? amountDue,
-    String? slipUrl,
+    String? receiptUrl,
     String? status,
     AiVerificationResult? aiVerification,
   }) =>
@@ -249,7 +256,7 @@ class SmartPaymentModel {
         id: id ?? this.id,
         userId: userId ?? this.userId,
         amountDue: amountDue ?? this.amountDue,
-        slipUrl: slipUrl ?? this.slipUrl,
+        receiptUrl: receiptUrl ?? this.receiptUrl,
         status: status ?? this.status,
         aiVerification: aiVerification ?? this.aiVerification,
       );

@@ -17,7 +17,7 @@ class HomeTabBar extends StatelessWidget {
     AppStrings.tabDiscover,
     AppStrings.tabMyClub,
     AppStrings.tabTrending,
-    "Events"
+    AppStrings.tabEvents,
   ];
 
   @override

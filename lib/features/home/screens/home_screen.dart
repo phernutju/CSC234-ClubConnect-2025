@@ -6,7 +6,9 @@ import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
+import '../../../providers/event_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../../community/widgets/event_card.dart';
 import '../widgets/home_tab_bar.dart';
 import '../widgets/club_card.dart';
 import '../widgets/category_tag.dart';
@@ -31,7 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AppAuthProvider>();
       if (auth.user != null) {
-        context.read<CommunityProvider>().loadMyCommunities();
+        final cp = context.read<CommunityProvider>();
+        cp.loadMyCommunities();
+        cp.loadTrendingCommunities();
         context.read<ProfileProvider>().loadProfile(auth.user!.uid);
       }
     });
@@ -116,48 +120,62 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppSizes.paddingL),
-              _WelcomeHeading(),
-              const SizedBox(height: AppSizes.paddingM),
-              _SearchRow(
-                onCreateTap: () => context.push('/create-community'),
-                onChanged: (q) => setState(() => _searchQuery = q),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header / search / tabs — keep 24px horizontal padding
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSizes.paddingL),
+                  _WelcomeHeading(),
+                  const SizedBox(height: AppSizes.paddingM),
+                  _SearchRow(
+                    onCreateTap: () => context.push('/create-community'),
+                    onChanged: (q) => setState(() => _searchQuery = q),
+                  ),
+                  const SizedBox(height: AppSizes.paddingM),
+                  HomeTabBar(
+                    selectedIndex: _selectedTab,
+                    onTabChanged: (i) {
+                      setState(() => _selectedTab = i);
+                      if (i != 3) {
+                        final provider = context.read<CommunityProvider>();
+                        if (i == 1) {
+                          provider.loadMyCommunities();
+                        } else {
+                          provider.loadCommunities();
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: AppSizes.paddingM),
+                ],
               ),
-              const SizedBox(height: AppSizes.paddingM),
-              HomeTabBar(
-                selectedIndex: _selectedTab,
-                onTabChanged: (i) {
-                  setState(() => _selectedTab = i);
-                  final provider = context.read<CommunityProvider>();
-                  if (i == 1) {
-                    provider.loadMyCommunities();
-                  } else {
-                    provider.loadCommunities();
-                  }
-                },
-              ),
-              const SizedBox(height: AppSizes.paddingM),
-              Expanded(
-                child: cp.isLoading && cp.communities.isEmpty
-                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                    : _TabContent(
-                        selectedTab: _selectedTab,
-                        communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
-                        myCommunities: _filtered(cp.myCommunities),
-                        selectedCategory: _selectedCategory,
-                        onCategoryChanged: _selectCategory,
-                        onJoinTap: _showJoinFlow,
-                        onDirectTap: _goToChat,
-                        userInterests: userInterests,
-                      ),
-              ),
-            ],
-          ),
+            ),
+
+            // Tab content — no outer horizontal padding; each tab owns its own
+            Expanded(
+              child: _selectedTab != 3 && cp.isLoading && cp.communities.isEmpty
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  : _TabContent(
+                      selectedTab: _selectedTab,
+                      communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
+                      myCommunities: _filtered(cp.myCommunities),
+                      trendingCommunities: _filtered(cp.trendingCommunities),
+                      isTrendingLoading: cp.isTrendingLoading,
+                      trendingError: cp.trendingError,
+                      onRetryTrending: () => context.read<CommunityProvider>().loadTrendingCommunities(),
+                      onJoinTap: _showJoinFlow,
+                      onDirectTap: _goToChat,
+                      userInterests: userInterests,
+                      selectedCategory: _selectedCategory,
+                      onCategoryChanged: _selectCategory,
+                    ),
+            ),
+          ],
         ),
       ),
     );
@@ -251,7 +269,10 @@ class _TabContent extends StatelessWidget {
   final int selectedTab;
   final List<CommunityModel> communities;
   final List<CommunityModel> myCommunities;
-
+  final List<CommunityModel> trendingCommunities;
+  final bool isTrendingLoading;
+  final String? trendingError;
+  final VoidCallback onRetryTrending;
   final String? selectedCategory;
   final ValueChanged<String> onCategoryChanged;
   final void Function(CommunityModel) onJoinTap;
@@ -262,11 +283,15 @@ class _TabContent extends StatelessWidget {
     required this.selectedTab,
     required this.communities,
     required this.myCommunities,
+    required this.trendingCommunities,
+    required this.isTrendingLoading,
+    required this.onRetryTrending,
     required this.onJoinTap,
     required this.onDirectTap,
     required this.userInterests,
     required this.selectedCategory,
     required this.onCategoryChanged,
+    this.trendingError,
   });
 
   @override
@@ -275,9 +300,15 @@ class _TabContent extends StatelessWidget {
       case 1:
         return _MyClubList(communities: myCommunities, onTap: onDirectTap);
       case 2:
-        final trending = [...communities]
-          ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
-        return _CommunityList(communities: trending, onTap: onJoinTap);
+        return _TrendingTab(
+          communities: trendingCommunities,
+          isLoading: isTrendingLoading,
+          error: trendingError,
+          onTap: onJoinTap,
+          onRetry: onRetryTrending,
+        );
+      case 3:
+        return const _GlobalEventsTab();
       default:
         return _DiscoverTab(
           communities: communities,
@@ -287,6 +318,170 @@ class _TabContent extends StatelessWidget {
           userInterests: userInterests,
         );
     }
+  }
+}
+
+enum _EventFilter { all, myClubs, otherClubs }
+
+/// Inline Events tab: loads and shows published events within the Home screen.
+class _GlobalEventsTab extends StatefulWidget {
+  const _GlobalEventsTab();
+
+  @override
+  State<_GlobalEventsTab> createState() => _GlobalEventsTabState();
+}
+
+class _GlobalEventsTabState extends State<_GlobalEventsTab> {
+  _EventFilter _filter = _EventFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<EventProvider>().loadPublishedEvents();
+    });
+  }
+
+  @override
+  void dispose() {
+    context.read<EventProvider>().clearPublishedEvents();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ep = context.watch<EventProvider>();
+    final myIds = context
+        .watch<CommunityProvider>()
+        .myCommunities
+        .map((c) => c.id)
+        .toSet();
+
+    final publicEvents = ep.publishedEvents.where((e) => e.isPublished).toList();
+
+    final filtered = switch (_filter) {
+      _EventFilter.all => publicEvents,
+      _EventFilter.myClubs =>
+        publicEvents.where((e) => myIds.contains(e.communityId)).toList(),
+      _EventFilter.otherClubs =>
+        publicEvents.where((e) => !myIds.contains(e.communityId)).toList(),
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.paddingM,
+            AppSizes.paddingS,
+            AppSizes.paddingM,
+            0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _EventFilterDropdown(
+                value: _filter,
+                onChanged: (v) => setState(() => _filter = v),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.event_busy,
+                          size: 64,
+                          color: AppColors.textGray.withValues(alpha: 0.35)),
+                      const SizedBox(height: AppSizes.paddingM),
+                      Text(
+                        'No published events yet',
+                        style: AppTextStyles.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textGray,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(AppSizes.paddingM),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSizes.paddingM),
+                  itemBuilder: (_, i) => EventCard(
+                    event: filtered[i],
+                    communityId: filtered[i].communityId,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EventFilterDropdown extends StatelessWidget {
+  final _EventFilter value;
+  final ValueChanged<_EventFilter> onChanged;
+
+  const _EventFilterDropdown({required this.value, required this.onChanged});
+
+  String _label(_EventFilter f) => switch (f) {
+        _EventFilter.all => 'All Events',
+        _EventFilter.myClubs => 'My Clubs',
+        _EventFilter.otherClubs => 'Other Clubs',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_EventFilter>(
+      offset: const Offset(0, 36),
+      color: AppColors.cardWhite,
+      onSelected: onChanged,
+      itemBuilder: (_) => _EventFilter.values
+          .map((f) => PopupMenuItem<_EventFilter>(
+                value: f,
+                child: Text(
+                  _label(f),
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ))
+          .toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.paddingS,
+          vertical: AppSizes.paddingXS,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.inputFill,
+          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+          border: Border.all(color: AppColors.inputBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _label(value),
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontXS,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(width: AppSizes.paddingXS),
+            const Icon(Icons.keyboard_arrow_down,
+                color: AppColors.primary, size: 16),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -308,12 +503,14 @@ class _MyClubList extends StatelessWidget {
       );
     }
     return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
       children: communities
           .map((c) => ClubCard(
               name: c.communityName,
               description: c.description.isEmpty
                   ? c.tags.map((t) => t.name).join(', ')
                   : c.description,
+              category: c.tags.isNotEmpty ? c.tags.first.name : '',
               memberCount:
                   '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
               coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
@@ -381,6 +578,7 @@ class _DiscoverTab extends StatelessWidget {
     ];
 
     return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -461,6 +659,7 @@ Future<void> _confirmDeleteCommunity(BuildContext context, String communityId) a
   await context.read<CommunityProvider>().deleteCommunity(communityId);
 }
 
+
 List<Widget> _buildCommunityCards(
   List<CommunityModel> communities,
   void Function(CommunityModel) onTap,
@@ -468,8 +667,144 @@ List<Widget> _buildCommunityCards(
   return communities.map((c) => ClubCard(
     name: c.communityName,
     description: c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
+    category: c.tags.isNotEmpty ? c.tags.first.name : '',
     memberCount: '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
     coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
     onTap: () => onTap(c),
   )).toList();
+}
+
+// ── Trending tab ───────────────────────────────────────────────────────────────
+
+class _TrendingTab extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final bool isLoading;
+  final String? error;
+  final void Function(CommunityModel) onTap;
+  final VoidCallback onRetry;
+
+  const _TrendingTab({
+    required this.communities,
+    required this.isLoading,
+    required this.error,
+    required this.onTap,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && communities.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (error != null && communities.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Could not load trending communities',
+              style: AppTextStyles.body(color: AppColors.textGray),
+            ),
+            const SizedBox(height: AppSizes.paddingM),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Retry', style: TextStyle(color: AppColors.primary)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (communities.isEmpty) {
+      return Center(
+        child: Text(
+          'No trending communities yet.\nStart chatting to boost activity!',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.body(color: AppColors.textGray),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: communities.length,
+      itemBuilder: (context, index) {
+        final c = communities[index];
+        return _RankedCard(
+          community: c,
+          rank: index + 1,
+          onTap: () => onTap(c),
+        );
+      },
+    );
+  }
+}
+
+class _RankedCard extends StatelessWidget {
+  final CommunityModel community;
+  final int rank;
+  final VoidCallback onTap;
+
+  const _RankedCard({
+    required this.community,
+    required this.rank,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = community;
+    // Show trending score if non-zero, otherwise fall back to member count.
+    final scoreLabel = c.stats.trendingScore > 0
+        ? 'Score ${c.stats.trendingScore.toStringAsFixed(0)}'
+        : '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}';
+
+    return Stack(
+      children: [
+        ClubCard(
+          name: c.communityName,
+          description: c.description.isEmpty
+              ? c.tags.map((t) => t.name).join(', ')
+              : c.description,
+          category: c.tags.isNotEmpty ? c.tags.first.name : '',
+          memberCount: scoreLabel,
+          coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+          onTap: onTap,
+        ),
+        Positioned(
+          top: AppSizes.paddingS,
+          left: AppSizes.paddingS,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: rank <= 3 ? AppColors.primary : AppColors.textGray,
+              borderRadius: BorderRadius.circular(AppSizes.radiusS),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (rank <= 3)
+                  const Icon(
+                    Icons.local_fire_department,
+                    size: 10,
+                    color: AppColors.cardWhite,
+                  ),
+                if (rank <= 3) const SizedBox(width: 2),
+                Text(
+                  '#$rank',
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.cardWhite,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

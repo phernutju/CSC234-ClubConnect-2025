@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
+import '../../../models/community_model.dart';
 import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/community_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../providers/smart_bill_provider.dart';
 
@@ -26,6 +28,7 @@ class EventDetailScreen extends StatefulWidget {
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
   AttendeeProvider? _attendeeProvider;
+  Future<CommunityModel?>? _communityFuture;
 
   static const _avatarColors = [
     Color(0xFFFFB347),
@@ -46,7 +49,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       await _attendeeProvider!
           .checkIsAttending(widget.communityId, widget.event.id);
       if (!mounted) return;
-      context.read<SmartBillProvider>().loadBillByEvent(widget.event.id);
+      context.read<SmartBillProvider>().loadBillByEvent(widget.communityId, widget.event.id);
+      _communityFuture = context.read<CommunityProvider>().fetchCommunity(widget.communityId);
+      setState(() {});
     });
   }
 
@@ -262,7 +267,45 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           communityId:  widget.communityId,
                           eventId:      widget.event.id,
                           isHost:       isHost,
+                          isAttending:  ap.isAttending,
                           onCreateBill: _onCreateBillTap,
+                        ),
+
+                        // Rules section
+                        FutureBuilder<CommunityModel?>(
+                          future: _communityFuture,
+                          builder: (context, snapshot) {
+                            final rules = snapshot.data?.rules ?? [];
+                            if (rules.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: AppSizes.paddingM),
+                                Text(
+                                  'Rules',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: AppSizes.fontSM,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSizes.paddingXS),
+                                ...rules.asMap().entries.map(
+                                  (e) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      '${e.key + 1}. ${e.value.text}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: AppSizes.fontSM,
+                                        fontWeight: FontWeight.w300,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
 
                         SizedBox(height: AppSizes.paddingXL + bottomPad),
@@ -574,14 +617,58 @@ class _BillsCard extends StatelessWidget {
   final String       communityId;
   final String       eventId;
   final bool         isHost;
+  final bool         isAttending;
   final VoidCallback onCreateBill;
 
   const _BillsCard({
     required this.communityId,
     required this.eventId,
     required this.isHost,
+    required this.isAttending,
     required this.onCreateBill,
   });
+
+  Future<void> _confirmAndDelete(BuildContext context, String billId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Delete Bill?',
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark)),
+        content: Text('This cannot be undone.',
+            style: GoogleFonts.poppins(
+                fontSize: 13, color: AppColors.textGray)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel',
+                style: GoogleFonts.poppins(color: AppColors.textGray)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Delete',
+                style:
+                    GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await context
+          .read<SmartBillProvider>()
+          .deleteBill(communityId, eventId, billId);
+    }
+  }
 
   Widget _card({
     required BuildContext context,
@@ -659,20 +746,119 @@ class _BillsCard extends StatelessWidget {
       );
     }
 
-    // isHost + has bill: show Manage Bill → BillSummaryScreen
+    // isHost + has bill: show Manage Bill with ⋮ menu
     if (isHost && hasBill) {
-      return _card(
-        context:  context,
-        title:    'Manage Bill',
-        subtitle: 'View and manage the bill summary',
+      return GestureDetector(
         onTap: () => context.push('/bill-summary', extra: {
           'communityId':       communityId,
           'eventId':           eventId,
           'billId':            bill.id,
           'isCurrentUserHost': true,
         }),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(
+            left: AppSizes.paddingM,
+            top: AppSizes.paddingM,
+            bottom: AppSizes.paddingM,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.cardWhite,
+            borderRadius: BorderRadius.circular(AppSizes.radiusM),
+            border: Border.all(color: const Color(0xFFE8DFD8)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Manage Bill',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppSizes.fontSM,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'View and manage the bill summary',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppSizes.fontXXS,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFFFF6B4A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSizes.paddingS),
+              Text(
+                '→',
+                style: GoogleFonts.poppins(
+                  fontSize: AppSizes.fontL,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                color: const Color(0xFFFFFCF8),
+                padding: EdgeInsets.zero,
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    context.push('/create-bill', extra: {
+                      'communityId': communityId,
+                      'eventId': eventId,
+                      'eventName': bill.name,
+                      'bill': bill,
+                      'items': provider.items.toList(),
+                      'isEdit': true,
+                    });
+                  } else if (value == 'delete') {
+                    await _confirmAndDelete(context, bill.id);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  PopupMenuItem<String>(
+                    value: 'edit',
+                    child: Row(children: [
+                      const Text('✏️'),
+                      const SizedBox(width: 8),
+                      Text('Edit Bill',
+                          style: GoogleFonts.poppins(
+                              fontSize: AppSizes.fontSM,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark)),
+                    ]),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(children: [
+                      const Text('🗑️'),
+                      const SizedBox(width: 8),
+                      Text('Delete Bill',
+                          style: GoogleFonts.poppins(
+                              fontSize: AppSizes.fontSM,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.red)),
+                    ]),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       );
     }
+
+    // non-host: hide if not attending (includes loading state where isAttending is false)
+    if (!isAttending) return const SizedBox.shrink();
 
     // member + no bill: hide section
     if (!hasBill) return const SizedBox.shrink();

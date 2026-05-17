@@ -53,6 +53,8 @@ final mockBill = SmartBillModel(
 
 // Bob Tanaka's pay-bill args (current user = user_002)
 final mockBobPayArgs = SmartPayBillArgs(
+  communityId: 'community_mock_001',
+  eventId: 'event_mock_001',
   billId: mockBillId,
   billName: 'Friday Night Dinner',
   memberName: 'Bob Tanaka',

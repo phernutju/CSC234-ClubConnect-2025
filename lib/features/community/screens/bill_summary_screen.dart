@@ -6,10 +6,9 @@ import '../../../models/smart_bill_model.dart';
 import '../../../models/smart_pay_bill_args.dart';
 import '../../../providers/smart_bill_provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../mock/mock_bill_data.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const _kPrimary = Color(0xFFD85A30);
+const _kPrimary = Color(0xFFFF6B4A);
 const _kBg      = Color(0xFFFDF5F0);
 const _kCream   = Color(0xFFFAECE7);
 const _kBorder  = Color(0xFFF0C4B0);
@@ -43,7 +42,7 @@ class BillSummaryScreen extends StatefulWidget {
 }
 
 class _BillSummaryScreenState extends State<BillSummaryScreen> {
-  bool _paid = false;
+  String? _expandedMemberId;
 
   @override
   void initState() {
@@ -51,9 +50,16 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final p = context.read<SmartBillProvider>();
-      // TODO: replace with Firestore data
-      p.loadMock(mockBill: mockBill, mockItems: mockBillItems);
-      p.loadBill(widget.billId);
+      p.loadBill(widget.communityId, widget.eventId, widget.billId);
+      if (widget.isCurrentUserHost) {
+        p.loadAllPayments(widget.communityId, widget.eventId, widget.billId);
+      } else {
+        final uid = context.read<AppAuthProvider>().user?.uid;
+        if (uid != null && uid.isNotEmpty) {
+          p.loadMyPayment(
+              widget.communityId, widget.eventId, widget.billId, uid);
+        }
+      }
     });
   }
 
@@ -75,9 +81,11 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     final host = bill.members.firstWhere((m) => m.uid == bill.hostId,
         orElse: () => SmartBillMember(uid: bill.hostId, name: 'Host'));
 
-    final result = await ctx.push<bool>(
+    await ctx.push<bool>(
       '/bill-payment',
       extra: SmartPayBillArgs(
+        communityId: widget.communityId,
+        eventId: widget.eventId,
         billId: bill.id,
         billName: bill.name,
         memberName: me.name,
@@ -87,10 +95,6 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
         hostName: host.name,
       ),
     );
-
-    if (result == true && mounted) {
-      setState(() => _paid = true);
-    }
   }
 
   @override
@@ -98,6 +102,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     final provider = context.watch<SmartBillProvider>();
     final bill = provider.bill;
     final items = provider.items;
+    final paymentStatus = provider.myPayment?.status;
+    final hasPaid = paymentStatus == 'verifying' || paymentStatus == 'verified';
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     if (provider.isLoading && bill == null) {
@@ -124,13 +130,21 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_paid) ...[
+                      if (widget.isCurrentUserHost &&
+                          bill.status == SmartBillStatus.settled) ...[
+                        _SettledBanner(),
+                        const SizedBox(height: 12),
+                      ],
+                      if (!widget.isCurrentUserHost && hasPaid) ...[
                         _PaidBanner(),
                         const SizedBox(height: 12),
                       ],
                       _buildItemsCard(items),
                       const SizedBox(height: 20),
-                      _buildMemberTotals(bill, memberTotals),
+                      if (widget.isCurrentUserHost)
+                        _buildPaymentStatusSection(bill, provider)
+                      else
+                        _buildMemberTotals(bill, memberTotals),
                       const SizedBox(height: 20),
                       _buildQrSection(bill),
                       SizedBox(height: bottomPad + 80),
@@ -144,7 +158,9 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: _buildFooter(bottomPad),
+            child: widget.isCurrentUserHost
+                ? _buildHostFooter(bottomPad, provider)
+                : _buildFooter(bottomPad, hasPaid: hasPaid),
           ),
         ],
       ),
@@ -389,7 +405,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
-  Widget _buildFooter(double bottomPad) {
+  Widget _buildFooter(double bottomPad, {required bool hasPaid}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -411,16 +427,16 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: _paid ? null : () => _goToPay(context),
+              onPressed: hasPaid ? null : () => _goToPay(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _paid ? _kSuccess : _kPrimary,
+                backgroundColor: hasPaid ? _kSuccess : _kPrimary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30)),
                 elevation: 0,
               ),
               child: Text(
-                _paid
+                hasPaid
                     ? 'Slip sent — awaiting confirmation'
                     : 'Pay my share',
                 style: GoogleFonts.poppins(
@@ -467,6 +483,308 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           ),
         ),
       ]),
+    );
+  }
+
+  // ── Payment status section (host view) ────────────────────────────────────
+  Widget _buildPaymentStatusSection(
+      SmartBillModel bill, SmartBillProvider provider) {
+    final payments = provider.allPayments;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel('PAYMENT STATUS'),
+        const SizedBox(height: 8),
+        ...bill.members.asMap().entries.map((e) {
+          final idx = e.key;
+          final member = e.value;
+          final payment =
+              payments.where((p) => p.userId == member.uid).firstOrNull;
+          final status = payment?.status ?? 'pending';
+          final isVerified = status == 'verified';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: GestureDetector(
+              onLongPress: () => setState(() {
+                _expandedMemberId =
+                    _expandedMemberId == member.uid ? null : member.uid;
+              }),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isVerified ? const Color(0xFFE8F9F0) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isVerified ? const Color(0xFF86EFAC) : _kBorder,
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      child: Row(children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor:
+                              _kAvatarColors[idx % _kAvatarColors.length],
+                          child: Text(member.initials,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(member.name,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: _kDark)),
+                              if (member.uid == bill.hostId)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                      color: _kCream,
+                                      borderRadius: BorderRadius.circular(4)),
+                                  child: Text('Host',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 9,
+                                          color: _kPrimary,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                            ],
+                          ),
+                        ),
+                        _PaymentStatusChip(status: status),
+                      ]),
+                    ),
+                    if (status == 'verifying' && payment?.receiptUrl != null)
+                      _buildVerifyActions(member.uid, payment!),
+                    if (_expandedMemberId == member.uid)
+                      _buildInlineActions(member.uid, member.name, status, provider),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildInlineActions(
+      String userId, String memberName, String status, SmartBillProvider provider) {
+    final isVerified = status == 'verified';
+    final subtitle = isVerified
+        ? '$memberName is marked as paid. Tap Unverify to cancel.'
+        : 'Has $memberName paid? Tap Verify to confirm.';
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFF8F5),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, color: _kBorder),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(fontSize: 12, color: _kMuted),
+          ),
+          const SizedBox(height: 10),
+          if (isVerified)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  setState(() => _expandedMemberId = null);
+                  await provider.unverifyMemberPayment(
+                      widget.communityId,
+                      widget.eventId,
+                      widget.billId,
+                      userId);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFDC2626)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text('Unverify',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  setState(() => _expandedMemberId = null);
+                  await provider.verifyMemberPayment(
+                      widget.communityId,
+                      widget.eventId,
+                      widget.billId,
+                      userId);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _kSuccess,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                child: Text('Verify',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerifyActions(String userId, SmartPaymentModel payment) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFF8F5),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, color: _kBorder),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              payment.receiptUrl!,
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 120,
+                color: _kCream,
+                child: const Center(
+                    child: Icon(Icons.broken_image, color: _kBorder)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => context
+                    .read<SmartBillProvider>()
+                    .rejectMemberPayment(widget.communityId, widget.eventId,
+                        widget.billId, userId),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFDC2626)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text('Reject',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => context
+                    .read<SmartBillProvider>()
+                    .verifyMemberPayment(widget.communityId, widget.eventId,
+                        widget.billId, userId),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _kSuccess,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                child: Text('Verify',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  // ── Host footer ───────────────────────────────────────────────────────────
+  Widget _buildHostFooter(double bottomPad, SmartBillProvider provider) {
+    final settled = provider.bill?.status == SmartBillStatus.settled;
+    final canSettle = provider.canSettle;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 30,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [_kBg.withValues(alpha: 0), _kBg],
+            ),
+          ),
+        ),
+        Container(
+          color: _kBg,
+          padding: EdgeInsets.fromLTRB(
+              16, 0, 16, bottomPad > 0 ? bottomPad : 24),
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: settled || !canSettle
+                  ? null
+                  : () async {
+                      final ok = await provider.settleBill(widget.communityId,
+                          widget.eventId, widget.billId);
+                      if (!ok && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Could not settle bill.')));
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    settled ? _kSuccess : canSettle ? _kPrimary : null,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30)),
+                elevation: 0,
+              ),
+              child: Text(
+                settled
+                    ? 'Bill Settled'
+                    : canSettle
+                        ? 'Settle Bill'
+                        : 'Waiting for all payments',
+                style: GoogleFonts.poppins(
+                    fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -602,6 +920,76 @@ class _AppBarPlaceholder extends StatelessWidget {
                   color: Colors.white)),
         ]),
       ),
+    );
+  }
+}
+
+// ── Settled banner ────────────────────────────────────────────────────────────
+class _SettledBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F9F0),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF86EFAC), width: 0.5),
+        ),
+        child: Row(children: [
+          const Icon(Icons.check_circle,
+              color: Color(0xFF15803D), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Bill settled — all payments confirmed',
+                style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF15803D))),
+          ),
+        ]),
+      );
+}
+
+// ── Payment status chip ───────────────────────────────────────────────────────
+class _PaymentStatusChip extends StatelessWidget {
+  final String status;
+  const _PaymentStatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bg;
+    final Color fg;
+    final String label;
+    switch (status) {
+      case 'verified':
+        bg = const Color(0xFFDCFCE7);
+        fg = const Color(0xFF15803D);
+        label = 'Verified';
+        break;
+      case 'verifying':
+        bg = const Color(0xFFFEF3C7);
+        fg = const Color(0xFFB45309);
+        label = 'Review';
+        break;
+      case 'rejected':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFFDC2626);
+        label = 'Rejected';
+        break;
+      default:
+        bg = const Color(0xFFF3F4F6);
+        fg = const Color(0xFF6B7280);
+        label = 'Pending';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: fg)),
     );
   }
 }
