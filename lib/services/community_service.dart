@@ -480,6 +480,8 @@ class CommunityService {
       if (replyToSenderId != null && replyToSenderId != user.uid) {
         await _notifications.createNotification(replyToSenderId, {
           'communityId': communityId,
+          'chatRoomId': communityId,
+          if (replyToId != null) 'messageId': replyToId,
           'mentionedBy': user.uid,
           'title': senderName,
           'description':
@@ -492,6 +494,8 @@ class CommunityService {
         if (uid == user.uid) continue;
         await _notifications.createNotification(uid, {
           'communityId': communityId,
+          'chatRoomId': communityId,
+          'messageId': ref.id,
           'mentionedBy': user.uid,
           'title': senderName,
           'description': '$senderName mentioned you in $communityName',
