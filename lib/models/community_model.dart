@@ -163,6 +163,7 @@ class CommunityModel {
   final int memberCount;
   final String createdBy;
   final Timestamp createdAt;
+  final Timestamp? lastMessageAt;
   final CommunityStats stats;
 
   CommunityModel({
@@ -175,6 +176,7 @@ class CommunityModel {
     required this.memberCount,
     required this.createdBy,
     required this.createdAt,
+    this.lastMessageAt,
     CommunityStats? stats,
   }) : stats = stats ?? const CommunityStats();
 
@@ -190,6 +192,7 @@ class CommunityModel {
       memberCount: data['memberCount'] ?? 0,
       createdBy: data['createdBy'] ?? data['createdById'] ?? '',
       createdAt: data['createdAt'] ?? Timestamp.now(),
+      lastMessageAt: data['lastMessageAt'] as Timestamp?,
       stats: data['stats'] != null
           ? CommunityStats.fromMap(data['stats'] as Map<String, dynamic>)
           : null,

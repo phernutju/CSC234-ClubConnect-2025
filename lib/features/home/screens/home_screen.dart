@@ -604,37 +604,25 @@ class _DiscoverSortDropdown extends StatelessWidget {
   }
 }
 
-class _MyClubList extends StatefulWidget {
+class _MyClubList extends StatelessWidget {
   final List<CommunityModel> communities;
   final void Function(CommunityModel) onTap;
 
   const _MyClubList({required this.communities, required this.onTap});
 
-  @override
-  State<_MyClubList> createState() => _MyClubListState();
-}
-
-class _MyClubListState extends State<_MyClubList> {
-  _DiscoverSort _sort = _DiscoverSort.newestFirst;
-
   List<CommunityModel> get _sorted {
-    final list = List<CommunityModel>.from(widget.communities);
-    switch (_sort) {
-      case _DiscoverSort.newestFirst:
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      case _DiscoverSort.oldestFirst:
-        list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      case _DiscoverSort.mostMembers:
-        list.sort((a, b) => b.memberCount.compareTo(a.memberCount));
-      case _DiscoverSort.leastMembers:
-        list.sort((a, b) => a.memberCount.compareTo(b.memberCount));
-    }
+    final list = List<CommunityModel>.from(communities);
+    list.sort((a, b) {
+      final aTs = a.lastMessageAt ?? a.createdAt;
+      final bTs = b.lastMessageAt ?? b.createdAt;
+      return bTs.compareTo(aTs);
+    });
     return list;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.communities.isEmpty) {
+    if (communities.isEmpty) {
       return Center(
         child: Text(
           AppStrings.myClubEmpty,
@@ -646,23 +634,6 @@ class _MyClubListState extends State<_MyClubList> {
     final sorted = _sorted;
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSizes.paddingM,
-            AppSizes.paddingS,
-            AppSizes.paddingM,
-            0,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _DiscoverSortDropdown(
-                value: _sort,
-                onChanged: (v) => setState(() => _sort = v),
-              ),
-            ],
-          ),
-        ),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
@@ -680,7 +651,7 @@ class _MyClubListState extends State<_MyClubList> {
                     '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
                 coverImageUrl:
                     c.coverImageURL.isEmpty ? null : c.coverImageURL,
-                onTap: () => widget.onTap(c),
+                onTap: () => onTap(c),
               );
             },
           ),
@@ -817,31 +788,38 @@ class _DiscoverTabState extends State<_DiscoverTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Category chips + sort dropdown on same row
+        // Interests row — full width
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-          child: Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: [
-                      for (int i = 0; i < widget.userInterests.length; i++) ...[
-                        if (i > 0) const SizedBox(width: AppSizes.paddingS),
-                        _SelectableCategory(
-                          label: widget.userInterests[i],
-                          color: categoryColors[i % categoryColors.length],
-                          isSelected: widget.selectedCategory == widget.userInterests[i],
-                          onTap: () => widget.onCategoryChanged(widget.userInterests[i]),
-                        ),
-                      ],
-                    ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                for (int i = 0; i < widget.userInterests.length; i++) ...[
+                  if (i > 0) const SizedBox(width: AppSizes.paddingS),
+                  _SelectableCategory(
+                    label: widget.userInterests[i],
+                    color: categoryColors[i % categoryColors.length],
+                    isSelected: widget.selectedCategory == widget.userInterests[i],
+                    onTap: () => widget.onCategoryChanged(widget.userInterests[i]),
                   ),
-                ),
-              ),
-              const SizedBox(width: AppSizes.paddingS),
+                ],
+              ],
+            ),
+          ),
+        ),
+        // Sort dropdown — right-aligned below interests
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.paddingL,
+            AppSizes.paddingS,
+            AppSizes.paddingL,
+            0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
               _DiscoverSortDropdown(
                 value: _sort,
                 onChanged: _onSortChanged,

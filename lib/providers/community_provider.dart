@@ -128,11 +128,11 @@ class CommunityProvider extends ChangeNotifier {
     _myCommunitiesSub = stream.listen(
       (list) {
         myCommunities = list;
-        _safeNotify();
+        notifyListeners();
       },
       onError: (e) {
         error = e.toString();
-        _safeNotify();
+        notifyListeners();
       },
     );
   }
