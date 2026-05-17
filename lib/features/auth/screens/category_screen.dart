@@ -34,6 +34,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   void _onGetStarted() {
+    context.read<AppAuthProvider>().setInterests(_selected.toList());
     context.push('/community-standards');
   }
 

@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/event_provider.dart';
-import '../../../providers/profile_provider.dart';
 import '../widgets/event_card.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class EventsScreen extends StatefulWidget {
   final String communityId;
@@ -60,7 +57,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   )
                 : ep.events.isEmpty
                     ? const _EmptyState()
-                    : _EventList(events: ep.events, communityId: widget.communityId),
+                    : _EventList(events: ep.events, communityId: widget.communityId, communityName: widget.communityName),
           ),
         ],
       ),
@@ -152,8 +149,13 @@ class _EmptyState extends StatelessWidget {
 class _EventList extends StatelessWidget {
   final List<EventModel> events;
   final String communityId;
+  final String communityName;
 
-  const _EventList({required this.events, required this.communityId});
+  const _EventList({
+    required this.events,
+    required this.communityId,
+    required this.communityName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -161,202 +163,10 @@ class _EventList extends StatelessWidget {
       padding: const EdgeInsets.all(AppSizes.paddingM),
       itemCount: events.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
-      itemBuilder: (context, index) =>
-          _EventCard(event: events[index], communityId: communityId, currentMembers: events[index].attendeeCount),
-    );
-  }
-}
-
-// ── Event card ────────────────────────────────────────────────────────────────
-
-class _EventCard extends StatelessWidget {
-  final EventModel event;
-  final String communityId;
-  final int currentMembers;
-
-  const _EventCard({
-    required this.event,
-    required this.communityId,
-    this.currentMembers = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dateLine = event.formattedDateRange;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: const Color(0xFFE8DFD8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Date header ─────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSizes.paddingM,
-              AppSizes.paddingS,
-              AppSizes.paddingM,
-              AppSizes.paddingS,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  dateLine,
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontXS,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Cover image ──────────────────────────────────────────────────
-          _CoverImage(url: event.imageUrl?.isNotEmpty == true ? event.imageUrl! : ''),
-
-          // ── Body ─────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSizes.paddingM,
-              AppSizes.paddingS,
-              AppSizes.paddingM,
-              AppSizes.paddingS,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Event name + member count on same line
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        event.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: AppSizes.fontML,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSizes.paddingS),
-                    Text(
-                      '${event.attendeeCount}/${event.maxAttendees} members',
-                      style: GoogleFonts.poppins(
-                        fontSize: AppSizes.fontXS,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFFFF6B4A),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-
-                // Host name
-                if (event.createdBy.isNotEmpty)
-                  FutureBuilder(
-                    future: context.read<ProfileProvider>().fetchUserById(event.createdBy),
-                    builder: (context, snapshot) {
-                      final hostLabel = snapshot.hasData
-                          ? snapshot.data!.displayName
-                          : event.createdBy;
-
-                      return Text(
-                        'by $hostLabel',
-                        style: GoogleFonts.poppins(
-                          fontSize: AppSizes.fontXS,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF837A7A),
-                        ),
-                      );
-                    },
-                  ),
-                const SizedBox(height: AppSizes.paddingS),
-
-                // Avatars row + details
-                Row(
-                  children: [
-                    const Spacer(),
-
-                    // Details link
-                    GestureDetector(
-                      onTap: () => context.push('/event-detail',
-                          extra: EventDetailArgs(
-                              event: event, communityId: communityId)),
-                      child: Text(
-                        'details →',
-                        style: GoogleFonts.poppins(
-                          fontSize: AppSizes.fontXS,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Cover image ───────────────────────────────────────────────────────────────
-
-class _CoverImage extends StatelessWidget {
-  final String url;
-  const _CoverImage({required this.url});
-
-  @override
-  Widget build(BuildContext context) {
-    if (url.isEmpty) {
-      return Container(
-        height: 130,
-        width: double.infinity,
-        color: AppColors.inputFill,
-        child: const Icon(Icons.image_outlined, color: AppColors.inputBorder, size: 40),
-      );
-    }
-    return SizedBox(
-      height: 130,
-      width: double.infinity,
-      child: Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          height: 130,
-          color: AppColors.inputFill,
-          child: const Icon(Icons.broken_image_outlined, color: AppColors.inputBorder, size: 40),
-        ),
-        loadingBuilder: (_, child, progress) => progress == null
-            ? child
-            : Container(
-                height: 130,
-                color: AppColors.inputFill,
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
+      itemBuilder: (context, index) => EventCard(
+        event: events[index],
+        communityId: communityId,
+        communityName: communityName,
       ),
     );
   }

@@ -8,7 +8,7 @@ import '../../../providers/smart_bill_provider.dart';
 import '../../../providers/auth_provider.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const _kPrimary = Color(0xFFD85A30);
+const _kPrimary = Color(0xFFFF6B4A);
 const _kBg      = Color(0xFFFDF5F0);
 const _kCream   = Color(0xFFFAECE7);
 const _kBorder  = Color(0xFFF0C4B0);
@@ -42,6 +42,8 @@ class BillSummaryScreen extends StatefulWidget {
 }
 
 class _BillSummaryScreenState extends State<BillSummaryScreen> {
+  String? _expandedMemberId;
+
   @override
   void initState() {
     super.initState();
@@ -499,68 +501,157 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           final payment =
               payments.where((p) => p.userId == member.uid).firstOrNull;
           final status = payment?.status ?? 'pending';
+          final isVerified = status == 'verified';
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _kBorder),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    child: Row(children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor:
-                            _kAvatarColors[idx % _kAvatarColors.length],
-                        child: Text(member.initials,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(member.name,
-                                style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: _kDark)),
-                            if (member.uid == bill.hostId)
-                              Container(
-                                margin: const EdgeInsets.only(top: 2),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                    color: _kCream,
-                                    borderRadius: BorderRadius.circular(4)),
-                                child: Text('Host',
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 9,
-                                        color: _kPrimary,
-                                        fontWeight: FontWeight.w600)),
-                              ),
-                          ],
-                        ),
-                      ),
-                      _PaymentStatusChip(status: status),
-                    ]),
+            child: GestureDetector(
+              onLongPress: () => setState(() {
+                _expandedMemberId =
+                    _expandedMemberId == member.uid ? null : member.uid;
+              }),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isVerified ? const Color(0xFFE8F9F0) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isVerified ? const Color(0xFF86EFAC) : _kBorder,
+                    width: 0.5,
                   ),
-                  if (status == 'verifying' && payment?.receiptUrl != null)
-                    _buildVerifyActions(member.uid, payment!),
-                ],
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      child: Row(children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor:
+                              _kAvatarColors[idx % _kAvatarColors.length],
+                          child: Text(member.initials,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(member.name,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: _kDark)),
+                              if (member.uid == bill.hostId)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                      color: _kCream,
+                                      borderRadius: BorderRadius.circular(4)),
+                                  child: Text('Host',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 9,
+                                          color: _kPrimary,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                            ],
+                          ),
+                        ),
+                        _PaymentStatusChip(status: status),
+                      ]),
+                    ),
+                    if (status == 'verifying' && payment?.receiptUrl != null)
+                      _buildVerifyActions(member.uid, payment!),
+                    if (_expandedMemberId == member.uid)
+                      _buildInlineActions(member.uid, member.name, status, provider),
+                  ],
+                ),
               ),
             ),
           );
         }),
       ],
+    );
+  }
+
+  Widget _buildInlineActions(
+      String userId, String memberName, String status, SmartBillProvider provider) {
+    final isVerified = status == 'verified';
+    final subtitle = isVerified
+        ? '$memberName is marked as paid. Tap Unverify to cancel.'
+        : 'Has $memberName paid? Tap Verify to confirm.';
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFF8F5),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, color: _kBorder),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(fontSize: 12, color: _kMuted),
+          ),
+          const SizedBox(height: 10),
+          if (isVerified)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  setState(() => _expandedMemberId = null);
+                  await provider.unverifyMemberPayment(
+                      widget.communityId,
+                      widget.eventId,
+                      widget.billId,
+                      userId);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFDC2626)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text('Unverify',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  setState(() => _expandedMemberId = null);
+                  await provider.verifyMemberPayment(
+                      widget.communityId,
+                      widget.eventId,
+                      widget.billId,
+                      userId);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _kSuccess,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                child: Text('Verify',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

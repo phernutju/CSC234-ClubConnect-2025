@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final cp = context.read<CommunityProvider>();
         cp.loadMyCommunities();
         cp.loadTrendingCommunities();
+        cp.loadDiscoverFirstPage();
         context.read<ProfileProvider>().loadProfile(auth.user!.uid);
         context.read<EventProvider>().loadPublishedEvents();
       }
@@ -47,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       if (_selectedCategory == category) {
         _selectedCategory = null;
-        provider.loadCommunities();
+        provider.loadDiscoverFirstPage();
       } else {
         _selectedCategory = category;
         provider.loadCommunitiesByCategory(category);
@@ -117,7 +118,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final cp = context.watch<CommunityProvider>();
     final pp = context.watch<ProfileProvider>();
-    final userInterests = pp.profile?.interests ?? [];
+    final userInterests = (pp.profile?.interests ?? []).toList()
+      ..sort((a, b) => a.compareTo(b));
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
       body: SafeArea(
@@ -146,6 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         final provider = context.read<CommunityProvider>();
                         if (i == 1) {
                           provider.loadMyCommunities();
+                        } else if (i == 0) {
+                          provider.loadDiscoverFirstPage();
                         } else {
                           provider.loadCommunities();
                         }
@@ -174,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       userInterests: userInterests,
                       selectedCategory: _selectedCategory,
                       onCategoryChanged: _selectCategory,
+                      searchQuery: _searchQuery,
                     ),
             ),
           ],
@@ -280,6 +285,7 @@ class _TabContent extends StatelessWidget {
   final void Function(CommunityModel) onJoinTap;
   final void Function(CommunityModel) onDirectTap;
   final List<String> userInterests;
+  final String searchQuery;
 
   const _TabContent({
     required this.selectedTab,
@@ -293,6 +299,7 @@ class _TabContent extends StatelessWidget {
     required this.userInterests,
     required this.selectedCategory,
     required this.onCategoryChanged,
+    required this.searchQuery,
     this.trendingError,
   });
 
@@ -314,6 +321,7 @@ class _TabContent extends StatelessWidget {
       default:
         return _DiscoverTab(
           communities: communities,
+          searchQuery: searchQuery,
           selectedCategory: selectedCategory,
           onCategoryChanged: onCategoryChanged,
           onTap: onJoinTap,
@@ -513,14 +521,16 @@ class _MyClubList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
       children: communities
           .map((c) => ClubCard(
-                name: c.communityName,
-                description: c.description,
-                category: c.tags.isNotEmpty ? c.tags.first.name : '',
-                memberCount:
-                    '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-                coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
-                onTap: () => onTap(c),
-              ))
+              name: c.communityName,
+              description: c.description.isEmpty
+                  ? c.tags.map((t) => t.name).join(', ')
+                  : c.description,
+              category: c.tags.isNotEmpty ? c.tags.first.name : '',
+              memberCount:
+                  '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+              coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+              onTap: () => onTap(c),
+            ))
           .toList(),
     );
   }
@@ -554,7 +564,10 @@ class _SelectableCategory extends StatelessWidget {
 }
 
 class _DiscoverTab extends StatelessWidget {
+  /// Pre-filtered community list (search + category) from the parent.
+  /// Used when search or category filter is active (non-paginated view).
   final List<CommunityModel> communities;
+  final String searchQuery;
   final String? selectedCategory;
   final ValueChanged<String> onCategoryChanged;
   final void Function(CommunityModel) onTap;
@@ -562,6 +575,7 @@ class _DiscoverTab extends StatelessWidget {
 
   const _DiscoverTab({
     required this.communities,
+    required this.searchQuery,
     required this.selectedCategory,
     required this.onCategoryChanged,
     required this.onTap,
@@ -570,11 +584,11 @@ class _DiscoverTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = selectedCategory == null
-        ? communities
-        : communities
-            .where((c) => c.tags.any((t) => t.name == selectedCategory))
-            .toList();
+    final cp = context.watch<CommunityProvider>();
+
+    // Use server-side pagination only when no search or category filter is active.
+    final isPaginated = searchQuery.isEmpty && selectedCategory == null;
+    final displayList = isPaginated ? cp.discoverPage : communities;
 
     const categoryColors = [
       AppColors.categoryGreen,
@@ -582,59 +596,137 @@ class _DiscoverTab extends StatelessWidget {
       AppColors.categoryPurple,
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              for (int i = 0; i < userInterests.length; i++) ...[
-                if (i > 0) const SizedBox(width: AppSizes.paddingS),
-                _SelectableCategory(
-                  label: userInterests[i],
-                  color: categoryColors[i % categoryColors.length],
-                  isSelected: selectedCategory == userInterests[i],
-                  onTap: () => onCategoryChanged(userInterests[i]),
+    final showPagination = isPaginated && cp.discoverTotalPages > 1;
+
+    Widget listContent;
+    if (isPaginated && cp.isDiscoverLoading) {
+      listContent = const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    } else if (displayList.isEmpty) {
+      listContent = Center(
+        child: Padding(
+          padding: const EdgeInsets.only(top: AppSizes.paddingXL),
+          child: Text(
+            'No communities found',
+            style: AppTextStyles.body(color: AppColors.textGray),
+          ),
+        ),
+      );
+    } else {
+      // Pagination bar lives inside the ListView so it scrolls with the cards.
+      listContent = ListView(
+        key: ValueKey(isPaginated ? cp.discoverCurrentPage : -1),
+        padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+        children: [
+          ..._buildCommunityCards(displayList, onTap),
+          if (showPagination)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, AppSizes.paddingM, 0, AppSizes.paddingM),
+              child: Center(
+                child: _PaginationBar(
+                  currentPage: cp.discoverCurrentPage,
+                  totalPages: cp.discoverTotalPages,
+                  knownPages: cp.discoverKnownPages,
+                  onPageChanged: (page) =>
+                      context.read<CommunityProvider>().goToDiscoverPage(page),
                 ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Category filter chips
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                for (int i = 0; i < userInterests.length; i++) ...[
+                  if (i > 0) const SizedBox(width: AppSizes.paddingS),
+                  _SelectableCategory(
+                    label: userInterests[i],
+                    color: categoryColors[i % categoryColors.length],
+                    isSelected: selectedCategory == userInterests[i],
+                    onTap: () => onCategoryChanged(userInterests[i]),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         const SizedBox(height: AppSizes.paddingM),
-        if (filtered.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppSizes.paddingXL),
-              child: Text(
-                'No communities found',
-                style: AppTextStyles.body(color: AppColors.textGray),
-              ),
-            ),
-          )
-        else
-          ..._buildCommunityCards(filtered, onTap),
+
+        // Community list (pagination bar is the last item inside)
+        Expanded(child: listContent),
       ],
     );
   }
 }
 
+class _CommunityList extends StatelessWidget {
+  final List<CommunityModel> communities;
+  final void Function(CommunityModel) onTap;
+
+  const _CommunityList({required this.communities, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (communities.isEmpty) {
+      return Center(
+        child: Text(
+          'No communities yet',
+          style: AppTextStyles.body(color: AppColors.textGray),
+        ),
+      );
+    }
+    return ListView(children: _buildCommunityCards(communities, onTap));
+  }
+}
+
+Future<void> _confirmDeleteCommunity(BuildContext context, String communityId) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete Community'),
+      content: const Text(
+        'Are you sure? This will permanently delete the community and all its messages. This cannot be undone.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  await context.read<CommunityProvider>().deleteCommunity(communityId);
+}
+
+
 List<Widget> _buildCommunityCards(
   List<CommunityModel> communities,
   void Function(CommunityModel) onTap,
 ) {
-  return communities
-      .map((c) => ClubCard(
-            name: c.communityName,
-            description: c.description,
-            category: c.tags.isNotEmpty ? c.tags.first.name : '',
-            memberCount:
-                '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-            coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
-            onTap: () => onTap(c),
-          ))
-      .toList();
+  return communities.map((c) => ClubCard(
+    name: c.communityName,
+    description: c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
+    category: c.tags.isNotEmpty ? c.tags.first.name : '',
+    memberCount: '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+    coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+    onTap: () => onTap(c),
+  )).toList();
 }
 
 // ── Trending tab ───────────────────────────────────────────────────────────────
@@ -768,6 +860,169 @@ class _RankedCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Pagination bar ─────────────────────────────────────────────────────────────
+
+class _PaginationBar extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+
+  /// Pages whose start-cursor is cached — only these are directly navigable.
+  final int knownPages;
+  final ValueChanged<int> onPageChanged;
+
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.knownPages,
+    required this.onPageChanged,
+  });
+
+  /// Builds the list of items to render. Returns ints (page indices) and the
+  /// string '...' for ellipsis slots.
+  List<Object> _items() {
+    if (totalPages <= 7) return List.generate(totalPages, (i) => i);
+    final items = <Object>[];
+    items.add(0);
+    final start = (currentPage - 1).clamp(1, totalPages - 2);
+    final end = (currentPage + 1).clamp(1, totalPages - 2);
+    if (start > 1) items.add('...');
+    for (int i = start; i <= end; i++) { items.add(i); }
+    if (end < totalPages - 2) items.add('...');
+    items.add(totalPages - 1);
+    return items;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _items();
+    final canPrev = currentPage > 0;
+    final canNext = currentPage < totalPages - 1 && (currentPage + 1) < knownPages;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _NavChevron(
+          label: '‹',
+          enabled: canPrev,
+          onTap: canPrev ? () => onPageChanged(currentPage - 1) : null,
+        ),
+        const SizedBox(width: 2),
+        for (final item in items)
+          if (item is String)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 5),
+              child: Text(
+                '…',
+                style: TextStyle(
+                  color: AppColors.textGray,
+                  fontSize: AppSizes.fontXS,
+                ),
+              ),
+            )
+          else
+            _PageChip(
+              page: item as int,
+              isActive: item == currentPage,
+              isEnabled: item < knownPages,
+              onTap: item < knownPages ? () => onPageChanged(item) : null,
+            ),
+        const SizedBox(width: 2),
+        _NavChevron(
+          label: '›',
+          enabled: canNext,
+          onTap: canNext ? () => onPageChanged(currentPage + 1) : null,
+        ),
+      ],
+    );
+  }
+}
+
+class _PageChip extends StatelessWidget {
+  final int page;
+  final bool isActive;
+  final bool isEnabled;
+  final VoidCallback? onTap;
+
+  const _PageChip({
+    required this.page,
+    required this.isActive,
+    required this.isEnabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primary : AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+          border: isActive
+              ? null
+              : Border.all(
+                  color: isEnabled
+                      ? AppColors.textGray.withValues(alpha: 0.45)
+                      : AppColors.textGray.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '${page + 1}',
+          style: AppTextStyles.poppins(
+            fontSize: AppSizes.fontML,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isActive
+                ? AppColors.cardWhite
+                : isEnabled
+                    ? AppColors.textDark
+                    : AppColors.textGray.withValues(alpha: 0.35),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavChevron extends StatelessWidget {
+  final String label;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _NavChevron({
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Center(
+          child: Text(
+            label,
+            style: AppTextStyles.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: enabled
+                  ? AppColors.textGray
+                  : AppColors.textGray.withValues(alpha: 0.3),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

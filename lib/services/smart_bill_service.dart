@@ -143,6 +143,16 @@ class SmartBillService {
           .doc(userId)
           .update({'status': 'rejected'});
 
+  Future<void> unverifyPaymentManually(String communityId, String eventId,
+          String billId, String userId) =>
+      _paymentsCol(communityId, eventId, billId)
+          .doc(userId)
+          .update({'status': 'pending'});
+
+  Future<void> deleteBill(
+          String communityId, String eventId, String billId) =>
+      _billsCol(communityId, eventId).doc(billId).delete();
+
   Future<void> settleBill(
           String communityId, String eventId, String billId) =>
       _billsCol(communityId, eventId).doc(billId).update({

@@ -212,7 +212,7 @@ class _RulePopup extends StatelessWidget {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFBF7EE),
+        color: const Color(0xFFEEEEEE),
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(

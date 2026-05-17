@@ -12,7 +12,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/attendee_provider.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const _kPrimary  = Color(0xFFD85A30);
+const _kPrimary  = Color(0xFFFF6B4A);
 const _kBg       = Color(0xFFFDF5F0);
 const _kCream    = Color(0xFFFAECE7);
 const _kBorder   = Color(0xFFF0C4B0);
@@ -41,6 +41,13 @@ class _LocalItem {
         priceCtrl = TextEditingController(),
         payerIds = [];
 
+  _LocalItem.fromModel(SmartBillItemModel model)
+      : id = model.id.isNotEmpty ? model.id : _genId(),
+        nameCtrl = TextEditingController(text: model.name),
+        priceCtrl = TextEditingController(
+            text: model.price > 0 ? model.price.toStringAsFixed(2) : ''),
+        payerIds = List<String>.from(model.payerIds);
+
   double get price => double.tryParse(priceCtrl.text) ?? 0;
   double get pricePerPayer =>
       payerIds.isEmpty ? 0 : price / payerIds.length;
@@ -56,12 +63,18 @@ class CreateBillScreen extends StatefulWidget {
   final String communityId;
   final String eventId;
   final String eventName;
+  final SmartBillModel? existingBill;
+  final List<SmartBillItemModel>? existingItems;
+  final bool isEdit;
 
   const CreateBillScreen({
     super.key,
     required this.communityId,
     required this.eventId,
     required this.eventName,
+    this.existingBill,
+    this.existingItems,
+    this.isEdit = false,
   });
 
   @override
@@ -76,26 +89,40 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
 
   XFile? _qrFile;
   Uint8List? _qrBytes;
+  String _existingQrUrl = '';
 
   @override
   void initState() {
     super.initState();
-    _nameCtrl.text = widget.eventName;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final attendees = context.read<AttendeeProvider>().attendees;
-      if (attendees.isEmpty) return;
-      setState(() {
-        for (final a in attendees) {
-          _members.add(SmartBillMember(
-            uid: a.userId,
-            name: a.displayName,
-            avatarUrl: a.avatarUrl ?? '',
-          ));
-        }
-        _memberCounter = _members.length;
+    if (widget.isEdit && widget.existingBill != null) {
+      final bill = widget.existingBill!;
+      _nameCtrl.text = bill.name;
+      _existingQrUrl = bill.hostPromptPayQrUrl;
+      for (final m in bill.members) {
+        _members.add(m);
+      }
+      _memberCounter = _members.length;
+      for (final item in widget.existingItems ?? []) {
+        _items.add(_LocalItem.fromModel(item));
+      }
+    } else {
+      _nameCtrl.text = widget.eventName;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final attendees = context.read<AttendeeProvider>().attendees;
+        if (attendees.isEmpty) return;
+        setState(() {
+          for (final a in attendees) {
+            _members.add(SmartBillMember(
+              uid: a.userId,
+              name: a.displayName,
+              avatarUrl: a.avatarUrl ?? '',
+            ));
+          }
+          _memberCounter = _members.length;
+        });
       });
-    });
+    }
   }
 
   @override
@@ -174,6 +201,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   }
 
   void _removeMember(String uid) {
+    if (_members.length <= 1) return;
     setState(() {
       _members.removeWhere((m) => m.uid == uid);
       for (final item in _items) {
@@ -229,7 +257,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
     }
   }
 
-  // ── Publish ───────────────────────────────────────────────────────────────
+  // ── Publish / Update ──────────────────────────────────────────────────────
   Future<void> _publish() async {
     if (_nameCtrl.text.trim().isEmpty) {
       _snack('Please enter a bill name');
@@ -260,30 +288,51 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
             ))
         .toList();
 
-    final created = await provider.createAndPublishBill(
-      communityId: widget.communityId,
-      eventId: widget.eventId,
-      hostId: uid,
-      name: _nameCtrl.text.trim(),
-      members: _members,
-      billItems: billItems,
-      qrImageBytes: _qrBytes,
-    );
-
-    if (!mounted) return;
-    if (provider.error != null) {
-      _snack(provider.error!);
-      return;
-    }
-    if (created != null) {
+    if (widget.isEdit && widget.existingBill != null) {
+      await provider.updateAndPublishBill(
+        communityId: widget.communityId,
+        eventId: widget.eventId,
+        existingBill: widget.existingBill!,
+        name: _nameCtrl.text.trim(),
+        members: _members,
+        billItems: billItems,
+        qrImageBytes: _qrBytes,
+      );
+      if (!mounted) return;
+      if (provider.error != null) {
+        _snack(provider.error!);
+        return;
+      }
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Bill published!')));
+          .showSnackBar(const SnackBar(content: Text('Bill updated!')));
       context.pop();
+    } else {
+      final created = await provider.createAndPublishBill(
+        communityId: widget.communityId,
+        eventId: widget.eventId,
+        hostId: uid,
+        name: _nameCtrl.text.trim(),
+        members: _members,
+        billItems: billItems,
+        qrImageBytes: _qrBytes,
+      );
+      if (!mounted) return;
+      if (provider.error != null) {
+        _snack(provider.error!);
+        return;
+      }
+      if (created != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Bill published!')));
+        context.pop();
+      }
     }
   }
 
-  void _snack(String msg) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
 
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
@@ -296,7 +345,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
       body: Column(
         children: [
           _BillAppBar(
-            title: 'Create Bill',
+            title: widget.isEdit ? 'Edit Bill' : 'Create Bill',
             trailing: IconButton(
               icon: const Icon(Icons.person_add_alt_1,
                   color: Colors.white, size: 22),
@@ -600,6 +649,10 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
 
   // ── QR section ────────────────────────────────────────────────────────────
   Widget _buildQrSection() {
+    final hasNewFile = _qrFile != null && _qrBytes != null;
+    final hasExistingQr = _existingQrUrl.isNotEmpty;
+    final hasQr = hasNewFile || hasExistingQr;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -609,47 +662,59 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           onTap: _pickQr,
           child: Container(
             width: double.infinity,
-            height: _qrFile != null ? 200 : 120,
+            height: hasQr ? 200 : 120,
             decoration: BoxDecoration(
-              color: _qrFile != null ? Colors.white : _kCream,
+              color: hasQr ? Colors.white : _kCream,
               borderRadius: BorderRadius.circular(12),
             ),
             child: CustomPaint(
-              painter: _DashBorderPainter(
-                  color: _qrFile != null ? _kSuccess : _kPrimary),
-              child: _qrFile != null && _qrBytes != null
+              painter: _DashBorderPainter(color: hasQr ? _kSuccess : _kPrimary),
+              child: hasNewFile
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.memory(_qrBytes!, fit: BoxFit.contain),
                     )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.qr_code_2,
-                            color: _kPrimary, size: 36),
-                        const SizedBox(height: 6),
-                        Text('Upload PromptPay QR',
-                            style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                color: _kPrimary,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
-                        Text('JPG or PNG',
-                            style: GoogleFonts.poppins(
-                                fontSize: 11, color: _kMuted)),
-                      ],
-                    ),
+                  : hasExistingQr
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            _existingQrUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                                Icons.broken_image,
+                                color: _kBorder,
+                                size: 48),
+                          ),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.qr_code_2,
+                                color: _kPrimary, size: 36),
+                            const SizedBox(height: 6),
+                            Text('Upload PromptPay QR',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: _kPrimary,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text('JPG or PNG',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 11, color: _kMuted)),
+                          ],
+                        ),
             ),
           ),
         ),
-        if (_qrFile != null) ...[
+        if (hasQr) ...[
           const SizedBox(height: 6),
           Row(children: [
             const Icon(Icons.check_circle, color: _kSuccess, size: 14),
             const SizedBox(width: 4),
-            Text('Uploaded · tap to change',
-                style: GoogleFonts.poppins(
-                    fontSize: 11, color: _kSuccess)),
+            Text(
+              hasNewFile ? 'Uploaded · tap to change' : 'Existing QR · tap to replace',
+              style: GoogleFonts.poppins(fontSize: 11, color: _kSuccess),
+            ),
           ]),
         ],
       ],
@@ -701,7 +766,10 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
                         height: 22,
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2.5))
-                    : Text('Publish bill to members',
+                    : Text(
+                        widget.isEdit
+                            ? 'Update bill'
+                            : 'Publish bill to members',
                         style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w600)),

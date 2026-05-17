@@ -416,48 +416,40 @@ class _ChatMenuBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      height: AppSizes.chatMenuHeight,
-      color: AppColors.primary,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      color: const Color(0xFFE8563A),
+      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Mute · Members · Leave
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(
-                icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
-                label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
-                onTap: onMute,
-              ),
-              _MenuItem(
-                icon: Icons.group_outlined,
-                label: AppStrings.chatMenuMembers,
-                onTap: onShowMembers,
-              ),
-              _MenuItem(
-                icon: Icons.exit_to_app,
-                label: AppStrings.chatMenuLeave,
-                onTap: onLeave,
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.notifications_off, label: 'Mute', onTap: onMute),
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo),
+              ],
+            ),
           ),
-          // Row 2: Info · Events
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(
-                icon: Icons.description_outlined,
-                label: AppStrings.chatMenuInfo,
-                onTap: onInfo,
-              ),
-              _MenuItem(
-                icon: Icons.event_outlined,
-                label: AppStrings.chatMenuEvents,
-                onTap: onEvents,
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.group, label: 'Members', onTap: onShowMembers),
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.exit_to_app, label: 'leave', onTap: onLeave),
+                const SizedBox(height: 5),
+                const SizedBox(),
+              ],
+            ),
           ),
         ],
       ),
@@ -484,18 +476,13 @@ class _MenuItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: AppColors.cardWhite,
-            size: AppSizes.chatMenuIconSize,
-          ),
-          const SizedBox(height: 4),
+          Icon(icon, color: Colors.white, size: 54),
+          const SizedBox(height: 8),
           Text(
             label,
             style: AppTextStyles.body(
-              fontSize: AppSizes.fontSM,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: AppColors.cardWhite,
             ),
           ),
         ],
