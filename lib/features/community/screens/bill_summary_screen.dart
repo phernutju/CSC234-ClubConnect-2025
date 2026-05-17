@@ -564,8 +564,11 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                         _PaymentStatusChip(status: status),
                       ]),
                     ),
-                    if (status == 'verifying' && payment?.receiptUrl != null)
+                    if (payment?.receiptUrl != null &&
+                        (status == 'verifying' || status == 'review'))
                       _buildVerifyActions(member.uid, payment!),
+                    if (payment?.receiptUrl != null && status == 'verified')
+                      _buildSlipPreview(payment!),
                     if (_expandedMemberId == member.uid)
                       _buildInlineActions(member.uid, member.name, status, provider),
                   ],
@@ -650,6 +653,41 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                         fontSize: 13, fontWeight: FontWeight.w600)),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlipPreview(SmartPaymentModel payment) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, color: Color(0xFF86EFAC)),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              payment.receiptUrl!,
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 120,
+                color: _kCream,
+                child: const Center(
+                    child: Icon(Icons.broken_image, color: _kBorder)),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -966,10 +1004,15 @@ class _PaymentStatusChip extends StatelessWidget {
         fg = const Color(0xFF15803D);
         label = 'Verified';
         break;
-      case 'verifying':
+      case 'review':
         bg = const Color(0xFFFEF3C7);
         fg = const Color(0xFFB45309);
-        label = 'Review';
+        label = 'Review Pending';
+        break;
+      case 'verifying':
+        bg = const Color(0xFFE0F2FE);
+        fg = const Color(0xFF0369A1);
+        label = 'Verifying';
         break;
       case 'rejected':
         bg = const Color(0xFFFEE2E2);
