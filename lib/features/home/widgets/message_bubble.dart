@@ -20,6 +20,7 @@ class ChatMessage {
   final bool isSent;
   final String senderName;
   final String senderId;
+  final String? senderPhotoUrl;
   final DateTime timestamp;
   final String time;
   final String? readCount;
@@ -37,6 +38,7 @@ class ChatMessage {
     required this.isSent,
     required this.senderName,
     required this.senderId,
+    this.senderPhotoUrl,
     required this.timestamp,
     required this.time,
     this.readCount,
@@ -246,16 +248,12 @@ class _ReceivedBubble extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Tappable salmon avatar circle → other user profile
+        // Tappable avatar → other user profile
         GestureDetector(
           onTap: onSenderTap,
-          child: Container(
-            width: AppSizes.avatarSmall,
-            height: AppSizes.avatarSmall,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.avatarSalmon,
-            ),
+          child: _AvatarCircle(
+            photoUrl: message.senderPhotoUrl,
+            size: AppSizes.avatarSmall,
           ),
         ),
         const SizedBox(width: AppSizes.paddingS),
@@ -320,6 +318,35 @@ class _ReceivedBubble extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+// ── Avatar circle (photo or salmon fallback) ──────────────────────────────────
+
+class _AvatarCircle extends StatelessWidget {
+  final String? photoUrl;
+  final double size;
+  const _AvatarCircle({this.photoUrl, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    if (photoUrl == null || photoUrl!.isEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.avatarSalmon,
+        ),
+      );
+    }
+    return ClipOval(
+      child: NetworkImageView(
+        url: photoUrl,
+        width: size,
+        height: size,
+      ),
     );
   }
 }

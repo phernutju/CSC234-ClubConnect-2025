@@ -285,6 +285,7 @@ class _ChatScreenState extends State<ChatScreen> {
       isSent: isSent,
       senderName: senderName,
       senderId: m.senderId,
+      senderPhotoUrl: isSent ? null : cp.photoURLOf(m.senderId),
       timestamp: m.timestamp,
       time: _formatTime(m.timestamp),
       readCount: isSent && m.seenBy.isNotEmpty ? 'Read ${m.seenBy.length}' : null,
