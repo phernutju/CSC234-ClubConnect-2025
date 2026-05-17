@@ -69,6 +69,9 @@ class _BillPaymentScreenState extends State<BillPaymentScreen> {
           _verificationResult = result;
           _isVerifying = false;
         });
+        if (result != null && !result.isMatch) {
+          _showAccessDenied();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -77,6 +80,45 @@ class _BillPaymentScreenState extends State<BillPaymentScreen> {
             .showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
+  }
+
+  void _showAccessDenied() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.block_rounded, color: Color(0xFFE24B4A), size: 24),
+          const SizedBox(width: 8),
+          Text('Access Denied',
+              style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFE24B4A))),
+        ]),
+        content: Text(
+          'Slip verification failed.\nThe amount or slip does not match the expected payment.',
+          style: GoogleFonts.poppins(fontSize: 13, color: _kDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() {
+                _step = 0;
+                _slip = null;
+                _slipBytes = null;
+                _verificationResult = null;
+              });
+            },
+            child: Text('Try Again',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600, color: _kPrimary)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -813,6 +855,29 @@ class _AiVerifyCard extends StatelessWidget {
                     Text('Verified successfully',
                         style: GoogleFonts.poppins(
                             fontSize: 12, color: _kMuted)),
+                    if (result!.reason.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: result!.isMatch
+                              ? const Color(0xFFE8F9F0)
+                              : const Color(0xFFFFEEEE),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          result!.reason,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: result!.isMatch
+                                  ? const Color(0xFF15803D)
+                                  : const Color(0xFFE24B4A)),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     const Divider(color: _kBorder),
                     _DetailRow(

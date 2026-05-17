@@ -176,12 +176,14 @@ class AiVerificationResult {
   final double expectedAmount;
   final bool recipientMatch;
   final String result; // 'match' | 'mismatch'
+  final String reason;
 
   const AiVerificationResult({
     required this.detectedAmount,
     required this.expectedAmount,
     required this.recipientMatch,
     required this.result,
+    this.reason = '',
   });
 
   bool get isMatch => result == 'match';
@@ -192,6 +194,7 @@ class AiVerificationResult {
         expectedAmount: (m['expectedAmount'] as num?)?.toDouble() ?? 0,
         recipientMatch: (m['recipientMatch'] as bool?) ?? false,
         result: m['result']?.toString() ?? 'mismatch',
+        reason: m['reason']?.toString() ?? '',
       );
 
   Map<String, dynamic> toMap() => {
@@ -199,6 +202,7 @@ class AiVerificationResult {
         'expectedAmount': expectedAmount,
         'recipientMatch': recipientMatch,
         'result': result,
+        'reason': reason,
       };
 }
 

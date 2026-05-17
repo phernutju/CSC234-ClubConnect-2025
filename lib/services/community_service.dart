@@ -415,7 +415,9 @@ class CommunityService {
     String? replyToSenderId,
     List<String> mentions = const [],
   }) async {
+    if (communityId.isEmpty) throw ArgumentError('communityId must not be empty');
     final user = _requireAuth();
+    if (user.uid.isEmpty) throw ArgumentError('uid must not be empty');
     await _requireMemberDoc(communityId, user.uid);
 
     final communityDoc = await _communities.doc(communityId).get();
@@ -427,22 +429,19 @@ class CommunityService {
       throw ArgumentError('Message must have text or an image');
     }
 
-    // Check if user is muted before adding message
-    if (trimmed.isNotEmpty) {
-      final userDoc = await _db
-          .collection('users')
-          .doc(user.uid)
-          .get(const GetOptions(source: Source.server));
-      if ((userDoc.data()?['isMuted'] as bool?) == true) {
-        throw const ContentViolationException(
-          'You have been restricted from sending messages.',
-          violationCount: -1,
-        );
-      }
+    // Fetch user doc: check mute status + get display name for message
+    final userDoc = await _db.collection('users').doc(user.uid).get(const GetOptions(source: Source.server));
+    if (trimmed.isNotEmpty && (userDoc.data()?['isMuted'] as bool?) == true) {
+      throw const ContentViolationException(
+        'You have been restricted from sending messages.',
+        violationCount: -1,
+      );
     }
+    final senderName = userDoc.data()?['displayName'] as String? ?? '';
 
     final ref = await _messages(communityId).add({
       'senderId': user.uid,
+      'senderName': senderName,
       'text': trimmed,
       'imageURL': imageURL,
       'timestamp': FieldValue.serverTimestamp(),

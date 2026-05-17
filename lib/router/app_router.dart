@@ -38,6 +38,8 @@ import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
 import '../providers/auth_provider.dart';
+import '../providers/community_provider.dart';
+import 'package:provider/provider.dart';
 import '../constants/app_constants.dart';
 import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';

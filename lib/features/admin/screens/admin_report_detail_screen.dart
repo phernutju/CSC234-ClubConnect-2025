@@ -1,11 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/report_model.dart' as fs;
 import '../../../providers/report_provider.dart';
+import '../../../services/report_service.dart';
+import '../../../services/user_service.dart';
 import '../models/report_model.dart';
-import '../widgets/ban_popup.dart';
 
 class AdminReportDetailScreen extends StatelessWidget {
   final AdminReportModel report;
@@ -21,49 +23,21 @@ class AdminReportDetailScreen extends StatelessWidget {
           _DarkHeader(report: report),
           Expanded(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: _SeverityRow(report: report),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'AI Analysis',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF797979),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _AiAnalysisCard(report: report),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'Context',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF797979),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _ContextCard(messages: report.contextMessages),
-                  const SizedBox(height: 16),
+                  _SeverityRow(report: report),
+                  const SizedBox(height: 20),
+                  _ReportCard(report: report),
                   const SizedBox(height: 24),
+                  _ActionButtons(report: report),
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _BottomActions(report: report),
     );
   }
 }
@@ -177,274 +151,241 @@ class _SeverityRow extends StatelessWidget {
   }
 }
 
-class _AiAnalysisCard extends StatelessWidget {
+class _ReportCard extends StatelessWidget {
   final AdminReportModel report;
-  const _AiAnalysisCard({required this.report});
+  const _ReportCard({required this.report});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF6EE),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8DFD8), width: 1),
+        border: Border.all(color: const Color(0xFFE8DFD8)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (report.description.isNotEmpty && report.source.contains('AI'))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'AI reason: ${report.description}',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: const Color(0xFF797979),
-                  fontStyle: FontStyle.italic,
-                ),
+          _InfoRow(label: 'REPORT NO.', value: report.id),
+          const SizedBox(height: 12),
+          _InfoRow(label: 'SOURCE', value: report.source),
+          const SizedBox(height: 12),
+          _InfoRow(label: 'USER', value: '@${report.username}'),
+          const SizedBox(height: 12),
+          Text(
+            'REPORTED MESSAGE',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF797979),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFF6B4A)),
+            ),
+            child: Text(
+              report.reportedText,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF000000),
               ),
             ),
-          _ScoreRow(label: 'Hate Speech', score: report.hateSpeechScore),
-          const SizedBox(height: 10),
-          _ScoreRow(label: 'Harassment', score: report.harassmentScore),
-          const SizedBox(height: 10),
-          _ScoreRow(label: 'Profanity', score: report.profanityScore),
-          const SizedBox(height: 10),
-          _ScoreRow(label: 'Threat', score: report.threatScore),
+          ),
+          if (report.description.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _InfoRow(label: 'AI REASON', value: report.description),
+          ],
         ],
       ),
     );
   }
 }
 
-class _ScoreRow extends StatelessWidget {
+class _InfoRow extends StatelessWidget {
   final String label;
-  final double score;
-  const _ScoreRow({required this.label, required this.score});
+  final String value;
+  const _InfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF000000))),
-            Text(score.toStringAsFixed(1), style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w400, color: const Color(0xFF000000))),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Stack(
-          children: [
-            Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8D5CE),
-                borderRadius: BorderRadius.circular(100),
-              ),
-            ),
-            FractionallySizedBox(
-              widthFactor: score,
-              child: Container(
-                height: 6,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF6B4A),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ContextCard extends StatelessWidget {
-  final List<ContextMessage> messages;
-  const _ContextCard({required this.messages});
-
-  @override
-  Widget build(BuildContext context) {
-    if (messages.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8DFD8),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          for (int i = 0; i < messages.length; i++) ...[
-            if (i != 0) const SizedBox(height: 16),
-            _ChatBubble(msg: messages[i]),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ChatBubble extends StatelessWidget {
-  final ContextMessage msg;
-  const _ChatBubble({required this.msg});
-
-  @override
-  Widget build(BuildContext context) {
-    final nameColor =
-        msg.isReported ? const Color(0xFFFF6B4A) : const Color(0xFF000000);
-    final displayName = msg.isReported ? '@${msg.name}' : msg.name;
-
-    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const CircleAvatar(
-          radius: 20,
-          backgroundColor: Color(0xFFE8A598),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    displayName,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: nameColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    msg.time,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w300,
-                      color: const Color(0xFF797979),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.6,
-                ),
-                child: IntrinsicWidth(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(20),
-                        bottomLeft: Radius.circular(20),
-                        bottomRight: Radius.circular(20),
-                      ),
-                      border: msg.isReported
-                          ? Border.all(
-                              color: const Color(0xFFFF6B4A), width: 1)
-                          : null,
-                    ),
-                    child: Text(
-                      msg.message,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF000000),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        Text(label,
+            style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF797979))),
+        const SizedBox(height: 2),
+        Text(value,
+            style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF000000))),
       ],
     );
   }
 }
 
-
-class _BottomActions extends StatelessWidget {
+class _ActionButtons extends StatefulWidget {
   final AdminReportModel report;
-  const _BottomActions({required this.report});
+  const _ActionButtons({required this.report});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFF1A1A1A),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 16,
-        bottom: MediaQuery.of(context).padding.bottom + 16,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 1,
-            child: OutlinedButton(
-              onPressed: () async {
-                final reportProvider = context.read<ReportProvider>();
-                await reportProvider.updateReportStatus(report.id, fs.ReportStatus.reviewed);
-                if (context.mounted) Navigator.pop(context);
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.white, width: 1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                backgroundColor: Colors.transparent,
-              ),
-              child: Text(
-                'Dismiss',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+  State<_ActionButtons> createState() => _ActionButtonsState();
+}
+
+class _ActionButtonsState extends State<_ActionButtons> {
+  bool _isBanning = false;
+  bool _isDismissing = false;
+
+  Future<void> _onBan() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Ban @${widget.report.username}?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 18),
+        ),
+        content: Text(
+          'This will restrict the user from sending messages. You can unban them from the Banned Users tab.',
+          style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF797979)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel',
+                style: GoogleFonts.poppins(color: const Color(0xFF797979))),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => BanPopup(report: report),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6868),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                elevation: 0,
-              ),
-              child: Text(
-                'Ban [${report.username}]',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6868),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
+            child: Text('Ban',
+                style: GoogleFonts.poppins(
+                    color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isBanning = true);
+    try {
+      await UserService.banUser(
+          widget.report.targetUserId, 'Violation of community guidelines', 'Permanently');
+      final adminUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      await ReportService().updateReportStatus(
+          widget.report.id, fs.ReportStatus.banned, adminUid);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User has been banned.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isBanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to ban: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _onDismiss() async {
+    setState(() => _isDismissing = true);
+    try {
+      final reportProvider = context.read<ReportProvider>();
+      await reportProvider.updateReportStatus(
+          widget.report.id, fs.ReportStatus.reviewed);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isDismissing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canBan = widget.report.targetUserId.isNotEmpty;
+
+    return Column(
+      children: [
+        if (canBan)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isBanning ? null : _onBan,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6868),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30)),
+              ),
+              child: _isBanning
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : Text(
+                      'Ban @${widget.report.username}',
+                      style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white),
+                    ),
+            ),
+          ),
+        if (canBan) const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: _isDismissing ? null : _onDismiss,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              side: const BorderSide(color: Color(0xFFDDDDDD)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30)),
+            ),
+            child: _isDismissing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.grey, strokeWidth: 2),
+                  )
+                : Text(
+                    'Dismiss Report',
+                    style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF000000)),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }

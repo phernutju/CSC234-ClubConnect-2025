@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/smart_bill_model.dart';
+import 'ai_service.dart';
 
 class SmartBillService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -181,15 +182,7 @@ class SmartBillService {
 
   // ── AI Verification stub ──────────────────────────────────────────────────
 
-  // TODO: Replace with GeminiService.verifySlip() when google_generative_ai is added
   Future<AiVerificationResult> verifySlip(
-      String slipUrl, double expectedAmount) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return AiVerificationResult(
-      detectedAmount: expectedAmount,
-      expectedAmount: expectedAmount,
-      recipientMatch: true,
-      result: 'match',
-    );
-  }
+      Uint8List slipBytes, double expectedAmount) =>
+      GeminiService.verifyPaymentSlip(slipBytes, expectedAmount);
 }
