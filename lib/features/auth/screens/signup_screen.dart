@@ -6,7 +6,6 @@ import '../../../constants/app_constants.dart';
 import '../../../models/auth_result.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/auth_service.dart';
-import '../../../services/google_auth_service.dart';
 import '../../../utils/validators.dart';
 import '../widgets/auth_error_banner.dart';
 import '../widgets/validated_field.dart';
@@ -101,17 +100,16 @@ class _SignupScreenState extends State<SignupScreen> {
   Future<void> _onGoogleSignIn() async {
     setState(() => _googleLoading = true);
     try {
-      final account = await GoogleAuthService.signInWithGoogle();
+      final authProv = context.read<AppAuthProvider>();
+      await authProv.startGoogleRegistration();
       if (!mounted) return;
-      if (account != null) {
-        context.push('/set-profile', extra: {
-          'googleDisplayName': account.displayName,
-          'email': account.email,
-        });
-      }
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('Google Sign-In Error: $e\n$st');
+      // pendingGoogleRegistration stays true after success; false means cancel.
+      if (!authProv.pendingGoogleRegistration) return;
+      context.push('/set-profile', extra: {
+        'googleDisplayName': authProv.googleDisplayName,
+        'email': authProv.googleEmail,
+      });
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google Sign-In failed: $e')),

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
 import '../models/review_model.dart';
@@ -29,12 +30,14 @@ class ProfileProvider extends ChangeNotifier {
   String _bio = AppStrings.profileBio;
   Uint8List? _avatarBytes;
   Uint8List? _coverBytes;
+  String? _coverBannerUrl;
   final Set<String> _selectedInterests = {};
 
   String get username => _username;
   String get bio => _bio;
   Uint8List? get avatarBytes => _avatarBytes;
   Uint8List? get coverBytes => _coverBytes;
+  String? get coverBannerUrl => _coverBannerUrl;
   Set<String> get selectedInterests => Set.unmodifiable(_selectedInterests);
 
   void saveProfile({required String username, required String bio, Set<String>? interests}) {
@@ -74,9 +77,21 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateCover(Uint8List bytes) {
+  Future<void> updateCover(Uint8List bytes) async {
     _coverBytes = bytes;
-    UserService.updateCover(bytes);
+    _coverBannerUrl = null;
+    notifyListeners();
+    try {
+      await _service.updateUserBanner(bytes);
+      final uid = profile?.uid ?? FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        profile = await _service.getUserProfile(uid);
+        _coverBannerUrl = profile?.coverBannerUrl;
+      }
+    } catch (e) {
+      debugPrint('updateCover error: $e');
+      error = e.toString();
+    }
     notifyListeners();
   }
 
@@ -85,6 +100,7 @@ class ProfileProvider extends ChangeNotifier {
     _bio = AppStrings.profileBio;
     _avatarBytes = null;
     _coverBytes = null;
+    _coverBannerUrl = null;
     _selectedInterests.clear();
     notifyListeners();
   }
@@ -97,10 +113,13 @@ class ProfileProvider extends ChangeNotifier {
 
   Future<void> loadProfile(String userId) => _run(() async {
         profile = await _service.getUserProfile(userId);
-        if (profile != null && _selectedInterests.isEmpty) {
-          _selectedInterests
-            ..clear()
-            ..addAll(profile!.interests);
+        if (profile != null) {
+          if (_selectedInterests.isEmpty) {
+            _selectedInterests
+              ..clear()
+              ..addAll(profile!.interests);
+          }
+          _coverBannerUrl = profile!.coverBannerUrl;
         }
       });
 

@@ -46,6 +46,11 @@ import 'package:flutter/material.dart';
 
 GoRouter createAppRouter(AppAuthProvider authProvider) {
   String? redirect(BuildContext context, GoRouterState state) {
+    // During Google registration the web popup briefly signs in to capture the
+    // credential before signing out again. Allow onboarding routes while this
+    // flag is set to prevent the guard from bouncing the user to /home.
+    if (authProvider.pendingGoogleRegistration) return null;
+
     final signedIn = authProvider.user != null;
 
     final authRoutes = {
@@ -115,7 +120,12 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
       ),
       GoRoute(
         path: '/set-profile',
-        builder: (context, state) => const SetProfileScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return SetProfileScreen(
+            googleDisplayName: extra?['googleDisplayName'] as String?,
+          );
+        },
       ),
       GoRoute(
         path: '/category',

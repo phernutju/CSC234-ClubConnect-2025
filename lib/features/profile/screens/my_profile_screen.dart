@@ -69,11 +69,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   /// Pick cover photo and persist immediately via provider (no Save required).
   Future<void> _pickCover() async {
+    print('Picking cover photo...');
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    if (mounted) context.read<ProfileProvider>().updateCover(bytes);
+    final bytes = await picked.readAsBytes(); 
+    if (mounted) await context.read<ProfileProvider>().updateCover(bytes);
   }
 
   void _enterEditMode() {
@@ -161,12 +162,14 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     avatarBytes: profile.avatarBytes,
                     onAvatarTap: _pickAvatar,
                     coverBytes: profile.coverBytes,
+                    coverUrl: profile.coverBannerUrl,
                     onCoverTap: _pickCover,
                   )
                 else
                   _ProfileHeader(
                     avatarBytes: profile.avatarBytes,
                     coverBytes: profile.coverBytes,
+                    coverUrl: profile.coverBannerUrl,
                   ),
 
                 Padding(
@@ -358,10 +361,12 @@ class _ProfileAppBar extends StatelessWidget {
 class _ProfileHeader extends StatelessWidget {
   final Uint8List? avatarBytes;
   final Uint8List? coverBytes;
+  final String? coverUrl;
 
   const _ProfileHeader({
     required this.avatarBytes,
     required this.coverBytes,
+    this.coverUrl,
   });
 
   @override
@@ -383,20 +388,26 @@ class _ProfileHeader extends StatelessWidget {
                       fit: BoxFit.cover,
                       width: double.infinity,
                     )
-                  : Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.profileHeaderStart,
-                            AppColors.profileHeaderEnd,
-                            AppColors.profileHeaderEnd,
-                          ],
-                          stops: [0.0, 0.44, 0.9],
+                  : (coverUrl != null && coverUrl!.isNotEmpty)
+                      ? Image.network(
+                          coverUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        )
+                      : Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.profileHeaderStart,
+                                AppColors.profileHeaderEnd,
+                                AppColors.profileHeaderEnd,
+                              ],
+                              stops: [0.0, 0.44, 0.9],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
             ),
           ),
 

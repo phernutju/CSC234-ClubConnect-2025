@@ -64,6 +64,18 @@ class AppAuthProvider extends ChangeNotifier {
   String? _photoURL;
   Uint8List? _imageBytes;
 
+  // Google registration state — populated by startGoogleRegistration(),
+  // consumed by signUp(), cleared by _clearSignupData().
+  bool _pendingGoogleRegistration = false;
+  AuthCredential? _googleCredential;
+  String? _googleDisplayName;
+  String? _googleEmail;
+  String? _googlePhotoURL;
+
+  bool get pendingGoogleRegistration => _pendingGoogleRegistration;
+  String? get googleDisplayName => _googleDisplayName;
+  String? get googleEmail => _googleEmail;
+
   AppAuthProvider() {
     _auth.authStateChanges().listen((u) {
       user = u;
@@ -233,22 +245,38 @@ class AppAuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      if (_email == null || _password == null || _displayName == null) {
-        throw Exception('Missing required signup data');
-      }
-      final newUser = await _authService.signUp(
-        email: _email!,
-        password: _password!,
-        displayName: _displayName!,
-        phoneNumber: _phone ?? '',
-        interests: _tags ?? [],
-        bio: _bio ?? '',
-        photoURL: _photoURL ?? '',
-      );
-      if (_imageBytes != null) {
+      if (_googleCredential != null) {
+        // Google registration path — Firebase Auth created here for the first time.
+        await _authService.signUpWithGoogle(
+          credential: _googleCredential!,
+          displayName: _displayName ?? _googleDisplayName ?? '',
+          phoneNumber: _phone ?? '',
+          interests: _tags ?? [],
+          bio: _bio ?? '',
+          photoURL: (_photoURL != null && _photoURL!.isNotEmpty)
+              ? _photoURL!
+              : (_googlePhotoURL ?? ''),
+        );
+      } else {
+        // Email / password registration path.
+        if (_email == null || _password == null || _displayName == null) {
+          throw Exception('Missing required signup data');
+        }
+        final newUser = await _authService.signUp(
+          email: _email!,
+          password: _password!,
+          displayName: _displayName!,
+          phoneNumber: _phone ?? '',
+          interests: _tags ?? [],
+          bio: _bio ?? '',
+          photoURL: _photoURL ?? '',
+        );
+        if (_imageBytes != null) {
         final url = await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
         await _authService.updatePhotoURL(newUser.uid, url);
       }
+      }
+      
       _clearSignupData();
     } catch (e) {
       debugPrint('SignUp error: $e');
@@ -278,6 +306,45 @@ class AppAuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<User?> signInWithGoogle() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      return await _authService.signInWithGoogle();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Registration flow entry point for Google sign-in.
+  /// Fetches Google credentials + profile WITHOUT creating a Firebase Auth
+  /// session. Sets [pendingGoogleRegistration] to prevent the router from
+  /// redirecting to /home if a brief popup sign-in occurs on web.
+  Future<void> startGoogleRegistration() async {
+    _isLoading = true;
+    _pendingGoogleRegistration = true;
+    notifyListeners();
+    try {
+      final data = await _authService.fetchGoogleRegistrationData();
+      if (data == null) {
+        // User cancelled
+        _pendingGoogleRegistration = false;
+        return;
+      }
+      _googleCredential = data.credential;
+      _googleDisplayName = data.displayName;
+      _googleEmail = data.email;
+      _googlePhotoURL = data.photoURL;
+    } catch (e) {
+      _pendingGoogleRegistration = false;
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> signOut() async => _auth.signOut();
 
   void _clearSignupData() {
@@ -288,6 +355,11 @@ class AppAuthProvider extends ChangeNotifier {
     _tags = null;
     _bio = null;
     _photoURL = null;
+    _googleCredential = null;
+    _googleDisplayName = null;
+    _googleEmail = null;
+    _googlePhotoURL = null;
+    _pendingGoogleRegistration = false;
     _imageBytes = null;
   }
 

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/auth_result.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/google_auth_service.dart';
 import '../../../utils/validators.dart';
 import '../widgets/auth_error_banner.dart';
 import '../widgets/validated_field.dart';
@@ -112,10 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _onGoogleSignIn() async {
     setState(() => _googleLoading = true);
     try {
-      await GoogleAuthService.signInWithGoogle();
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('Google Sign-In Error: $e\n$st');
+      await context.read<AppAuthProvider>().signInWithGoogle();
+      // null = user cancelled; authStateChanges handles redirect on success
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google Sign-In failed: $e')),
