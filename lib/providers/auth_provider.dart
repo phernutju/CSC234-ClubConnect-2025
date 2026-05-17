@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -17,6 +19,7 @@ enum OtpState { idle, sendingOtp, codeSent, verifying, verified, error }
 class AppAuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
 
   User? user;
   String? role;
@@ -45,6 +48,7 @@ class AppAuthProvider extends ChangeNotifier {
   String? _bio;
   List<String>? _tags;
   String? _photoURL;
+  Uint8List? _imageBytes;
 
   // Google registration state — populated by startGoogleRegistration(),
   // consumed by signUp(), cleared by _clearSignupData().
@@ -137,8 +141,9 @@ class AppAuthProvider extends ChangeNotifier {
     return phone; // +6680000000
   }
 
-  void setExtraInfo(String photoURL, String displayName, String bio) {
+  void setExtraInfo(String photoURL, String displayName, String bio, {Uint8List? imageBytes}) {
     _photoURL = photoURL;
+    _imageBytes = imageBytes;
     _displayName = displayName;
     _bio = bio;
   }
@@ -224,7 +229,7 @@ class AppAuthProvider extends ChangeNotifier {
         if (_email == null || _password == null || _displayName == null) {
           throw Exception('Missing required signup data');
         }
-        await _authService.signUp(
+        final newUser = await _authService.signUp(
           email: _email!,
           password: _password!,
           displayName: _displayName!,
@@ -233,7 +238,12 @@ class AppAuthProvider extends ChangeNotifier {
           bio: _bio ?? '',
           photoURL: _photoURL ?? '',
         );
+        if (_imageBytes != null) {
+        final url = await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
+        await _authService.updatePhotoURL(newUser.uid, url);
       }
+      }
+      
       _clearSignupData();
     } catch (e) {
       debugPrint('SignUp error: $e');
@@ -317,6 +327,7 @@ class AppAuthProvider extends ChangeNotifier {
     _googleEmail = null;
     _googlePhotoURL = null;
     _pendingGoogleRegistration = false;
+    _imageBytes = null;
   }
 
   String _mapError(String code) {
