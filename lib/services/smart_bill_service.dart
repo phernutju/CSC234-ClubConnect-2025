@@ -56,6 +56,13 @@ class SmartBillService {
           .map((s) =>
               s.docs.isEmpty ? null : SmartBillModel.fromFirestore(s.docs.first));
 
+  Future<SmartBillModel?> getBillByEvent(
+      String communityId, String eventId) async {
+    final snap = await _billsCol(communityId, eventId).limit(1).get();
+    if (snap.docs.isEmpty) return null;
+    return SmartBillModel.fromFirestore(snap.docs.first);
+  }
+
   Future<void> updateBill(
           String communityId, String eventId, SmartBillModel bill) =>
       _billsCol(communityId, eventId)
