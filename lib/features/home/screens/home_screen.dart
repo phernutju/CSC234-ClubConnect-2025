@@ -596,20 +596,19 @@ class _MyClubListState extends State<_MyClubList> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSizes.paddingM,
-            AppSizes.paddingS,
-            AppSizes.paddingM,
-            0,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _DiscoverSortDropdown(
-                value: _sort,
-                onChanged: (v) => setState(() => _sort = v),
-              ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+          child: SizedBox(
+            height: AppSizes.categoryCardSize,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _DiscoverSortDropdown(
+                  value: _sort,
+                  onChanged: (v) => setState(() => _sort = v),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(

@@ -39,7 +39,7 @@ class _NetworkImageViewState extends State<NetworkImageView> {
   void didUpdateWidget(NetworkImageView old) {
     super.didUpdateWidget(old);
     if (old.url != widget.url) {
-      setState(() => _future = _load(widget.url));
+      setState(() { _future = _load(widget.url); });
     }
   }
 
