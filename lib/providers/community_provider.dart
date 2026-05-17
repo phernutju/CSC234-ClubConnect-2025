@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import '../models/category_model.dart';
 import '../models/community_model.dart';
 import '../models/member_model.dart';
@@ -30,12 +31,28 @@ class CommunityProvider extends ChangeNotifier {
   String? recommendedError;
   String? violationWarning;
 
+  void clearError() {
+    error = null;
+    notifyListeners();
+  }
+
   StreamSubscription<User?>? _authSub;
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
   StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
   StreamSubscription<List<CommunityModel>>? _trendingSub;
   StreamSubscription<List<MessageModel>>? _messagesSub;
   StreamSubscription<List<MemberModel>>? _membersSub;
+
+  bool _pendingNotify = false;
+
+  void _safeNotify() {
+    if (_pendingNotify || !hasListeners) return;
+    _pendingNotify = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _pendingNotify = false;
+      if (hasListeners) notifyListeners();
+    });
+  }
 
 
   Set<String> get mutedCommunityNames => Set.unmodifiable(_mutedCommunities);
@@ -70,7 +87,7 @@ class CommunityProvider extends ChangeNotifier {
     } catch (_) {
       _nameCache[uid] = '';
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   /// Subscribes to the member list for [communityId] and auto-fetches
@@ -97,11 +114,11 @@ class CommunityProvider extends ChangeNotifier {
     _communitiesSub = stream.listen(
       (list) {
         communities = list;
-        notifyListeners();
+        _safeNotify();
       },
       onError: (e) {
         error = e.toString();
-        notifyListeners();
+        _safeNotify();
       },
     );
   }
@@ -111,11 +128,11 @@ class CommunityProvider extends ChangeNotifier {
     _myCommunitiesSub = stream.listen(
       (list) {
         myCommunities = list;
-        notifyListeners();
+        _safeNotify();
       },
       onError: (e) {
         error = e.toString();
-        notifyListeners();
+        _safeNotify();
       },
     );
   }
@@ -200,26 +217,26 @@ class CommunityProvider extends ChangeNotifier {
     _messagesSub = _service.getMessages(community.id).listen(
       (list) {
         messages = list;
-        notifyListeners();
+        _safeNotify();
       },
       onError: (e) {
         error = e.toString();
-        notifyListeners();
+        _safeNotify();
       },
     );
 
     _membersSub = _service.getMembers(community.id).listen(
       (list) {
         members = list;
-        notifyListeners();
+        _safeNotify();
       },
       onError: (e) {
         error = e.toString();
-        notifyListeners();
+        _safeNotify();
       },
     );
 
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearActiveCommunity() {
@@ -228,7 +245,7 @@ class CommunityProvider extends ChangeNotifier {
     members = [];
     _messagesSub?.cancel();
     _membersSub?.cancel();
-    notifyListeners();
+    _safeNotify();
   }
 
   // ── Community actions ──────────────────────────────────────────────────────
@@ -293,34 +310,39 @@ class CommunityProvider extends ChangeNotifier {
     String? replyToText,
     String? replyToSenderId,
     List<String> mentions = const [],
-  }) {
+  }) async {
+    if (communityId.isEmpty) {
+      error = 'Cannot send: community not loaded';
+      _safeNotify();
+      return;
+    }
     error = null;
-    notifyListeners();
-    // fire-and-forget: save + moderate in background, return immediately
-    _service
-        .sendMessage(
-          communityId,
-          text: text,
-          imageURL: imageURL,
-          replyToId: replyToId,
-          replyToSenderName: replyToSenderName,
-          replyToText: replyToText,
-          replyToSenderId: replyToSenderId,
-          mentions: mentions,
-        )
-        .catchError((e) {
-      // ignore: avoid_print
-      print('[PROVIDER] catchError fired: $e');
-      if (e is ContentViolationException && !e.isMuteBlock && e.violationCount >= 3) {
+    _safeNotify();
+    try {
+      final rules = activeCommunity?.rules.map((r) => r.text).join('\n') ?? '';
+      await _service.sendMessage(
+        communityId,
+        text: text,
+        imageURL: imageURL,
+        replyToId: replyToId,
+        replyToSenderName: replyToSenderName,
+        replyToText: replyToText,
+        replyToSenderId: replyToSenderId,
+        mentions: mentions,
+      );
+    } on ContentViolationException catch (e) {
+      if (!e.isMuteBlock && e.violationCount >= 3 && e.violationCount < 5) {
         final remaining = 5 - e.violationCount;
-        violationWarning = 'Warning: $remaining more violation${remaining == 1 ? '' : 's'} will result in an admin ban review.';
+        violationWarning = 'Warning: $remaining more violation${remaining == 1 ? '' : 's'} will result in a temporary mute.';
       } else {
         violationWarning = null;
       }
-      error = e is ContentViolationException ? e.message : e.toString();
-      notifyListeners();
-    });
-    return Future.value();
+      error = e.message;
+      _safeNotify();
+    } catch (e) {
+      error = e.toString();
+      _safeNotify();
+    }
   }
 
   Future<void> sendImageMessage(String communityId, Uint8List bytes) async {

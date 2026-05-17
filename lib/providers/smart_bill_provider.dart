@@ -351,8 +351,15 @@ class SmartBillProvider extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
+      // Verify with AI first, then upload regardless — fake slips saved as 'review'
+      final result = await _service.verifySlip(slipBytes, amountDue);
+      lastVerification = result;
+
       final url = await _service.uploadSlip(
           communityId, eventId, billId, userId, slipBytes);
+
+      final finalStatus = result.isMatch ? 'verified' : 'review';
+
       await _service.createPayment(
         communityId,
         eventId,
@@ -362,27 +369,11 @@ class SmartBillProvider extends ChangeNotifier {
           userId: userId,
           amountDue: amountDue,
           receiptUrl: url,
-          status: 'verifying',
-        ),
-      );
-      notifyListeners();
-
-      final result = await _service.verifySlip(url, amountDue);
-      lastVerification = result;
-
-      await _service.updatePayment(
-        communityId,
-        eventId,
-        billId,
-        SmartPaymentModel(
-          id: userId,
-          userId: userId,
-          amountDue: amountDue,
-          receiptUrl: url,
-          status: 'verified',
+          status: finalStatus,
           aiVerification: result,
         ),
       );
+      notifyListeners();
       return result;
     } catch (e) {
       error = e.toString();
@@ -431,12 +422,12 @@ class SmartBillProvider extends ChangeNotifier {
   }
 
   Future<AiVerificationResult?> verifySlip(
-      String slipUrl, double expectedAmount) async {
+      Uint8List slipBytes, double expectedAmount) async {
     isVerifying = true;
     error = null;
     notifyListeners();
     try {
-      final result = await _service.verifySlip(slipUrl, expectedAmount);
+      final result = await _service.verifySlip(slipBytes, expectedAmount);
       lastVerification = result;
       return result;
     } catch (e) {

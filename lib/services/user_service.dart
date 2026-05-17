@@ -77,37 +77,37 @@ class UserService {
       'isBanned': false,
       'isMuted': false,
       'violationCount': 0,
+      'muteCount': 0,
       'banReason': FieldValue.delete(),
       'durationLabel': FieldValue.delete(),
       'banExpiresAt': FieldValue.delete(),
       'bannedAt': FieldValue.delete(),
       'bannedBy': FieldValue.delete(),
+      'muteExpiresAt': FieldValue.delete(),
     });
   }
 
   static Stream<List<Map<String, dynamic>>> streamBannedUsers() {
-    final bannedStream = _db
+    return _db
         .collection('users')
         .where('isBanned', isEqualTo: true)
-        .snapshots();
-    final mutedStream = _db
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) {
+              final data = doc.data();
+              data['uid'] = doc.id;
+              return data;
+            }).toList());
+  }
+
+  static Stream<List<Map<String, dynamic>>> streamMutedUsers() {
+    return _db
         .collection('users')
         .where('isMuted', isEqualTo: true)
-        .snapshots();
-
-    return bannedStream.asyncExpand((bannedSnap) {
-      return mutedStream.map((mutedSnap) {
-        final seen = <String>{};
-        final result = <Map<String, dynamic>>[];
-        for (final doc in [...bannedSnap.docs, ...mutedSnap.docs]) {
-          if (seen.add(doc.id)) {
-            final data = doc.data();
-            data['uid'] = doc.id;
-            result.add(data);
-          }
-        }
-        return result;
-      });
-    });
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) {
+              final data = doc.data();
+              data['uid'] = doc.id;
+              return data;
+            }).toList());
   }
 }

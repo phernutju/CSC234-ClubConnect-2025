@@ -38,6 +38,8 @@ import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
 import '../providers/auth_provider.dart';
+import '../providers/community_provider.dart';
+import 'package:provider/provider.dart';
 import '../constants/app_constants.dart';
 import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';
@@ -161,12 +163,23 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         path: '/chat',
         builder: (context, state) {
           final args = state.extra as ChatArgs?;
-          return ChatScreen(
-            communityId: args?.communityId ?? '',
-            communityName: args?.communityName ?? AppStrings.chatCommunityName,
-            memberCount: args?.memberCount ?? '',
-            targetMessageId: args?.targetMessageId,
-          );
+          if (args != null && args.communityId.isNotEmpty) {
+            return ChatScreen(
+              communityId: args.communityId,
+              communityName: args.communityName,
+              memberCount: args.memberCount,
+            );
+          }
+          // state.extra lost on GoRouter web refresh — recover from provider
+          final active = context.read<CommunityProvider>().activeCommunity;
+          if (active != null) {
+            return ChatScreen(
+              communityId: active.id,
+              communityName: active.communityName,
+              memberCount: active.memberCount.toString(),
+            );
+          }
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         },
       ),
       GoRoute(
