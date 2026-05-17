@@ -40,6 +40,9 @@ class AuthService {
     }
   }
 
+  Future<void> updatePhotoURL(String uid, String url) =>
+      _db.collection('users').doc(uid).update({'photoURL': url});
+
   Future<UserCredential> signIn({
     required String email,
     required String password,

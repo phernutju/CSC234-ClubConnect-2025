@@ -11,7 +11,6 @@ import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
 import '../widgets/category_picker_popup.dart';
 import '../widgets/view_all_reviews_modal.dart';
-import '../widgets/network_image_view.dart';
 
 // ── File-scoped helpers ─────────────────────────
 String _relativeTime(DateTime time) {
@@ -366,7 +365,13 @@ class _ProfileHeader extends StatelessWidget {
               clipBehavior: hasAvatar ? Clip.antiAlias : Clip.none,
               child: avatarBytes != null
                   ? Image.memory(avatarBytes!, fit: BoxFit.cover)
-                  : NetworkImageView(url: photoURL),
+                  : (photoURL != null && photoURL!.isNotEmpty)
+                      ? Image.network(
+                          photoURL!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        )
+                      : null,
             ),
           ),
         ],

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -21,8 +20,7 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
   final _displayNameController = TextEditingController();
   final _aboutMeController     = TextEditingController();
   final _picker = ImagePicker();
-  File? _imageFile;
-  Uint8List? _webImageBytes;
+  Uint8List? _pickedBytes;
   String? _displayNameError;
 
   static const InputDecoration _fieldDecoration = InputDecoration(
@@ -72,18 +70,8 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      if (kIsWeb) {
-        final bytes = await picked.readAsBytes();
-        setState(() {
-          _webImageBytes = bytes;
-          _imageFile = null;
-        });
-      } else {
-        setState(() {
-          _imageFile = File(picked.path);
-          _webImageBytes = null;
-        });
-      }
+      final bytes = await picked.readAsBytes();
+      setState(() => _pickedBytes = bytes);
     }
   }
 
@@ -104,15 +92,11 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
   }
 
   void _onNext() {
-    if (_validate()) {
-      final displayName = _displayNameController.text.trim();
-      final bio = _aboutMeController.text.trim();
-      context.read<AppAuthProvider>().setExtraInfo('', displayName, bio);
-      context.push(
-        '/category',
-        extra: {'displayName': displayName},
-      );
-    }
+    if (!_validate()) return;
+    final displayName = _displayNameController.text.trim();
+    final bio = _aboutMeController.text.trim();
+    context.read<AppAuthProvider>().setExtraInfo('', displayName, bio, imageBytes: _pickedBytes);
+    context.push('/category', extra: {'displayName': displayName});
   }
 
   @override
@@ -163,8 +147,7 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
 
               Center(
                 child: _AvatarPicker(
-                  imageFile: _imageFile,
-                  imageBytes: _webImageBytes,
+                  imageBytes: _pickedBytes,
                   onTap: _pickImage,
                 ),
               ),
@@ -254,12 +237,10 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
 }
 
 class _AvatarPicker extends StatelessWidget {
-  final File? imageFile;
   final Uint8List? imageBytes;
   final VoidCallback onTap;
 
   const _AvatarPicker({
-    this.imageFile,
     this.imageBytes,
     required this.onTap,
   });
@@ -279,9 +260,7 @@ class _AvatarPicker extends StatelessWidget {
                 height: 160,
                 child: imageBytes != null
                     ? Image.memory(imageBytes!, fit: BoxFit.cover)
-                    : imageFile != null
-                        ? Image.file(imageFile!, fit: BoxFit.cover)
-                        : Container(color: AppColors.avatarSalmon),
+                    : Container(color: AppColors.avatarSalmon),
               ),
             ),
 
