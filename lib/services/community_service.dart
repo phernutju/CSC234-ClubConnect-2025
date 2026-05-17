@@ -169,17 +169,25 @@ class CommunityService {
       return;
     }
 
-    // Firestore limit: whereIn max 10
-    final limitedIds = communityIds.take(10).toList();
+    // Firestore limit: whereIn max 30
+    final limitedIds = communityIds.take(30).toList();
+    debugPrint('[MyClub] watching communityIds: $limitedIds');
 
     yield* _communities
         .where(FieldPath.documentId, whereIn: limitedIds)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snap) =>
-              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
-        );
+        .map((snap) {
+          final list = snap.docs
+              .map((doc) => CommunityModel.fromJson(doc))
+              .toList();
+          list.sort((a, b) {
+            final aTs = a.lastMessageAt ?? a.createdAt;
+            final bTs = b.lastMessageAt ?? b.createdAt;
+            return bTs.compareTo(aTs);
+          });
+          debugPrint('[MyClub] snapshot fired, communities: ${list.map((c) => '${c.communityName}:${c.lastMessageAt}').join(', ')}');
+          return list;
+        });
   }
 
   Future<bool> checkIsMember(String communityId) async {
@@ -468,6 +476,15 @@ class CommunityService {
           violationCount: count,
         );
       }
+    }
+    debugPrint('[Chat] about to write lastMessageAt to communityId: $communityId');
+    try {
+      await _communities.doc(communityId).update({
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('[Chat] lastMessageAt written successfully');
+    } catch (e) {
+      debugPrint('[Chat] lastMessageAt write error: $e');
     }
     final needsNotification =
         (replyToSenderId != null && replyToSenderId != user.uid) ||

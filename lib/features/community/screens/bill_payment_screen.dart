@@ -64,6 +64,7 @@ class _BillPaymentScreenState extends State<BillPaymentScreen> {
         amountDue: widget.args.myShare,
         slipBytes: _slipBytes!,
       );
+      print('[SLIP] Verification completed with result: $result');
       if (mounted) {
         setState(() {
           _verificationResult = result;

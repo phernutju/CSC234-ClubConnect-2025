@@ -20,7 +20,7 @@ class ModerationResult {
 
 class GeminiService {
   static const _endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-  static const _model = 'nvidia/nemotron-nano-12b-v2-vl:free';
+  static const _model = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
   static const _maxRetries = 3;
 
   static Future<ModerationResult> moderateMessage(
@@ -90,10 +90,10 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
 
       if (response.statusCode == 429) {
         final errorBody = jsonDecode(response.body);
-        final retryAfter = (errorBody['error']?['metadata']
-                    ?['retry_after_seconds'] as num?)
-                ?.toInt() ??
-            10;
+        final retryAfter =
+            (errorBody['error']?['metadata']?['retry_after_seconds'] as num?)
+                    ?.toInt() ??
+                10;
         if (attempt < _maxRetries - 1) {
           await Future.delayed(Duration(seconds: retryAfter));
           continue;
@@ -195,7 +195,8 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
     // Skip if still too large (>3MB) — API will reject anyway
     if (data.lengthInBytes > 3 * 1024 * 1024) {
       // ignore: avoid_print
-      print('[IMG] image too large (${data.lengthInBytes}), skipping moderation');
+      print(
+          '[IMG] image too large (${data.lengthInBytes}), skipping moderation');
       return false;
     }
 
@@ -209,7 +210,7 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'model': 'nvidia/nemotron-nano-12b-v2-vl:free',
+          'model': _model,
           'max_tokens': 400,
           'temperature': 0,
           'messages': [
@@ -263,7 +264,8 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       // ignore: avoid_print
       print('[IMG] combined="$combined"');
 
-      final jsonMatch = RegExp(r'\{[^{}]*"isNSFW"[^{}]*\}').firstMatch(combined);
+      final jsonMatch =
+          RegExp(r'\{[^{}]*"isNSFW"[^{}]*\}').firstMatch(combined);
       if (jsonMatch == null) {
         final lower = combined.toLowerCase();
         return (lower.contains('nsfw') && !lower.contains('not nsfw')) ||
@@ -300,7 +302,7 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'model': 'google/gemma-4-31b-it:free',
+          'model': _model,
           'max_tokens': 50,
           'temperature': 0,
           'messages': [
@@ -366,53 +368,72 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
     try {
       // ignore: avoid_print
       print('[SLIP] calling API with base64 bytes...');
-      final response = await http.post(
-        Uri.parse(_endpoint),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': 'nvidia/nemotron-nano-12b-v2-vl:free',
-          'max_tokens': 200,
-          'temperature': 0,
-          'messages': [
-            {
-              'role': 'system',
-              'content': 'You are a strict Thai bank payment slip verifier. '
-                  'Your only job is to verify if an image is a genuine Thai bank transfer slip. '
-                  'If the image contains a person, animal, food, nature, or anything that is NOT a bank slip, '
-                  'you MUST return isRealSlip=false. Never guess or assume. Be strict.',
+      final response = await http
+          .post(
+            Uri.parse(_endpoint),
+            headers: {
+              'Authorization': 'Bearer $apiKey',
+              'Content-Type': 'application/json',
             },
-            {
-              'role': 'user',
-              'content': [
+            body: jsonEncode({
+              'model': _model,
+              'max_tokens': 1000,
+              'temperature': 0,
+              'response_format': {'type': 'json_object'},
+              'messages': [
                 {
-                  'type': 'image_url',
-                  'image_url': {'url': 'data:$mime;base64,$base64Image'},
+                  'role': 'system',
+                  'content': 'You are a strict Thai bank payment slip verifier. '
+                      'Your only job is to verify if an image is a genuine Thai bank transfer slip. '
+                      'If the image contains a person, animal, food, nature, or anything that is NOT a bank slip, '
+                      'you MUST return isRealSlip=false. Never guess or assume. Be strict.',
                 },
                 {
-                  'type': 'text',
-                  'text': 'Examine this image carefully.\n\n'
-                      'STEP 1 — Is this a Thai bank transfer slip or PromptPay confirmation? '
-                      'A valid slip MUST contain ALL of: transaction amount in THB, date/time, bank logo or reference number. '
-                      'If the image shows a person, animal, food, scenery, or ANY non-slip content → isRealSlip=false, detectedAmount=0.\n\n'
-                      'STEP 2 — Only if isRealSlip=true: does the amount match ${expectedAmount.toStringAsFixed(2)} THB (±1 THB)?\n\n'
-                      'Reply JSON only, no markdown:\n'
-                      '{"detectedAmount":<number>,"isRealSlip":<true|false>,"amountMatch":<true|false>,"reason":"<one sentence>"}',
+                  'role': 'user',
+                  'content': [
+                    {
+                      'type': 'image_url',
+                      'image_url': {'url': 'data:$mime;base64,$base64Image'},
+                    },
+                    {
+                      'type': 'text',
+                      'text': 'Examine this image carefully.\n\n'
+                          'STEP 1 — Is this a Thai bank transfer slip or PromptPay confirmation? '
+                          'A valid slip MUST contain ALL of: transaction amount in THB, date/time, bank logo or reference number. '
+                          'If the image shows a person, animal, food, scenery, or ANY non-slip content → isRealSlip=false, detectedAmount=0.\n\n'
+                          'STEP 2 — Only if isRealSlip=true: does the amount match ${expectedAmount.toStringAsFixed(2)} THB (±1 THB)?\n\n'
+                          'Reply JSON only, no markdown:\n'
+                          '{"detectedAmount":<number>,"isRealSlip":<true|false>,"amountMatch":<true|false>,"reason":"<one sentence>"}',
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-        }),
-      ).timeout(const Duration(seconds: 30));
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       // ignore: avoid_print
       print('[SLIP] status=${response.statusCode} body=${response.body}');
       if (response.statusCode != 200) return fallback;
 
       final body = jsonDecode(response.body);
-      final msg = body['choices']?[0]?['message'];
+      final choice = body['choices']?[0];
+
+      // Reasoning model ran out of tokens before producing JSON — retry
+      if (choice?['finish_reason'] == 'length' ||
+          choice?['native_finish_reason'] == 'length') {
+        // ignore: avoid_print
+        print('[SLIP] finish_reason=length — truncated, returning fallback');
+        return AiVerificationResult(
+          detectedAmount: 0,
+          expectedAmount: expectedAmount,
+          recipientMatch: false,
+          result: 'mismatch',
+          reason: 'Verification incomplete (response truncated). Please try again.',
+        );
+      }
+
+      final msg = choice?['message'];
       final content = (msg?['content'] as String? ?? '').trim();
       final reasoning = (msg?['reasoning'] as String? ?? '').trim();
       // strip markdown code fences if model wraps response
@@ -421,6 +442,8 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
           .replaceAll('```', '')
           .trim();
 
+      // Match JSON that may be unclosed (truncated reasoning) by stopping at
+      // the last closing brace or end of string, then try to close it.
       final jsonMatch = RegExp(
         r'\{[^{}]*"detectedAmount"[^{}]*\}',
         dotAll: true,
@@ -433,7 +456,8 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       final amountMatch = parsed['amountMatch'] as bool? ?? false;
       final reason = parsed['reason'] as String? ?? '';
       final isMatch = isReal && amountMatch;
-
+      // ignore: avoid_print
+      print('[SLIP] AI Verification Result: $isMatch');
       return AiVerificationResult(
         detectedAmount: detected,
         expectedAmount: expectedAmount,
