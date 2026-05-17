@@ -677,9 +677,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
               payment.receiptUrl!,
-              height: 120,
               width: double.infinity,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Container(
                 height: 120,
                 color: _kCream,
@@ -712,9 +711,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
               payment.receiptUrl!,
-              height: 120,
               width: double.infinity,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Container(
                 height: 120,
                 color: _kCream,

@@ -64,6 +64,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final Map<String, String> _pendingMentions = {};
 
   final Set<String> _fetchedUids = {};
+  final Set<String> _markedSeenIds = {};
+  String _cachedCurrentUid = '';
   CommunityProvider? _provider;
   int _lastMessageCount = 0;
 
@@ -89,6 +91,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       final cp = context.read<CommunityProvider>();
       _provider = cp;
+      _cachedCurrentUid = context.read<AppAuthProvider>().user?.uid ?? '';
       _provider!.addListener(_onProviderChange);
       if (widget.communityId.isEmpty) {
         setState(() => _isInitializing = false);
@@ -163,6 +166,27 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       });
     }
+    _markNewMessagesSeen();
+  }
+
+  void _markNewMessagesSeen() {
+    final uid = _cachedCurrentUid;
+    if (uid.isEmpty || _provider == null) return;
+    final community = _provider!.activeCommunity;
+    if (community == null) return;
+
+    final toMark = _provider!.messages
+        .where((m) =>
+            !m.isSystem &&
+            m.senderId != uid &&
+            !m.seenBy.contains(uid) &&
+            !_markedSeenIds.contains(m.id))
+        .map((m) => m.id)
+        .toList();
+
+    if (toMark.isEmpty) return;
+    _markedSeenIds.addAll(toMark);
+    _provider!.markMessagesSeenBatch(community.id, toMark);
   }
 
   // ── Mention detection ────────────────────────────────────────────────────────
@@ -263,7 +287,7 @@ class _ChatScreenState extends State<ChatScreen> {
       senderId: m.senderId,
       timestamp: m.timestamp,
       time: _formatTime(m.timestamp),
-      readCount: isSent ? 'Read ${m.seenBy.length}' : null,
+      readCount: isSent && m.seenBy.isNotEmpty ? 'Read ${m.seenBy.length}' : null,
       replyToName: m.replyToSenderName,
       replyToText: m.replyToText,
       mentionMap: mentionMap,
@@ -581,7 +605,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.chatBackground,
-      body: Stack(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          if (cp.error != null) context.read<CommunityProvider>().clearError();
+        },
+        child: Stack(
         children: [
           // ── Main content column ──────────────────────────────────────────
           Column(
@@ -664,6 +693,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
         ],
+        ),
       ),
     );
   }

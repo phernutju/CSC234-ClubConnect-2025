@@ -31,6 +31,11 @@ class CommunityProvider extends ChangeNotifier {
   String? recommendedError;
   String? violationWarning;
 
+  void clearError() {
+    error = null;
+    notifyListeners();
+  }
+
   StreamSubscription<User?>? _authSub;
   StreamSubscription<List<CommunityModel>>? _communitiesSub;
   StreamSubscription<List<CommunityModel>>? _myCommunitiesSub;
@@ -356,6 +361,18 @@ class CommunityProvider extends ChangeNotifier {
 
   Future<void> markMessageSeen(String communityId, String messageId) =>
       _run(() => _service.markMessageSeen(communityId, messageId));
+
+  /// Batch-marks messages seen — fire-and-forget, no loading state.
+  Future<void> markMessagesSeenBatch(
+    String communityId,
+    List<String> messageIds,
+  ) async {
+    try {
+      await _service.markMessagesSeenBatch(communityId, messageIds);
+    } catch (_) {
+      // Non-critical: silently swallow — read receipt failure must not disrupt chat.
+    }
+  }
 
   Future<void> deleteMessage(String communityId, String messageId) =>
       _run(() => _service.deleteMessage(communityId, messageId));

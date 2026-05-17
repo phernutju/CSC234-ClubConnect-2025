@@ -530,6 +530,30 @@ class CommunityService {
     });
   }
 
+  /// Marks multiple messages as seen in a single batch commit.
+  /// Idempotent — safe to call even if already in seenBy.
+  Future<void> markMessagesSeenBatch(
+    String communityId,
+    List<String> messageIds,
+  ) async {
+    if (messageIds.isEmpty) return;
+    final user = _requireAuth();
+    const chunkSize = 500;
+    for (var i = 0; i < messageIds.length; i += chunkSize) {
+      final chunk = messageIds.sublist(
+        i,
+        (i + chunkSize).clamp(0, messageIds.length),
+      );
+      final batch = _db.batch();
+      for (final id in chunk) {
+        batch.update(_messages(communityId).doc(id), {
+          'seenBy': FieldValue.arrayUnion([user.uid]),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
   Future<void> deleteMessage(String communityId, String messageId) async {
     final user = _requireAuth();
     final doc = await _messages(communityId).doc(messageId).get();
