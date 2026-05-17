@@ -23,6 +23,12 @@ class _GlobalEventsScreenState extends State<GlobalEventsScreen> {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    context.read<EventProvider>().loadPublishedEvents();
+  }
+
+  @override
   void dispose() {
     context.read<EventProvider>().clearPublishedEvents();
     super.dispose();

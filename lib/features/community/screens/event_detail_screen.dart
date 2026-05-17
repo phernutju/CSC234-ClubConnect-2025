@@ -180,6 +180,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           _DetailAppBar(
             title: widget.event.title,
             memberCount: '$memberCount/${widget.event.maxAttendees}',
+            isHost: _isHost,
+            onEditTap: _onEditTap,
           ),
 
           // ── Scrollable content ────────────────────────────────────────────
@@ -406,10 +408,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 class _DetailAppBar extends StatelessWidget {
   final String title;
   final String memberCount;
+  final bool isHost;
+  final VoidCallback onEditTap;
 
   const _DetailAppBar({
     required this.title,
     required this.memberCount,
+    required this.isHost,
+    required this.onEditTap,
   });
 
   @override
@@ -445,6 +451,13 @@ class _DetailAppBar extends StatelessWidget {
                 ),
               ),
             ),
+            if (isHost)
+              IconButton(
+                onPressed: onEditTap,
+                icon: const Icon(Icons.edit_outlined, color: AppColors.cardWhite),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
           ],
         ),
       ),

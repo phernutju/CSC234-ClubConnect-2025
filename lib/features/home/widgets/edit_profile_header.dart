@@ -33,6 +33,7 @@ class EditProfileHeader extends StatelessWidget {
             left: 0,
             right: 0,
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: onCoverTap,
               child: SizedBox(
                 height: AppSizes.profileHeaderHeight,

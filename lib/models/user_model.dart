@@ -16,6 +16,7 @@ class UserModel {
   final String? banReason;
   final Timestamp? banExpiresAt;
   final String? durationLabel;
+  final String? coverBannerUrl;
 
   const UserModel({
     required this.uid,
@@ -33,6 +34,7 @@ class UserModel {
     this.banReason,
     this.banExpiresAt,
     this.durationLabel,
+    this.coverBannerUrl,
   });
 
  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -51,6 +53,7 @@ class UserModel {
   banReason: json['banReason'] as String?,
   banExpiresAt: json['banExpiresAt'] as Timestamp?,
   durationLabel: json['durationLabel'] as String?,
+  coverBannerUrl: json['coverBannerUrl'] as String?,
 );
 
   Map<String, dynamic> toJson() => {
@@ -69,5 +72,6 @@ class UserModel {
         if (banReason != null) 'banReason': banReason,
         if (banExpiresAt != null) 'banExpiresAt': banExpiresAt,
         if (durationLabel != null) 'durationLabel': durationLabel,
+        if (coverBannerUrl != null) 'coverBannerUrl': coverBannerUrl,
       };
 }

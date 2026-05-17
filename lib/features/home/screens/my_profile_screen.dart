@@ -11,7 +11,6 @@ import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
 import '../widgets/category_picker_popup.dart';
 import '../widgets/view_all_reviews_modal.dart';
-import '../widgets/network_image_view.dart';
 
 // ── File-scoped helpers ─────────────────────────
 String _relativeTime(DateTime time) {
@@ -82,9 +81,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Future<void> _pickCover() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+    if (picked == null) return; 
     final bytes = await picked.readAsBytes();
     setState(() => _coverBytes = bytes);
+    if (mounted) await context.read<ProfileProvider>().updateCover(bytes);
   }
 
   void _enterEditMode() {
@@ -160,6 +160,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   _ProfileHeader(
                     avatarBytes: _avatarBytes,
                     coverBytes: _coverBytes,
+                    coverBannerUrl: pp.coverBannerUrl,
                     photoURL: profile?.photoURL,
                   ),
 
@@ -306,11 +307,13 @@ class _ProfileAppBar extends StatelessWidget {
 class _ProfileHeader extends StatelessWidget {
   final Uint8List? avatarBytes;
   final Uint8List? coverBytes;
+  final String? coverBannerUrl;
   final String? photoURL;
 
   const _ProfileHeader({
     required this.avatarBytes,
     required this.coverBytes,
+    this.coverBannerUrl,
     this.photoURL,
   });
 
@@ -335,20 +338,26 @@ class _ProfileHeader extends StatelessWidget {
                       fit: BoxFit.cover,
                       width: double.infinity,
                     )
-                  : Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.profileHeaderStart,
-                            AppColors.profileHeaderEnd,
-                            AppColors.profileHeaderEnd,
-                          ],
-                          stops: [0.0, 0.44, 0.9],
+                  : (coverBannerUrl != null && coverBannerUrl!.isNotEmpty)
+                      ? Image.network(
+                          coverBannerUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        )
+                      : Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.profileHeaderStart,
+                                AppColors.profileHeaderEnd,
+                                AppColors.profileHeaderEnd,
+                              ],
+                              stops: [0.0, 0.44, 0.9],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
             ),
           ),
 
@@ -366,7 +375,13 @@ class _ProfileHeader extends StatelessWidget {
               clipBehavior: hasAvatar ? Clip.antiAlias : Clip.none,
               child: avatarBytes != null
                   ? Image.memory(avatarBytes!, fit: BoxFit.cover)
-                  : NetworkImageView(url: photoURL),
+                  : (photoURL != null && photoURL!.isNotEmpty)
+                      ? Image.network(
+                          photoURL!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        )
+                      : null,
             ),
           ),
         ],

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -17,6 +19,7 @@ enum OtpState { idle, sendingOtp, codeSent, verifying, verified, error }
 class AppAuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
 
   User? user;
   String? role;
@@ -45,6 +48,19 @@ class AppAuthProvider extends ChangeNotifier {
   String? _bio;
   List<String>? _tags;
   String? _photoURL;
+  Uint8List? _imageBytes;
+
+  // Google registration state — populated by startGoogleRegistration(),
+  // consumed by signUp(), cleared by _clearSignupData().
+  bool _pendingGoogleRegistration = false;
+  AuthCredential? _googleCredential;
+  String? _googleDisplayName;
+  String? _googleEmail;
+  String? _googlePhotoURL;
+
+  bool get pendingGoogleRegistration => _pendingGoogleRegistration;
+  String? get googleDisplayName => _googleDisplayName;
+  String? get googleEmail => _googleEmail;
 
   AppAuthProvider() {
     _auth.authStateChanges().listen((u) {
@@ -125,8 +141,10 @@ class AppAuthProvider extends ChangeNotifier {
     return phone; // +6680000000
   }
 
-  void setExtraInfo(String photoURL, String displayName, String bio) {
+  void setExtraInfo(String photoURL, String displayName, String bio, {Uint8List? imageBytes}) {
+    debugPrint('[AuthProvider] imageBytes received: ${imageBytes?.length}');
     _photoURL = photoURL;
+    _imageBytes = imageBytes;
     _displayName = displayName;
     _bio = bio;
   }
@@ -195,18 +213,40 @@ class AppAuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      if (_email == null || _password == null || _displayName == null) {
-        throw Exception('Missing required signup data');
+      if (_googleCredential != null) {
+        // Google registration path — Firebase Auth created here for the first time.
+        await _authService.signUpWithGoogle(
+          credential: _googleCredential!,
+          displayName: _displayName ?? _googleDisplayName ?? '',
+          phoneNumber: _phone ?? '',
+          interests: _tags ?? [],
+          bio: _bio ?? '',
+          photoURL: (_photoURL != null && _photoURL!.isNotEmpty)
+              ? _photoURL!
+              : (_googlePhotoURL ?? ''),
+        );
+      } else {
+        // Email / password registration path.
+        if (_email == null || _password == null || _displayName == null) {
+          throw Exception('Missing required signup data');
+        }
+        debugPrint('[SignUp] _imageBytes before upload: ${_imageBytes?.length}');
+        final newUser = await _authService.signUp(
+          email: _email!,
+          password: _password!,
+          displayName: _displayName!,
+          phoneNumber: _phone ?? '',
+          interests: _tags ?? [],
+          bio: _bio ?? '',
+          photoURL: _photoURL ?? '',
+        );
+        debugPrint('[SignUp] newUser uid: ${newUser.uid}');
+        if (_imageBytes != null) {
+        final url = await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
+        await _authService.updatePhotoURL(newUser.uid, url);
       }
-      await _authService.signUp(
-        email: _email!,
-        password: _password!,
-        displayName: _displayName!,
-        phoneNumber: _phone ?? '',
-        interests: _tags ?? [],
-        bio: _bio ?? '',
-        photoURL: _photoURL ?? '',
-      );
+      }
+      
       _clearSignupData();
     } catch (e) {
       debugPrint('SignUp error: $e');
@@ -236,6 +276,45 @@ class AppAuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<User?> signInWithGoogle() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      return await _authService.signInWithGoogle();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Registration flow entry point for Google sign-in.
+  /// Fetches Google credentials + profile WITHOUT creating a Firebase Auth
+  /// session. Sets [pendingGoogleRegistration] to prevent the router from
+  /// redirecting to /home if a brief popup sign-in occurs on web.
+  Future<void> startGoogleRegistration() async {
+    _isLoading = true;
+    _pendingGoogleRegistration = true;
+    notifyListeners();
+    try {
+      final data = await _authService.fetchGoogleRegistrationData();
+      if (data == null) {
+        // User cancelled
+        _pendingGoogleRegistration = false;
+        return;
+      }
+      _googleCredential = data.credential;
+      _googleDisplayName = data.displayName;
+      _googleEmail = data.email;
+      _googlePhotoURL = data.photoURL;
+    } catch (e) {
+      _pendingGoogleRegistration = false;
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> signOut() async => _auth.signOut();
 
   void _clearSignupData() {
@@ -246,6 +325,12 @@ class AppAuthProvider extends ChangeNotifier {
     _tags = null;
     _bio = null;
     _photoURL = null;
+    _googleCredential = null;
+    _googleDisplayName = null;
+    _googleEmail = null;
+    _googlePhotoURL = null;
+    _pendingGoogleRegistration = false;
+    _imageBytes = null;
   }
 
   String _mapError(String code) {

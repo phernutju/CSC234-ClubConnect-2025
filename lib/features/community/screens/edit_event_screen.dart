@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -217,7 +218,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
     }
   }
 
-  void _onSave() {
+  Future<void> _onSave() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       _showSnack(AppStrings.createEventErrName);
@@ -227,8 +228,39 @@ class _EditEventScreenState extends State<EditEventScreen> {
       _showSnack(AppStrings.createEventErrDate);
       return;
     }
-    _showSnack('Event updated!');
-    context.pop();
+
+    final st = _startTime ?? const TimeOfDay(hour: 0, minute: 0);
+    final et = _endTime ?? st;
+    final startDateTime = DateTime(
+      _startDate!.year, _startDate!.month, _startDate!.day,
+      st.hour, st.minute,
+    );
+    final endBase = _endDate ?? _startDate!;
+    final endDateTime = DateTime(
+      endBase.year, endBase.month, endBase.day,
+      et.hour, et.minute,
+    );
+
+    try {
+      await EventService().updateEvent(
+        communityId: widget.event.communityId,
+        eventId: widget.event.id,
+        title: name,
+        description: _detailController.text.trim(),
+        location: _locationController.text.trim(),
+        startDate: Timestamp.fromDate(startDateTime),
+        endDate: Timestamp.fromDate(endDateTime),
+        maxAttendees: _memberLimit,
+        existingImageUrl: _existingCoverUrl.isEmpty ? null : _existingCoverUrl,
+        imageBytes: _coverBytes,
+      );
+      if (!mounted) return;
+      _showSnack('Event updated!');
+      context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Failed to update event: $e');
+    }
   }
 
   void _showSnack(String msg) {
