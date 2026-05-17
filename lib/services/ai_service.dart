@@ -27,6 +27,7 @@ class GeminiService {
     String text, {
     String rules = '',
   }) async {
+    print(rules);
     if (text.trim().isEmpty) {
       return const ModerationResult(
           isViolating: false, violatedRules: [], reason: '');
