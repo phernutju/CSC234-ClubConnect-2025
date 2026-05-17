@@ -183,6 +183,6 @@ class SmartBillService {
   // ── AI Verification stub ──────────────────────────────────────────────────
 
   Future<AiVerificationResult> verifySlip(
-      String slipUrl, double expectedAmount) =>
-      GeminiService.verifyPaymentSlip(slipUrl, expectedAmount);
+      Uint8List slipBytes, double expectedAmount) =>
+      GeminiService.verifyPaymentSlip(slipBytes, expectedAmount);
 }

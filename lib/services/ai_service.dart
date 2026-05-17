@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -19,7 +20,7 @@ class ModerationResult {
 
 class GeminiService {
   static const _endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-  static const _model = 'openrouter/free';
+  static const _model = 'nvidia/nemotron-nano-12b-v2-vl:free';
   static const _maxRetries = 3;
 
   static Future<ModerationResult> moderateMessage(
@@ -338,7 +339,7 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
   }
 
   static Future<AiVerificationResult> verifyPaymentSlip(
-    String slipUrl,
+    Uint8List slipBytes,
     double expectedAmount,
   ) async {
     final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
@@ -349,7 +350,21 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       result: 'mismatch',
     );
 
+    // Resize to reduce payload
+    Uint8List data = slipBytes;
     try {
+      final decoded = img.decodeImage(slipBytes);
+      if (decoded != null) {
+        final resized = img.copyResize(decoded, width: 512);
+        data = Uint8List.fromList(img.encodePng(resized));
+      }
+    } catch (_) {}
+    final base64Image = base64Encode(data);
+    final mime = _mimeType(slipBytes);
+
+    try {
+      // ignore: avoid_print
+      print('[SLIP] calling API with base64 bytes...');
       final response = await http.post(
         Uri.parse(_endpoint),
         headers: {
@@ -362,28 +377,34 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
           'temperature': 0,
           'messages': [
             {
+              'role': 'system',
+              'content': 'You are a strict Thai bank payment slip verifier. '
+                  'Your only job is to verify if an image is a genuine Thai bank transfer slip. '
+                  'If the image contains a person, animal, food, nature, or anything that is NOT a bank slip, '
+                  'you MUST return isRealSlip=false. Never guess or assume. Be strict.',
+            },
+            {
               'role': 'user',
               'content': [
                 {
                   'type': 'image_url',
-                  'image_url': {'url': slipUrl},
+                  'image_url': {'url': 'data:$mime;base64,$base64Image'},
                 },
                 {
                   'type': 'text',
-                  'text': 'This is a Thai bank transfer slip image. '
-                      'Analyse the slip and extract the transfer amount. '
-                      'Expected amount: ${expectedAmount.toStringAsFixed(2)} THB. '
-                      'Determine: (1) the detected transfer amount in THB, '
-                      '(2) whether this looks like a real (not fake/edited) bank slip, '
-                      '(3) whether the detected amount matches the expected amount (within 1 THB tolerance). '
-                      'Reply with JSON only, no explanation: '
-                      '{"detectedAmount":<number>,"isRealSlip":<true|false>,"amountMatch":<true|false>}',
+                  'text': 'Examine this image carefully.\n\n'
+                      'STEP 1 — Is this a Thai bank transfer slip or PromptPay confirmation? '
+                      'A valid slip MUST contain ALL of: transaction amount in THB, date/time, bank logo or reference number. '
+                      'If the image shows a person, animal, food, scenery, or ANY non-slip content → isRealSlip=false, detectedAmount=0.\n\n'
+                      'STEP 2 — Only if isRealSlip=true: does the amount match ${expectedAmount.toStringAsFixed(2)} THB (±1 THB)?\n\n'
+                      'Reply JSON only, no markdown:\n'
+                      '{"detectedAmount":<number>,"isRealSlip":<true|false>,"amountMatch":<true|false>,"reason":"<one sentence>"}',
                 },
               ],
             },
           ],
         }),
-      );
+      ).timeout(const Duration(seconds: 30));
 
       // ignore: avoid_print
       print('[SLIP] status=${response.statusCode} body=${response.body}');
@@ -393,7 +414,11 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       final msg = body['choices']?[0]?['message'];
       final content = (msg?['content'] as String? ?? '').trim();
       final reasoning = (msg?['reasoning'] as String? ?? '').trim();
-      final combined = content.isNotEmpty ? content : reasoning;
+      // strip markdown code fences if model wraps response
+      final combined = (content.isNotEmpty ? content : reasoning)
+          .replaceAll(RegExp(r'```[a-z]*\n?', caseSensitive: false), '')
+          .replaceAll('```', '')
+          .trim();
 
       final jsonMatch = RegExp(
         r'\{[^{}]*"detectedAmount"[^{}]*\}',
@@ -405,6 +430,7 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       final detected = (parsed['detectedAmount'] as num?)?.toDouble() ?? 0;
       final isReal = parsed['isRealSlip'] as bool? ?? false;
       final amountMatch = parsed['amountMatch'] as bool? ?? false;
+      final reason = parsed['reason'] as String? ?? '';
       final isMatch = isReal && amountMatch;
 
       return AiVerificationResult(
@@ -412,6 +438,17 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
         expectedAmount: expectedAmount,
         recipientMatch: isReal,
         result: isMatch ? 'match' : 'mismatch',
+        reason: reason,
+      );
+    } on TimeoutException catch (_) {
+      // ignore: avoid_print
+      print('[SLIP] timeout after 30s');
+      return AiVerificationResult(
+        detectedAmount: 0,
+        expectedAmount: expectedAmount,
+        recipientMatch: false,
+        result: 'mismatch',
+        reason: 'Verification timed out. Please try again.',
       );
     } catch (e) {
       // ignore: avoid_print
