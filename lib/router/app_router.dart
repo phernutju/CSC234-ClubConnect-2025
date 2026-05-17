@@ -155,6 +155,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
             communityId: args?.communityId ?? '',
             communityName: args?.communityName ?? AppStrings.chatCommunityName,
             memberCount: args?.memberCount ?? '',
+            targetMessageId: args?.targetMessageId,
           );
         },
       ),

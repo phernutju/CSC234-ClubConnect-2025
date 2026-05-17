@@ -27,12 +27,14 @@ class ChatScreen extends StatefulWidget {
   final String communityId;
   final String communityName;
   final String memberCount;
+  final String? targetMessageId;
 
   const ChatScreen({
     super.key,
     required this.communityId,
     required this.communityName,
     required this.memberCount,
+    this.targetMessageId,
   });
 
   @override
@@ -63,6 +65,12 @@ class _ChatScreenState extends State<ChatScreen> {
   CommunityProvider? _provider;
   int _lastMessageCount = 0;
 
+  // Target-message scroll/highlight (e.g. tap from a reply/mention notification)
+  String? _pendingScrollTargetId;
+  String? _highlightedMessageId;
+  Timer? _highlightTimer;
+  final Map<String, GlobalKey> _messageKeys = {};
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -72,6 +80,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _pendingScrollTargetId = widget.targetMessageId;
     _inputController.addListener(_onTextChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -113,6 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _provider?.removeListener(_onProviderChange);
     _banSub?.cancel();
     _provider?.clearActiveCommunity();
+    _highlightTimer?.cancel();
     _inputController.removeListener(_onTextChanged);
     _inputController.dispose();
     _scrollController.dispose();
@@ -346,6 +356,27 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _scrollToTargetMessage() {
+    final id = _pendingScrollTargetId;
+    if (id == null) return;
+    final key = _messageKeys[id];
+    final ctx = key?.currentContext;
+    if (ctx == null) return; // not laid out yet — try again on next frame
+    _pendingScrollTargetId = null;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      alignment: 0.3,
+    );
+    setState(() => _highlightedMessageId = id);
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (!mounted) return;
+      setState(() => _highlightedMessageId = null);
+    });
+  }
+
   void _onLongPressMessage(ChatMessage message, Offset tapPosition) {
     showMessageMenu(
       context,
@@ -506,7 +537,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (cp.messages.length != _lastMessageCount) {
       _lastMessageCount = cp.messages.length;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pendingScrollTargetId != null) {
+          _scrollToTargetMessage();
+        } else {
+          _scrollToBottom();
+        }
+      });
+    } else if (_pendingScrollTargetId != null) {
+      // Messages already loaded (e.g. cached) on first build — still try.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToTargetMessage());
     }
 
     final uiMessages = _mergeSystemMessages(
@@ -627,7 +667,15 @@ class _ChatScreenState extends State<ChatScreen> {
         final item = items[index];
         if (item is String) return _DateSeparator(label: item);
         final message = item as ChatMessage;
-        return MessageBubble(
+
+        final isTargetMessage = widget.targetMessageId != null &&
+            message.id == widget.targetMessageId;
+        final key = isTargetMessage
+            ? _messageKeys.putIfAbsent(message.id, () => GlobalKey())
+            : null;
+        final isHighlighted = message.id == _highlightedMessageId;
+
+        final bubble = MessageBubble(
           message: message,
           onLongPress: (pos) => _onLongPressMessage(message, pos),
           onSenderTap: message.isSent
@@ -642,6 +690,23 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
           onMentionTap: (uid) => _onMentionTap(uid, currentUid, cp),
+        );
+
+        return AnimatedContainer(
+          key: key,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingXS,
+            vertical: AppSizes.paddingXS,
+          ),
+          decoration: BoxDecoration(
+            color: isHighlighted
+                ? AppColors.primary.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppSizes.radiusBubbleTail),
+          ),
+          child: bubble,
         );
       },
     );

@@ -5,9 +5,14 @@ class ChatArgs {
   final String communityName;
   final String memberCount;
 
+  /// When non-null, the chat screen scrolls to this message after load and
+  /// briefly highlights it. Used by notification taps (reply / mention).
+  final String? targetMessageId;
+
   const ChatArgs({
     required this.communityId,
     required this.communityName,
     required this.memberCount,
+    this.targetMessageId,
   });
 }
