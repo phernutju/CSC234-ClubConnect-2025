@@ -23,18 +23,38 @@ class EventProvider extends ChangeNotifier {
 
   // ── Events stream ──────────────────────────────────────────────────────────
 
- void loadPublishedEvents() {
+  void reassemble() {
     _publishedSub?.cancel();
-    _publishedSub = _service.getPublishedEvents().listen(
-      (list) {
-        publishedEvents = list;
-        notifyListeners();
-      },
-      onError: (e) {
-        error = e.toString();
-        notifyListeners();
-      },
-    );
+    _publishedSub = null;
+    loadPublishedEvents();
+  }
+
+  void loadPublishedEvents() {
+    debugPrint('[Events] loadPublishedEvents() called');
+    debugPrint('[Events] _publishedSub is null: ${_publishedSub == null}');
+    if (_publishedSub != null) {
+      debugPrint('[Events] subscription already active — skipping');
+      return;
+    }
+    try {
+      _publishedSub = _service.getPublishedEvents().listen(
+        (list) {
+          debugPrint('[Events] received ${list.length} events');
+          publishedEvents = list;
+          notifyListeners();
+        },
+        onError: (e) {
+          debugPrint('[Events] STREAM ERROR: $e');
+          debugPrint('[EventProvider] getPublishedEvents error: $e');
+          error = e.toString();
+          _publishedSub = null;
+          notifyListeners();
+        },
+      );
+      debugPrint('[Events] subscription created: $_publishedSub');
+    } catch (e) {
+      debugPrint('[Events] EXCEPTION creating subscription: $e');
+    }
   }
 
   void clearPublishedEvents() {
@@ -186,38 +206,7 @@ class EventProvider extends ChangeNotifier {
   void dispose() {
     _eventsSub?.cancel();
     _eventMessagesSub?.cancel();
-    void clearEvents() {
-      events = [];
-      _eventsSub?.cancel();
-      notifyListeners();
-    }
-
-    // Subscribes to all published events across all communities.
-    void loadPublishedEvents() {
-      _publishedSub?.cancel();
-      _publishedSub = _service.getPublishedEvents().listen(
-        (list) {
-          publishedEvents = list;
-          notifyListeners();
-        },
-        onError: (e) {
-          error = e.toString();
-          notifyListeners();
-        },
-      );
-    }
-
-    void clearPublishedEvents() {
-      publishedEvents = [];
-      _publishedSub?.cancel();
-      notifyListeners();
-    }
-
-    @override
-    void dispose() {
-      _eventsSub?.cancel();
-      _publishedSub?.cancel();
-      super.dispose();
-    }
+    _publishedSub?.cancel();
+    super.dispose();
   }
 }

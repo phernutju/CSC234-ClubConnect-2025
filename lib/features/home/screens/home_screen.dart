@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
         cp.loadMyCommunities();
         cp.loadTrendingCommunities();
         context.read<ProfileProvider>().loadProfile(auth.user!.uid);
+        context.read<EventProvider>().loadPublishedEvents();
       }
     });
   }
@@ -96,7 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return list
         .where((c) =>
             c.communityName.toLowerCase().contains(q) ||
-            c.description.toLowerCase().contains(q))
+            c.description.toLowerCase().contains(q) ||
+            c.tags.any((t) => t.name.toLowerCase().contains(q)))
         .toList();
   }
 
@@ -337,13 +339,18 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<EventProvider>().loadPublishedEvents();
+      if (mounted) context.read<EventProvider>().loadPublishedEvents();
     });
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    context.read<EventProvider>().reassemble();
+  }
+
+  @override
   void dispose() {
-    context.read<EventProvider>().clearPublishedEvents();
     super.dispose();
   }
 
