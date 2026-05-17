@@ -19,18 +19,10 @@ class CommunityInfoModal extends StatelessWidget {
   /// Pass null to show the modal as view-only (no Next button — close via X only).
   final VoidCallback? onNext;
 
-  /// Show edit/delete icons below the community name (creator only).
-  final bool isOwner;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-
   const CommunityInfoModal({
     super.key,
     required this.community,
     this.onNext,
-    this.isOwner = false,
-    this.onEdit,
-    this.onDelete,
   });
 
   @override
@@ -84,28 +76,6 @@ class CommunityInfoModal extends StatelessWidget {
                         color: AppColors.textDark,
                       ),
                     ),
-                    if (isOwner) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              onEdit?.call();
-                            },
-                            child: const Icon(Icons.edit_outlined, size: 18, color: AppColors.primary),
-                          ),
-                          const SizedBox(width: 12),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              onDelete?.call();
-                            },
-                            child: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                          ),
-                        ],
-                      ),
-                    ],
                     const SizedBox(height: 4),
 
                     // "[N] members" — N is bold, "members" is regular

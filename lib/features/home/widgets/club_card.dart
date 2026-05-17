@@ -9,9 +9,6 @@ class ClubCard extends StatelessWidget {
   final String memberCount;
   final String? coverImageUrl;
   final VoidCallback? onTap;
-  final bool isOwner;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
 
   const ClubCard({
     super.key,
@@ -20,9 +17,6 @@ class ClubCard extends StatelessWidget {
     required this.memberCount,
     this.coverImageUrl,
     this.onTap,
-    this.isOwner = false,
-    this.onEdit,
-    this.onDelete,
   });
 
   @override
@@ -50,9 +44,6 @@ class ClubCard extends StatelessWidget {
               name: name,
               description: description,
               memberCount: memberCount,
-              isOwner: isOwner,
-              onEdit: onEdit,
-              onDelete: onDelete,
             )),
           ],
         ),
@@ -88,17 +79,11 @@ class _ClubInfo extends StatelessWidget {
   final String name;
   final String description;
   final String memberCount;
-  final bool isOwner;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
 
   const _ClubInfo({
     required this.name,
     required this.description,
     required this.memberCount,
-    this.isOwner = false,
-    this.onEdit,
-    this.onDelete,
   });
 
   @override
@@ -116,22 +101,6 @@ class _ClubInfo extends StatelessWidget {
             color: AppColors.textDark,
           ),
         ),
-        if (isOwner) ...[
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: onEdit,
-                child: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: onDelete,
-                child: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-              ),
-            ],
-          ),
-        ],
         const SizedBox(height: 2),
 
         Text(

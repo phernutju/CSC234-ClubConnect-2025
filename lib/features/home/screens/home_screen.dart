@@ -307,12 +307,9 @@ class _MyClubList extends StatelessWidget {
         ),
       );
     }
-    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     return ListView(
       children: communities
-          .map((c) {
-            final isOwner = currentUid.isNotEmpty && c.createdBy == currentUid;
-            return ClubCard(
+          .map((c) => ClubCard(
               name: c.communityName,
               description: c.description.isEmpty
                   ? c.tags.map((t) => t.name).join(', ')
@@ -321,11 +318,7 @@ class _MyClubList extends StatelessWidget {
                   '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
               coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
               onTap: () => onTap(c),
-              isOwner: isOwner,
-              onEdit: isOwner ? () => context.push('/edit-community', extra: c) : null,
-              onDelete: isOwner ? () => _confirmDeleteCommunity(context, c.id) : null,
-            );
-          })
+            ))
           .toList(),
     );
   }
@@ -375,7 +368,6 @@ class _DiscoverTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     final filtered = selectedCategory == null
         ? communities
         : communities
@@ -419,7 +411,7 @@ class _DiscoverTab extends StatelessWidget {
             ),
           )
         else
-          ..._buildCommunityCards(filtered, onTap, context, currentUid),
+          ..._buildCommunityCards(filtered, onTap),
       ],
     );
   }
@@ -441,8 +433,7 @@ class _CommunityList extends StatelessWidget {
         ),
       );
     }
-    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
-    return ListView(children: _buildCommunityCards(communities, onTap, context, currentUid));
+    return ListView(children: _buildCommunityCards(communities, onTap));
   }
 }
 
@@ -473,20 +464,12 @@ Future<void> _confirmDeleteCommunity(BuildContext context, String communityId) a
 List<Widget> _buildCommunityCards(
   List<CommunityModel> communities,
   void Function(CommunityModel) onTap,
-  BuildContext context,
-  String currentUid,
 ) {
-  return communities.map((c) {
-    final isOwner = currentUid.isNotEmpty && c.createdBy == currentUid;
-    return ClubCard(
-      name: c.communityName,
-      description: c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
-      memberCount: '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-      coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
-      onTap: () => onTap(c),
-      isOwner: isOwner,
-      onEdit: isOwner ? () => context.push('/edit-community', extra: c) : null,
-      onDelete: isOwner ? () => _confirmDeleteCommunity(context, c.id) : null,
-    );
-  }).toList();
+  return communities.map((c) => ClubCard(
+    name: c.communityName,
+    description: c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
+    memberCount: '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+    coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+    onTap: () => onTap(c),
+  )).toList();
 }

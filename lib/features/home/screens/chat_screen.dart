@@ -392,57 +392,12 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       return;
     }
-    final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
-    final myRole = cp.members
-        .where((m) => m.userId == currentUid)
-        .map((m) => m.role)
-        .fold<String>('user', (_, r) => r);
-    final isCreator = myRole == 'creator';
     showDialog(
       context: context,
       barrierColor: Colors.black45,
       barrierDismissible: true,
-      builder: (_) => CommunityInfoModal(
-        community: community,
-        isOwner: isCreator,
-        onEdit: isCreator ? _onEdit : null,
-        onDelete: isCreator ? _onDeleteCommunity : null,
-      ),
+      builder: (_) => CommunityInfoModal(community: community),
     );
-  }
-
-  void _onEdit() {
-    setState(() => _menuOpen = false);
-    final community = context.read<CommunityProvider>().activeCommunity;
-    if (community == null) return;
-    context.push('/edit-community', extra: community);
-  }
-
-  Future<void> _onDeleteCommunity() async {
-    setState(() => _menuOpen = false);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Community'),
-        content: const Text(
-          'Are you sure? This will permanently delete the community and all its messages. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    await context.read<CommunityProvider>().deleteCommunity(widget.communityId);
-    if (!mounted) return;
-    context.pop();
   }
 
   void _onMute() {
@@ -518,8 +473,6 @@ class _ChatScreenState extends State<ChatScreen> {
         .where((m) => m.userId == currentUid)
         .map((m) => m.role)
         .fold<String>('user', (_, r) => r);
-    final canManage = myRole == 'creator';
-
     // Trigger display-name fetches for message senders
     for (final m in cp.messages) {
       if (!m.isSystem && m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
@@ -569,9 +522,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 communityName: widget.communityName,
                 memberCount: memberDisplay,
                 onMenuTap: () => setState(() => _menuOpen = !_menuOpen),
-                canManage: canManage,
-                onEdit: _onEdit,
-                onDelete: _onDeleteCommunity,
               ),
 
               // ── Error banner ────────────────────────────────────────────
@@ -774,17 +724,11 @@ class _ChatAppBar extends StatelessWidget {
   final String communityName;
   final String memberCount;
   final VoidCallback onMenuTap;
-  final bool canManage;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
 
   const _ChatAppBar({
     required this.communityName,
     required this.memberCount,
     required this.onMenuTap,
-    this.canManage = false,
-    this.onEdit,
-    this.onDelete,
   });
 
   String get _title =>
@@ -820,24 +764,6 @@ class _ChatAppBar extends StatelessWidget {
                 ),
               ),
             ),
-            if (canManage) ...[
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, color: AppColors.cardWhite, size: 20),
-                onPressed: onEdit,
-                tooltip: 'Edit community',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: AppSizes.paddingS),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: AppColors.cardWhite, size: 20),
-                onPressed: onDelete,
-                tooltip: 'Delete community',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: AppSizes.paddingS),
-            ],
             GestureDetector(
               onTap: onMenuTap,
               child: const Icon(Icons.menu, color: AppColors.cardWhite),
