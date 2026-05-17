@@ -30,6 +30,7 @@ import '../features/community/screens/bill_summary_screen.dart';
 import '../features/community/screens/bill_payment_screen.dart';
 import '../features/community/screens/payment_success_screen.dart';
 import '../features/community/screens/create_bill_screen.dart';
+import '../models/smart_bill_model.dart';
 import '../models/bill_payment_args.dart';
 import '../models/smart_pay_bill_args.dart';
 import '../features/auth/screens/banned_screen.dart';
@@ -225,7 +226,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
           return CreateBillScreen(
             communityId: args['communityId'] as String? ?? '',
             eventId: args['eventId'] as String? ?? '',
-            eventName: args['eventName'] as String,
+            eventName: args['eventName'] as String? ?? '',
+            existingBill: args['bill'] as SmartBillModel?,
+            existingItems: args['items'] as List<SmartBillItemModel>?,
+            isEdit: args['isEdit'] as bool? ?? false,
           );
         },
       ),

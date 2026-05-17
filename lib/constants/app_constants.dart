@@ -374,7 +374,7 @@ class AppStrings {
   static const String otpHeadingAccent = 'OTP';
   static const String otpSubtitle =
       "We've sent a text message to your phone!\n"
-      'Please enter the 4-digit here to continue.';
+      'Please enter the 6-digit here to continue.';
   static const String otpNoCode = "Didn't receive code? ";
   static const String otpResend = 'Resend now';
   static const String otpNext   = 'Next';

@@ -121,6 +121,27 @@ class CommunityService {
         );
   }
 
+  /// Returns a page of communities using cursor-based pagination.
+  /// Pass the last document from the previous page as [afterDoc] to advance.
+  Future<QuerySnapshot<Map<String, dynamic>>> getCommunitiesPage({
+    int pageSize = 10,
+    DocumentSnapshot<Map<String, dynamic>>? afterDoc,
+    String orderField = 'createdAt',
+    bool descending = true,
+  }) async {
+    Query<Map<String, dynamic>> q = _communities
+        .orderBy(orderField, descending: descending)
+        .limit(pageSize);
+    if (afterDoc != null) q = q.startAfterDocument(afterDoc);
+    return q.get();
+  }
+
+  /// Returns the total count of all communities using a Firestore aggregate query.
+  Future<int> getCommunitiesCount() async {
+    final snap = await _communities.count().get();
+    return snap.count ?? 0;
+  }
+
   // Get communities the user is a member of
   Stream<List<CommunityModel>> getMyCommunities() async* {
     final user = _requireAuth();
@@ -241,20 +262,10 @@ class CommunityService {
     await _communities.doc(communityId).update(updates);
   }
 
-  /// Permanently removes the community and its members subcollection.
-  /// Only the creator is authorised to call this.
   Future<void> deleteCommunity(String communityId) async {
     final user = _requireAuth();
     await _requireCreator(communityId, user.uid);
-
-    // Fetch and batch-delete all member documents before removing the community.
-    final membersSnap = await _members(communityId).get();
-    final batch = _db.batch();
-    for (final doc in membersSnap.docs) {
-      batch.delete(doc.reference);
-    }
-    batch.delete(_communities.doc(communityId));
-    await batch.commit();
+    await _communities.doc(communityId).delete();
   }
 
   // ── Membership ─────────────────────────────────────────────────────────────

@@ -384,15 +384,18 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onInfo() {
     setState(() => _menuOpen = false);
-    final community = context.read<CommunityProvider>().activeCommunity;
+    final cp = context.read<CommunityProvider>();
+    final community = cp.activeCommunity;
     if (community == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.chatInfoSnackbar)),
       );
       return;
     }
+
     final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     final isHost = community.createdBy == currentUid;
+
     if (isHost) {
       context.push('/edit-community', extra: community);
     } else {
@@ -474,7 +477,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final cp = context.watch<CommunityProvider>();
     final currentUid = context.watch<AppAuthProvider>().user?.uid ?? '';
     final muted = cp.isMuted(widget.communityId);
-
+    final myRole = cp.members
+        .where((m) => m.userId == currentUid)
+        .map((m) => m.role)
+        .fold<String>('user', (_, r) => r);
     // Trigger display-name fetches for message senders
     for (final m in cp.messages) {
       if (!m.isSystem && m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
@@ -843,35 +849,43 @@ class _ChatMenuBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.primary,
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(
-                icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
-                label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
-                onTap: onMute,
-              ),
-              _MenuItem(icon: Icons.group_outlined, label: AppStrings.chatMenuMembers, onTap: onShowMembers),
-              _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
-              _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
-              IgnorePointer(
-                child: Opacity(
-                  opacity: 0,
-                  child: _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: () {}),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(
+                  icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+                  label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
+                  onTap: onMute,
                 ),
-              ),
-            ],
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.group_outlined, label: AppStrings.chatMenuMembers, onTap: onShowMembers),
+                const SizedBox(height: 5),
+                _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
+                const SizedBox(height: 5),
+                const SizedBox(),
+              ],
+            ),
           ),
         ],
       ),
@@ -897,14 +911,14 @@ class _MenuItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 44),
+          Icon(icon, color: Colors.white, size: 32),
           const SizedBox(height: 8),
           Text(
             label,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 13,
+              fontSize: 11,
             ),
           ),
         ],

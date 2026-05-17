@@ -77,6 +77,10 @@ class SmartBillProvider extends ChangeNotifier {
     );
   }
 
+  Future<SmartBillModel?> fetchBillByEvent(
+          String communityId, String eventId) =>
+      _service.getBillByEvent(communityId, eventId);
+
   void loadMyPayment(
       String communityId, String eventId, String billId, String userId) {
     _paymentSub?.cancel();
@@ -102,6 +106,18 @@ class SmartBillProvider extends ChangeNotifier {
       },
       onError: _onError,
     );
+  }
+
+  Future<bool> deleteBill(
+      String communityId, String eventId, String billId) async {
+    try {
+      await _service.deleteBill(communityId, eventId, billId);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<bool> settleBill(
@@ -137,6 +153,17 @@ class SmartBillProvider extends ChangeNotifier {
       String billId, String userId) async {
     try {
       await _service.rejectPaymentManually(
+          communityId, eventId, billId, userId);
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> unverifyMemberPayment(String communityId, String eventId,
+      String billId, String userId) async {
+    try {
+      await _service.unverifyPaymentManually(
           communityId, eventId, billId, userId);
     } catch (e) {
       error = e.toString();
@@ -224,6 +251,83 @@ class SmartBillProvider extends ChangeNotifier {
 
       bill = created;
       return created;
+    } catch (e) {
+      error = e.toString();
+      return null;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Update & Publish ──────────────────────────────────────────────────────
+
+  Future<SmartBillModel?> updateAndPublishBill({
+    required String communityId,
+    required String eventId,
+    required SmartBillModel existingBill,
+    required String name,
+    required List<SmartBillMember> members,
+    required List<SmartBillItemModel> billItems,
+    Uint8List? qrImageBytes,
+  }) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final total = billItems.fold(0.0, (s, i) => s + i.price);
+
+      String qrUrl = existingBill.hostPromptPayQrUrl;
+      if (qrImageBytes != null && qrImageBytes.isNotEmpty) {
+        qrUrl = await _service.uploadQrImage(
+            communityId, eventId, existingBill.id, qrImageBytes);
+      }
+
+      final updated = existingBill.copyWith(
+        name: name,
+        members: members,
+        totalAmount: total,
+        hostPromptPayQrUrl: qrUrl,
+      );
+      await _service.updateBill(communityId, eventId, updated);
+
+      // Replace all items
+      final oldItems =
+          await _service.getItems(communityId, eventId, existingBill.id);
+      for (final item in oldItems) {
+        await _service.deleteItem(
+            communityId, eventId, existingBill.id, item.id);
+      }
+      for (final item in billItems) {
+        await _service.addItem(communityId, eventId, existingBill.id, item);
+      }
+
+      // Recalculate per-member amounts and reset payments
+      final Map<String, double> memberAmounts = {};
+      for (final item in billItems) {
+        if (item.payerIds.isEmpty) continue;
+        final share = item.price / item.payerIds.length;
+        for (final uid in item.payerIds) {
+          memberAmounts[uid] = (memberAmounts[uid] ?? 0) + share;
+        }
+      }
+      for (final member in members) {
+        await _service.createPayment(
+          communityId,
+          eventId,
+          existingBill.id,
+          SmartPaymentModel(
+            id: member.uid,
+            userId: member.uid,
+            amountDue: memberAmounts[member.uid] ?? 0,
+            status:
+                member.uid == existingBill.hostId ? 'verified' : 'pending',
+          ),
+        );
+      }
+
+      bill = updated;
+      return updated;
     } catch (e) {
       error = e.toString();
       return null;

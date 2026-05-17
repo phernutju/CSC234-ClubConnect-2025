@@ -55,6 +55,13 @@ class SmartBillService {
           .map((s) =>
               s.docs.isEmpty ? null : SmartBillModel.fromFirestore(s.docs.first));
 
+  Future<SmartBillModel?> getBillByEvent(
+      String communityId, String eventId) async {
+    final snap = await _billsCol(communityId, eventId).limit(1).get();
+    if (snap.docs.isEmpty) return null;
+    return SmartBillModel.fromFirestore(snap.docs.first);
+  }
+
   Future<void> updateBill(
           String communityId, String eventId, SmartBillModel bill) =>
       _billsCol(communityId, eventId)
@@ -141,6 +148,16 @@ class SmartBillService {
       _paymentsCol(communityId, eventId, billId)
           .doc(userId)
           .update({'status': 'rejected'});
+
+  Future<void> unverifyPaymentManually(String communityId, String eventId,
+          String billId, String userId) =>
+      _paymentsCol(communityId, eventId, billId)
+          .doc(userId)
+          .update({'status': 'pending'});
+
+  Future<void> deleteBill(
+          String communityId, String eventId, String billId) =>
+      _billsCol(communityId, eventId).doc(billId).delete();
 
   Future<void> settleBill(
           String communityId, String eventId, String billId) =>
