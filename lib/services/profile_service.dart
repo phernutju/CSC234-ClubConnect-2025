@@ -18,6 +18,7 @@ class ProfileService {
     'interests',
     'phoneNumber',
     'photoURL',
+    'coverBannerUrl',
   };
 
   ProfileService({
@@ -93,6 +94,22 @@ class ProfileService {
       'interests': interests,
       'updatedAt': Timestamp.now(),
     });
+  }
+
+  /// Uploads a banner image and saves its download URL to the user's Firestore doc.
+  Future<void> updateUserBanner(Uint8List bytes) async {
+    final current = _requireAuth();
+    try {
+      final url = await _storage.uploadUserBanner(bytes, current.uid);
+      await _users.doc(current.uid).update({
+        'coverBannerUrl': url,
+        'updatedAt': Timestamp.now(),
+      });
+    } on FirebaseException catch (e) {
+      throw Exception('Failed to update banner: ${e.message ?? 'Firebase storage/firestore error'}');
+    } catch (e) {
+      throw Exception('Failed to update banner: $e');
+    }
   }
 
   Future<void> deleteUserProfile(String userId) async {
