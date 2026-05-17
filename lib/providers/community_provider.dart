@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/category_model.dart';
@@ -118,6 +119,19 @@ class CommunityProvider extends ChangeNotifier {
       },
     );
   }
+
+  // ── Discover pagination ────────────────────────────────────────────────────
+  List<CommunityModel> discoverPage = [];
+  int discoverTotalCount = 0;
+  int discoverCurrentPage = 0;
+  bool isDiscoverLoading = false;
+  final List<DocumentSnapshot<Map<String, dynamic>>?> _discoverCursors = [null];
+
+  int get discoverTotalPages =>
+      discoverTotalCount <= 0 ? 0 : ((discoverTotalCount + 9) ~/ 10);
+
+  /// Number of pages for which a start-cursor is cached (i.e. navigable).
+  int get discoverKnownPages => _discoverCursors.length;
 
   CommunityProvider({CommunityService? service})
       : _service = service ?? CommunityService() {
@@ -371,6 +385,62 @@ class CommunityProvider extends ChangeNotifier {
 
   Future<void> incrementReactionCount(String communityId) =>
       _service.incrementReactionCount(communityId);
+
+  // ── Discover pagination ────────────────────────────────────────────────────
+
+  /// Fetches the total community count and the first page simultaneously.
+  Future<void> loadDiscoverFirstPage() async {
+    isDiscoverLoading = true;
+    discoverCurrentPage = 0;
+    _discoverCursors
+      ..clear()
+      ..add(null);
+    notifyListeners();
+    try {
+      final results = await Future.wait([
+        _service.getCommunitiesCount(),
+        _service.getCommunitiesPage(),
+      ]);
+      discoverTotalCount = results[0] as int;
+      final snap = results[1] as QuerySnapshot<Map<String, dynamic>>;
+      discoverPage = snap.docs.map((d) => CommunityModel.fromJson(d)).toList();
+      if (snap.docs.length == 10 && _discoverCursors.length < 2) {
+        _discoverCursors.add(
+            snap.docs.last as DocumentSnapshot<Map<String, dynamic>>);
+      }
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isDiscoverLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Navigates to [page] (0-indexed). Only succeeds when the page's start-cursor
+  /// is already cached (i.e. the user has visited all preceding pages first).
+  Future<void> goToDiscoverPage(int page) async {
+    if (page < 0 || page >= discoverTotalPages) return;
+    if (page >= _discoverCursors.length) return;
+
+    isDiscoverLoading = true;
+    notifyListeners();
+    try {
+      final snap =
+          await _service.getCommunitiesPage(afterDoc: _discoverCursors[page]);
+      discoverPage = snap.docs.map((d) => CommunityModel.fromJson(d)).toList();
+      discoverCurrentPage = page;
+      final nextPage = page + 1;
+      if (snap.docs.length == 10 && nextPage >= _discoverCursors.length) {
+        _discoverCursors.add(
+            snap.docs.last as DocumentSnapshot<Map<String, dynamic>>);
+      }
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isDiscoverLoading = false;
+      notifyListeners();
+    }
+  }
 
   // ── Helper ─────────────────────────────────────────────────────────────────
 

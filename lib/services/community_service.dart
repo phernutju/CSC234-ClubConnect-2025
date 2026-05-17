@@ -121,6 +121,25 @@ class CommunityService {
         );
   }
 
+  /// Returns a page of communities (newest first) using cursor-based pagination.
+  /// Pass the last document from the previous page as [afterDoc] to advance.
+  Future<QuerySnapshot<Map<String, dynamic>>> getCommunitiesPage({
+    int pageSize = 10,
+    DocumentSnapshot<Map<String, dynamic>>? afterDoc,
+  }) async {
+    Query<Map<String, dynamic>> q = _communities
+        .orderBy('createdAt', descending: true)
+        .limit(pageSize);
+    if (afterDoc != null) q = q.startAfterDocument(afterDoc);
+    return q.get();
+  }
+
+  /// Returns the total count of all communities using a Firestore aggregate query.
+  Future<int> getCommunitiesCount() async {
+    final snap = await _communities.count().get();
+    return snap.count ?? 0;
+  }
+
   // Get communities the user is a member of
   Stream<List<CommunityModel>> getMyCommunities() async* {
     final user = _requireAuth();
