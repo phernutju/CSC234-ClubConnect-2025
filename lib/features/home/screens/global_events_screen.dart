@@ -45,8 +45,10 @@ class _GlobalEventsScreenState extends State<GlobalEventsScreen> {
                     itemCount: ep.publishedEvents.length,
                     separatorBuilder: (_, __) =>
                         const SizedBox(height: AppSizes.paddingM),
-                    itemBuilder: (_, i) =>
-                        EventCard(event: ep.publishedEvents[i]),
+                    itemBuilder: (_, i) => EventCard(
+                      event: ep.publishedEvents[i],
+                      communityId: ep.publishedEvents[i].communityId,
+                    ),
                   ),
           ),
         ],
