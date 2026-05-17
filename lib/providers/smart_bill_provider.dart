@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/smart_bill_model.dart';
 import '../services/smart_bill_service.dart';
+import '../services/notification_service.dart';
 
 class SmartBillProvider extends ChangeNotifier {
   final SmartBillService _service;
+  final NotificationService _notifications;
 
   SmartBillModel? bill;
   List<SmartBillItemModel> items = [];
@@ -21,8 +23,11 @@ class SmartBillProvider extends ChangeNotifier {
   StreamSubscription<SmartPaymentModel?>? _paymentSub;
   StreamSubscription<List<SmartPaymentModel>>? _allPaymentsSub;
 
-  SmartBillProvider({SmartBillService? service})
-      : _service = service ?? SmartBillService();
+  SmartBillProvider({
+    SmartBillService? service,
+    NotificationService? notificationService,
+  })  : _service = service ?? SmartBillService(),
+        _notifications = notificationService ?? NotificationService();
 
   // ── Streams ───────────────────────────────────────────────────────────────
 
@@ -373,6 +378,37 @@ class SmartBillProvider extends ChangeNotifier {
           aiVerification: result,
         ),
       );
+
+      // Best-effort: notify host of verification result.
+      try {
+        final hostId = bill?.hostId;
+        if (hostId != null && hostId.isNotEmpty) {
+          final payerName = (bill?.members ?? const [])
+              .firstWhere(
+                (m) => m.uid == userId,
+                orElse: () =>
+                    const SmartBillMember(uid: '', name: 'Member'),
+              )
+              .name;
+          final displayName = payerName.isEmpty ? 'Member' : payerName;
+          final amountStr = amountDue.toStringAsFixed(2);
+          final isVerified = result.isMatch;
+          await _notifications.createNotification(hostId, {
+            'communityId': communityId,
+            'mentionedBy': userId,
+            'title': isVerified
+                ? '$displayName has paid'
+                : '$displayName payment was rejected',
+            'description': isVerified
+                ? 'Payment of $amountStr has been verified successfully'
+                : 'Payment of $amountStr could not be verified. Amount or recipient did not match.',
+            'type': 'system',
+          });
+        }
+      } catch (_) {
+        // Notification is best-effort; failures must not affect payment flow.
+      }
+
       notifyListeners();
       return result;
     } catch (e) {
