@@ -141,6 +141,41 @@ class EventService {
     await _events(communityId).doc(eventId).delete();
   }
 
+  Future<void> updateEvent({
+    required String communityId,
+    required String eventId,
+    required String title,
+    required String description,
+    required String location,
+    required Timestamp startDate,
+    required Timestamp endDate,
+    required int maxAttendees,
+    String? existingImageUrl,
+    Uint8List? imageBytes,
+  }) async {
+    final user = _requireAuth();
+    final doc = await _events(communityId).doc(eventId).get();
+    if (!doc.exists) throw Exception('Event not found');
+    if (doc.data()?['createdBy'] != user.uid) {
+      throw Exception('Only the event creator can edit this event');
+    }
+
+    String? imageUrl = existingImageUrl;
+    if (imageBytes != null) {
+      imageUrl = await _storage.uploadEventImage(imageBytes, communityId);
+    }
+
+    await _events(communityId).doc(eventId).update({
+      'title': title,
+      'description': description,
+      'location': location,
+      'startDate': startDate,
+      'endDate': endDate,
+      'maxAttendees': maxAttendees,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+    });
+  }
+
   // ── Event messages ─────────────────────────────────────────────────────────
 
   Stream<List<MessageModel>> getEventMessages(

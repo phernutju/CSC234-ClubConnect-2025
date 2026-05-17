@@ -39,9 +39,12 @@ class StorageService {
   }
 
   Future<String> uploadUserAvatar(Uint8List bytes, String userId) async {
+    debugPrint('[Storage] uploading bytes: ${bytes.length} to uid: $userId');
     final ref = _storage.ref().child('user_avatars/$userId/avatar.jpg');
     await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-    return ref.getDownloadURL();
+    final url = await ref.getDownloadURL();
+    debugPrint('[Storage] upload URL: $url');
+    return url;
   }
 
   Future<String> uploadUserBanner(Uint8List bytes, String userId) async {

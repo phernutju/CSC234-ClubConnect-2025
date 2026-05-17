@@ -69,9 +69,12 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
 
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
+    debugPrint('[SetProfile] picked: ${picked?.path}');
     if (picked != null) {
       final bytes = await picked.readAsBytes();
+      debugPrint('[SetProfile] bytes length: ${bytes.length}');
       setState(() => _pickedBytes = bytes);
+      debugPrint('[SetProfile] _pickedBytes set: ${_pickedBytes?.length}');
     }
   }
 
@@ -95,6 +98,7 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
     if (!_validate()) return;
     final displayName = _displayNameController.text.trim();
     final bio = _aboutMeController.text.trim();
+    debugPrint('[SetProfile] _pickedBytes in _onNext: ${_pickedBytes?.length}');
     context.read<AppAuthProvider>().setExtraInfo('', displayName, bio, imageBytes: _pickedBytes);
     context.push('/category', extra: {'displayName': displayName});
   }
