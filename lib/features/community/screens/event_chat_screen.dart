@@ -1,10 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
 import '../../../models/message_model.dart';
 import '../../../models/profile_args.dart';
@@ -85,6 +84,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
       isSent: isSent,
       senderName: isSent ? 'You' : (cached.isNotEmpty ? cached : '…'),
       senderId: m.senderId,
+      timestamp: m.timestamp,
       time: _formatTime(m.timestamp),
       readCount: isSent ? 'Read ${m.seenBy.length}' : null,
       replyToName: m.replyToSenderName,
@@ -174,6 +174,11 @@ class _EventChatScreenState extends State<EventChatScreen> {
         targetUserId: message.senderId,
         communityId: widget.event.id,
       ),
+      onDelete: () => context.read<EventProvider>().deleteEventMessage(
+            widget.communityId,
+            widget.event.id,
+            message.id,
+          ),
     );
   }
 
@@ -195,11 +200,12 @@ class _EventChatScreenState extends State<EventChatScreen> {
     if (_isHost) {
       context.push('/edit-event', extra: widget.event);
     } else {
-      showDialog(
-        context: context,
-        barrierColor: Colors.black45,
-        barrierDismissible: true,
-        builder: (_) => _EventInfoDialog(event: widget.event),
+      context.push(
+        '/event-detail',
+        extra: EventDetailArgs(
+          event: widget.event,
+          communityId: widget.communityId,
+        ),
       );
     }
   }
@@ -304,16 +310,16 @@ class _EventChatScreenState extends State<EventChatScreen> {
         ),
       );
     }
+    final items = _buildItems(messages);
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSizes.paddingM),
-      itemCount: messages.length + 1,
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return const _DateSeparator(label: AppStrings.chatToday);
-        }
-        final message = messages[index - 1];
+        final item = items[index];
+        if (item is String) return _DateSeparator(label: item);
+        final message = item as ChatMessage;
         return MessageBubble(
           message: message,
           onLongPress: (pos) => _onLongPressMessage(message, pos),
@@ -380,6 +386,35 @@ class _EventChatAppBar extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _dateLabel(DateTime date) {
+  final now = DateTime.now();
+  if (_isSameDay(date, now)) return 'Today';
+  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (date.year == now.year) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
+  }
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+List<Object> _buildItems(List<ChatMessage> messages) {
+  final items = <Object>[];
+  DateTime? lastDate;
+  for (final msg in messages) {
+    if (lastDate == null || !_isSameDay(lastDate, msg.timestamp)) {
+      items.add(_dateLabel(msg.timestamp));
+      lastDate = msg.timestamp;
+    }
+    items.add(msg);
+  }
+  return items;
 }
 
 // ── Date separator ─────────────────────────────────────────────────────────────
@@ -511,132 +546,3 @@ class _MenuItem extends StatelessWidget {
   }
 }
 
-// ── Event info dialog ──────────────────────────────────────────────────────────
-
-class _EventInfoDialog extends StatelessWidget {
-  final EventModel event;
-  const _EventInfoDialog({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    final dateStr =
-        DateFormat('d MMMM yyyy  hh:mm a').format(event.startDate.toDate());
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardWhite,
-          borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 8)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppSizes.radiusM)),
-                child: Image.network(
-                  event.imageUrl!,
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(AppSizes.paddingL),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: GoogleFonts.poppins(
-                      fontSize: AppSizes.fontML,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  if (event.createdBy.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      'by ${event.createdBy}',
-                      style: GoogleFonts.poppins(
-                        fontSize: AppSizes.fontXS,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF837A7A),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSizes.paddingM),
-                  _InfoRow(icon: Icons.calendar_month, text: dateStr),
-                  if (event.description.isNotEmpty) ...[
-                    const SizedBox(height: AppSizes.paddingXS),
-                    _InfoRow(icon: Icons.location_on, text: 'Location'),
-                    const SizedBox(height: AppSizes.paddingM),
-                    Text(
-                      event.description,
-                      style: GoogleFonts.poppins(
-                        fontSize: AppSizes.fontXS,
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSizes.paddingM),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Text(
-                        'Close',
-                        style: GoogleFonts.poppins(
-                          fontSize: AppSizes.fontSM,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _InfoRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 14, color: AppColors.primary),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontXS,
-              color: AppColors.textDark,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}

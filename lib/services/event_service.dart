@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/category_model.dart';
 import '../models/event_model.dart';
@@ -39,21 +39,26 @@ class EventService {
     return _events(communityId)
         .orderBy('startDate', descending: false)
         .snapshots()
-        .map((snap) {
-      return snap.docs.map((doc) => EventModel.fromDoc(doc)).toList();
-    });
+        .map((snap) => snap.docs
+            .map((doc) => EventModel.fromJson(
+                  {...doc.data(), 'id': doc.id, 'communityId': communityId},
+                ))
+            .toList());
   }
+
 
   Future<void> createEvent({
     required String communityId,
     required String title,
     required String description,
+    required String location,
     required List<CategoryModel> tags,
     required Timestamp startDate,
     required Timestamp endDate,
     required String roomId,
     String? imageUrl,
     int? maxAttendees,
+    required bool isPublished,  
   }) async {
     try {
       final user = _requireAuth();
@@ -63,6 +68,7 @@ class EventService {
       await eventRef.set({
         'title': title,
         'description': description,
+        'location': location,
         'imageUrl': imageUrl,
         'createdAt': createdAt,
         'createdBy': user.uid,
@@ -72,6 +78,7 @@ class EventService {
         'maxAttendees': maxAttendees,
         'startDate': startDate,
         'endDate': endDate,
+        'isPublished': isPublished,
       });
 
       // Seed host in attendees subcollection (best-effort).
@@ -144,6 +151,29 @@ class EventService {
         .map((snap) => snap.docs
             .map((doc) => MessageModel.fromJson(doc.data(), doc.id))
             .toList());
+  }
+
+  Stream<List<EventModel>> getPublishedEvents() {
+    debugPrint('[EventService] querying collectionGroup events where isPublished == true');
+    return _db
+        .collectionGroup('events')
+        .where('isPublished', isEqualTo: true)
+        .snapshots()
+        .map((snap) {
+          debugPrint('[EventService] snapshot received: ${snap.docs.length} docs');
+          for (final doc in snap.docs) {
+            debugPrint('[EventService] doc ${doc.id} isPublished=${doc.data()['isPublished']} communityId=${doc.reference.parent.parent?.id}');
+          }
+          final events = snap.docs
+              .map((doc) => EventModel.fromJson({
+                    ...doc.data(),
+                    'id': doc.id,
+                    'communityId': doc.reference.parent.parent?.id ?? '',
+                  }))
+              .toList();
+          events.sort((a, b) => a.startDate.compareTo(b.startDate));
+          return events;
+        });
   }
 
   Future<void> sendEventMessage(

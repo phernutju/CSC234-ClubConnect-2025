@@ -12,6 +12,8 @@ class MessageModel {
   final String? replyToId;
   final String? replyToSenderName;
   final String? replyToText;
+  final bool isSystem;
+  final String type;
   final List<String> mentions;
 
   MessageModel({
@@ -26,23 +28,28 @@ class MessageModel {
     this.replyToId,
     this.replyToSenderName,
     this.replyToText,
+    this.isSystem = false,
+    this.type = '',
     this.mentions = const [],
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
     final json = doc.data() as Map<String, dynamic>;
+    final senderId = (json['senderId'] as String? ?? '').trim();
     return MessageModel(
       id: doc.id,
-      senderId: json['senderId'] ?? '',
+      senderId: senderId,
       senderName: json['senderName'] ?? '',
-      text: json['text'] ?? '',
-      imageURL: json['imageURL'] ?? '',
+      text: (json['text'] as String? ?? '').trim(),
+      imageURL: (json['imageURL'] as String? ?? '').trim(),
       timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       seenBy: List<String>.from(json['seenBy'] ?? []),
       flagged: json['flagged'] ?? false,
       replyToId: json['replyToId'] as String?,
       replyToSenderName: json['replyToSenderName'] as String?,
       replyToText: json['replyToText'] as String?,
+      isSystem: (json['isSystem'] as bool? ?? false) || senderId == 'system',
+      type: (json['type'] as String? ?? '').trim(),
       mentions: List<String>.from(json['mentions'] ?? []),
     );
   }
@@ -60,6 +67,7 @@ class MessageModel {
         replyToId: json['replyToId'] as String?,
         replyToSenderName: json['replyToSenderName'] as String?,
         replyToText: json['replyToText'] as String?,
+        type: (json['type'] as String? ?? '').trim(),
       );
 
   Map<String, dynamic> toJson() {
@@ -74,6 +82,7 @@ class MessageModel {
       if (replyToId != null) 'replyToId': replyToId,
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
+      if (type.isNotEmpty) 'type': type,
       if (mentions.isNotEmpty) 'mentions': mentions,
     };
   }

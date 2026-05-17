@@ -150,8 +150,12 @@ class AppColors {
   static const Color kickButton        = Color(0xFFFF4444);
   static const Color kickModalCircle   = Color(0xFFFFEEEE);
   static const Color kickModalNameGray = Color(0xFF888888);
-  static const Color kickModalNo       = Color(0xFFF2F2F2);
+  static const Color kickModalNo       = Color(0xFF888888);
   static const Color kickModalYes      = Color(0xFFFF4444);
+
+  // System message pill
+  static const Color systemPillBg   = Color(0x14000000); // rgba(0,0,0, ~8%)
+  static const Color systemPillText = Color(0xFF666666);
 }
 
 // ─── Sizes & Spacing ──────────────────────────────────────────────────────────
@@ -322,6 +326,11 @@ class AppSizes {
   static const double memberOnlineDotSize =  9.0;
   static const double memberKickBtnSize   = 32.0;
   static const double memberKickBtnRadius =  8.0;
+
+  // System message pill
+  static const double systemPillPadH    = 14.0;
+  static const double systemPillPadV    =  6.0;
+  static const double systemPillMarginV =  4.0;
 }
 
 // ─── String Constants ─────────────────────────────────────────────────────────
@@ -389,6 +398,7 @@ class AppStrings {
   static const String tabDiscover    = 'Discover';
   static const String tabMyClub      = 'My club';
   static const String tabTrending    = 'Trending';
+  static const String tabEvents      = 'Events';
 
   // Bottom navigation bar
   static const String navHome         = 'Home';
@@ -411,6 +421,7 @@ class AppStrings {
   static const String chatCopy          = 'Copy';
   static const String chatReply         = 'Reply';
   static const String chatReport        = 'Report';
+  static const String chatDelete        = 'Delete';
   static const String chatImageMessage    = '[Image]'; // fallback text for image-only messages
   static const String warningText         = 'Message failed to send. This content goes against our community standards. Repeated offenses will result in a ban. ';
   static const String warningReviewRules  = 'Review rules';
@@ -467,7 +478,7 @@ class AppStrings {
   static const String createErrCover    = 'Please add a cover photo';
   static const String createErrName     = 'Please enter a community name';
   static const String createErrAbout    = 'Please tell us about your community';
-  static const String createErrCategory = 'Please select at least one category';
+  static const String createErrCategory = 'Please select a category';
   static const String createErrRules    = 'Please add at least one community rule';
 
   static const List<String> createCategories = [
@@ -555,6 +566,12 @@ class AppStrings {
   static const String eventsEmpty        = 'No events yet';
   static const String eventsMaxMembers   = 'Max members:';
 
+  // Delete Community
+  static const String deleteCommunityButton  = 'Delete';
+  static const String deleteCommunityTitle   = 'Delete this community?';
+  static const String deleteCommunityCancel  = 'Cancel';
+  static const String deleteCommunityConfirm = 'Delete';
+
   // Create Event screen
   static const String createEventTitle        = 'Events';
   static const String createEventName        = 'Event Name';
@@ -565,6 +582,10 @@ class AppStrings {
   static const String createEventDateHint    = 'DD/MM/YYYY';
   static const String createEventTime        = 'TIME';
   static const String createEventTimeHint    = '00:00 AM';
+  static const String createEventStartDate   = 'Start Date';
+  static const String createEventEndDate     = 'End Date';
+  static const String createEventStartTime   = 'Start Time';
+  static const String createEventEndTime     = 'End Time';
   static const String createEventLocation    = 'Location';
   static const String createEventLocationHint = "Enter Event's location";
   static const String createEventDetail      = 'Event Detail';
@@ -574,7 +595,33 @@ class AppStrings {
   static const String createEventSuccess     = 'Event created!';
   static const String createEventCoverHint    = 'Tap to add cover image';
   static const String createEventErrName     = 'Please enter an event name';
-  static const String createEventErrDate     = 'Please select a date';
+  static const String createEventErrDate     = 'Please select a start date';
+  static const String createEventErrLocation = 'Please enter a location';
+  static const String createEventErrDetail   = 'Please enter event details';
+  static const String createEventErrMembers  = 'Member limit must be at least 1';
+
+  // Community Standards screen
+  static const String communityStandardsTitle    = 'Community standards';
+  static const String communityStandardsSubtitle =
+      'Before you join, please read and agree to our community rules.';
+  static const String communityStandardsAccept   = 'Accept & Continue';
+  static const String communityStandardsDecline  = 'Decline & Exit';
+  static const String communityStandardsAgreementPrefix = 'I have read and agree to the ';
+  static const String communityStandardsGuidelinesLink   = 'Community Guidelines';
+  static const String communityStandardsRule1 =
+      'Follow the rules set by each community host';
+  static const String communityStandardsRule2 =
+      'No harassment, bullying, or doxxing';
+  static const String communityStandardsRule3 =
+      'No hate speech or discrimination';
+  static const String communityStandardsRule4 =
+      'No threats or violent content';
+  static const String communityStandardsRule5 =
+      'No spam, bots, or unsolicited promotion';
+  static const String communityStandardsRule6 =
+      "Respect everyone's privacy and personal data";
+  static const String communityStandardsRule7 =
+      'No illegal content, fraud, piracy, or CSAM';
 
   // Member sheet
   static const String membersEmpty       = 'No members yet';

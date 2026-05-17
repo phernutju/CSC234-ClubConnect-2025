@@ -11,6 +11,7 @@ import 'providers/profile_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/attendee_provider.dart';
 import 'providers/event_provider.dart';
+import 'providers/smart_bill_provider.dart';
 import 'providers/rating_provider.dart';
 import 'providers/report_provider.dart';
 import 'router/app_router.dart';
@@ -42,6 +43,7 @@ class ClubConnectApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => ReportProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
+        ChangeNotifierProvider(create: (_) => SmartBillProvider()),
         ChangeNotifierProvider(create: (_) => AttendeeProvider()),
       ],
       child: MaterialApp.router(

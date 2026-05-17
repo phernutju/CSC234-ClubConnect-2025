@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/community_model.dart';
 import '../../../models/profile_args.dart';
+import '../../../models/rule_model.dart';
 import '../../../models/user_model.dart';
 import '../../../models/review_model.dart';
 import '../../../providers/profile_provider.dart';
@@ -27,14 +28,18 @@ class CommunityInfoModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.85;
     return Dialog(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
       ),
       clipBehavior: Clip.hardEdge,
       insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
-      child: SizedBox(
-        width: AppSizes.communityModalWidth,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: AppSizes.communityModalWidth,
+          maxHeight: maxHeight,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,7 +47,9 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageUrl: community.coverImageURL.isEmpty ? null : community.coverImageURL),
+                _CoverArea(imageUrl: community.coverImageURL.isNotEmpty
+                    ? community.coverImageURL
+                    : null),
                 Positioned(
                   top: AppSizes.paddingS,
                   right: AppSizes.paddingS,
@@ -54,94 +61,114 @@ class CommunityInfoModal extends StatelessWidget {
             ),
 
             // ── White scrollable content area ─────────────────────────────
-            Container(
-              color: AppColors.cardWhite,
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  AppSizes.communityInfoContentPad,
-                  AppSizes.communityInfoContentPad,
-                  AppSizes.communityInfoContentPad,
-                  AppSizes.communityInfoBottomPad,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Community name
-                    Text(
-                      community.communityName,
-                      style: AppTextStyles.poppins(
-                        fontSize: AppSizes.fontTitle,
-                        color: AppColors.textDark,
+            Flexible(
+              child: Container(
+                color: AppColors.cardWhite,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSizes.communityInfoContentPad,
+                    AppSizes.communityInfoContentPad,
+                    AppSizes.communityInfoContentPad,
+                    AppSizes.communityInfoBottomPad,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Community name
+                      Text(
+                        community.communityName,
+                        style: AppTextStyles.poppins(
+                          fontSize: AppSizes.fontTitle,
+                          color: AppColors.textDark,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
+                      const SizedBox(height: 4),
 
-                    // "[N] members" — N is bold, "members" is regular
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '${community.memberCount}',
-                            style: AppTextStyles.poppins(
-                              fontSize: AppSizes.fontXII,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' ${AppStrings.communityMembersLabel}',
-                            style: AppTextStyles.poppins(
-                              fontSize: AppSizes.fontXII,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSizes.communityInfoSectionGap),
-
-                    // Host info card
-                    _HostCard(community: community),
-                    const SizedBox(height: AppSizes.communityInfoSectionGap),
-
-                    // Description
-                    Text(
-                      community.description,
-                      style: AppTextStyles.poppins(
-                        fontSize: AppSizes.fontXII,
-                        color: AppColors.commentBody,
-                      ),
-                    ),
-                    const SizedBox(height: AppSizes.communityInfoSectionGap),
-
-                    // Next button — only shown in join flow (onNext != null)
-                    if (onNext != null)
-                      Center(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            onNext!();
-                          },
-                          child: Container(
-                            width: AppSizes.modalActionButtonWidth,
-                            height: AppSizes.modalActionButtonHeight,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(AppSizes.radiusPill),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              AppStrings.communityInfoNext,
+                      // "[N] members" — N is bold, "members" is regular
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${community.memberCount}',
                               style: AppTextStyles.poppins(
-                                fontSize: AppSizes.fontTitle,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.cardWhite,
+                                fontSize: AppSizes.fontXII,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' ${AppStrings.communityMembersLabel}',
+                              style: AppTextStyles.poppins(
+                                fontSize: AppSizes.fontXII,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSizes.communityInfoSectionGap),
+
+                      // Host info card
+                      _HostCard(community: community),
+                      const SizedBox(height: AppSizes.communityInfoSectionGap),
+
+                      // Description
+                      Text(
+                        community.description,
+                        style: AppTextStyles.poppins(
+                          fontSize: AppSizes.fontXII,
+                          color: AppColors.commentBody,
+                        ),
+                      ),
+
+                      // Rules section — only in view-only mode (menu bar info), not join flow
+                      if (community.rules.isNotEmpty && onNext == null) ...[
+                        const SizedBox(height: AppSizes.communityInfoSectionGap),
+                        Text(
+                          AppStrings.createRulesLabel,
+                          style: AppTextStyles.poppins(
+                            fontSize: AppSizes.fontML,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...community.rules.asMap().entries.map(
+                          (e) => _RuleItem(index: e.key + 1, rule: e.value),
+                        ),
+                      ],
+
+                      const SizedBox(height: AppSizes.communityInfoSectionGap),
+
+                      // Next button — only shown in join flow (onNext != null)
+                      if (onNext != null)
+                        Center(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              onNext!();
+                            },
+                            child: Container(
+                              width: AppSizes.modalActionButtonWidth,
+                              height: AppSizes.modalActionButtonHeight,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                AppStrings.communityInfoNext,
+                                style: AppTextStyles.poppins(
+                                  fontSize: AppSizes.fontTitle,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.cardWhite,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -154,6 +181,28 @@ class CommunityInfoModal extends StatelessWidget {
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
 
+/// One numbered rule entry.
+class _RuleItem extends StatelessWidget {
+  final int index;
+  final RuleModel rule;
+
+  const _RuleItem({required this.index, required this.rule});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSizes.rulesItemGap),
+      child: Text(
+        '$index. ${rule.text}',
+        style: AppTextStyles.poppins(
+          fontSize: AppSizes.fontXII,
+          color: AppColors.textDark,
+        ),
+      ),
+    );
+  }
+}
+
 /// Grey placeholder or community cover photo (H167).
 class _CoverArea extends StatelessWidget {
   final String? imageUrl;
@@ -165,8 +214,11 @@ class _CoverArea extends StatelessWidget {
       height: AppSizes.communityInfoCoverHeight,
       width: double.infinity,
       child: imageUrl != null
-          ? Image.network(imageUrl!, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill))
+          ? Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill),
+            )
           : Container(color: AppColors.inputFill),
     );
   }

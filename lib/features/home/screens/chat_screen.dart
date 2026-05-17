@@ -17,6 +17,12 @@ import '../widgets/message_input_bar.dart';
 import '../widgets/message_long_press_menu.dart';
 import '../widgets/report_message_modal.dart';
 
+class _SystemEntry {
+  final int insertAfter; // insert after this many Firestore messages
+  final ChatMessage message;
+  _SystemEntry(this.insertAfter, this.message);
+}
+
 class ChatScreen extends StatefulWidget {
   final String communityId;
   final String communityName;
@@ -42,7 +48,9 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isInitializing = true;
   bool _menuOpen = false;
 
-  // Ban/mute state
+  final List<_SystemEntry> _systemMessages = [];
+
+  // Ban state
   bool _isBanned = false;
   bool _isMuted = false;
   DateTime? _muteExpiresAt;
@@ -51,7 +59,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Mention autocomplete
   String? _mentionQuery;
-  final Map<String, String> _pendingMentions = {}; // displayName → uid
+  final Map<String, String> _pendingMentions = {};
 
   final Set<String> _fetchedUids = {};
   CommunityProvider? _provider;
@@ -212,6 +220,19 @@ class _ChatScreenState extends State<ChatScreen> {
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
   ChatMessage _toUIMessage(MessageModel m, String currentUid, CommunityProvider cp) {
+    if (m.isSystem) {
+      return ChatMessage(
+        id: m.id,
+        text: m.text,
+        isSent: false,
+        senderName: m.senderName,
+        senderId: m.senderId,
+        timestamp: m.timestamp,
+        time: _formatTime(m.timestamp),
+        isSystemMessage: true,
+        type: m.type,
+      );
+    }
     final isSent = m.senderId == currentUid;
     final cachedName = cp.displayNameOf(m.senderId);
     final fallback = m.senderName.isNotEmpty ? m.senderName : '…';
@@ -230,6 +251,7 @@ class _ChatScreenState extends State<ChatScreen> {
       isSent: isSent,
       senderName: senderName,
       senderId: m.senderId,
+      timestamp: m.timestamp,
       time: _formatTime(m.timestamp),
       readCount: isSent ? 'Read ${m.seenBy.length}' : null,
       replyToName: m.replyToSenderName,
@@ -301,6 +323,38 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _sendSystemMessage(String text) {
+    if (!mounted) return;
+    setState(() {
+      _systemMessages.add(_SystemEntry(
+        context.read<CommunityProvider>().messages.length,
+        ChatMessage(
+          id: 'sys_${DateTime.now().millisecondsSinceEpoch}',
+          text: text,
+          isSent: false,
+          senderName: '',
+          senderId: 'system',
+          timestamp: DateTime.now(),
+          time: _formatTime(DateTime.now()),
+          isSystemMessage: true,
+        ),
+      ));
+    });
+  }
+
+  List<ChatMessage> _mergeSystemMessages(List<ChatMessage> base) {
+    if (_systemMessages.isEmpty) return base;
+    final result = List<ChatMessage>.from(base);
+    // Insert in reverse position order so earlier inserts don't shift later ones
+    final sorted = [..._systemMessages]
+      ..sort((a, b) => b.insertAfter.compareTo(a.insertAfter));
+    for (final entry in sorted) {
+      final pos = entry.insertAfter.clamp(0, result.length);
+      result.insert(pos, entry.message);
+    }
+    return result;
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -329,6 +383,9 @@ class _ChatScreenState extends State<ChatScreen> {
         communityId: widget.communityId,
         messageId: message.id,
       ),
+      onDelete: () => context
+          .read<CommunityProvider>()
+          .deleteMessage(widget.communityId, message.id),
     );
   }
 
@@ -410,6 +467,7 @@ class _ChatScreenState extends State<ChatScreen> {
       communityName: widget.communityName,
       currentUid: currentUid,
       creatorId: community?.createdBy ?? '',
+      onSystemMessage: _sendSystemMessage,
     );
   }
 
@@ -440,7 +498,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Trigger display-name fetches for message senders
     for (final m in cp.messages) {
-      if (m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
+      if (!m.isSystem && m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
         cp.fetchDisplayName(m.senderId);
       }
     }
@@ -466,8 +524,13 @@ class _ChatScreenState extends State<ChatScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
-    final uiMessages = cp.messages.map((m) => _toUIMessage(m, currentUid, cp)).toList();
-    final memberDisplay = cp.members.isNotEmpty ? cp.members.length.toString() : widget.memberCount;
+    final uiMessages = _mergeSystemMessages(
+      cp.messages.map((m) => _toUIMessage(m, currentUid, cp)).toList(),
+    );
+
+    final memberDisplay = cp.members.isNotEmpty
+        ? cp.members.length.toString()
+        : widget.memberCount;
     final suggestions = _buildSuggestions(cp, currentUid);
 
     return Scaffold(
@@ -573,14 +636,16 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    final items = _buildItems(uiMessages);
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSizes.paddingM),
-      itemCount: uiMessages.length + 1, // +1 for the date separator
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) {
-        if (index == 0) return const _DateSeparator(label: AppStrings.chatToday);
-        final message = uiMessages[index - 1];
+        final item = items[index];
+        if (item is String) return _DateSeparator(label: item);
+        final message = item as ChatMessage;
         return MessageBubble(
           message: message,
           onLongPress: (pos) => _onLongPressMessage(message, pos),
@@ -775,6 +840,35 @@ class _ChatAppBar extends StatelessWidget {
   }
 }
 
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _dateLabel(DateTime date) {
+  final now = DateTime.now();
+  if (_isSameDay(date, now)) return 'Today';
+  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (date.year == now.year) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
+  }
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+List<Object> _buildItems(List<ChatMessage> messages) {
+  final items = <Object>[];
+  DateTime? lastDate;
+  for (final msg in messages) {
+    if (lastDate == null || !_isSameDay(lastDate, msg.timestamp)) {
+      items.add(_dateLabel(msg.timestamp));
+      lastDate = msg.timestamp;
+    }
+    items.add(msg);
+  }
+  return items;
+}
+
 class _DateSeparator extends StatelessWidget {
   final String label;
   const _DateSeparator({required this.label});
@@ -812,7 +906,7 @@ class _ChatMenuBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.primary,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -828,12 +922,18 @@ class _ChatMenuBar extends StatelessWidget {
               _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
               _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
+              IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  child: _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: () {}),
+                ),
+              ),
             ],
           ),
         ],
@@ -847,7 +947,11 @@ class _MenuItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _MenuItem({required this.icon, required this.label, required this.onTap});
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -856,14 +960,14 @@ class _MenuItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.cardWhite, size: AppSizes.chatMenuIconSize),
-          const SizedBox(height: 4),
+          Icon(icon, color: Colors.white, size: 44),
+          const SizedBox(height: 8),
           Text(
             label,
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontSM,
+            style: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.bold,
-              color: AppColors.cardWhite,
+              fontSize: 13,
             ),
           ),
         ],
@@ -967,15 +1071,74 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      color: AppColors.alertRed.withValues(alpha: 0.1),
-      padding: const EdgeInsets.symmetric(
+      margin: const EdgeInsets.symmetric(
         horizontal: AppSizes.paddingM,
         vertical: AppSizes.paddingS,
       ),
-      child: Text(
-        message,
-        style: AppTextStyles.body(fontSize: AppSizes.fontXS, color: AppColors.alertRed),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.30),
+          width: 1,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingM,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$message Repeated offenses will result in a ban.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body(
+              fontSize: AppSizes.fontSM,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: AppSizes.paddingS),
+          GestureDetector(
+            onTap: () {
+              final community =
+                  context.read<CommunityProvider>().activeCommunity;
+              if (community != null) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierColor: Colors.black45,
+                  builder: (_) => CommunityInfoModal(community: community),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Open the Info menu to view community rules.'),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              'Review rules',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ).copyWith(
+                decoration: TextDecoration.underline,
+                decorationColor: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

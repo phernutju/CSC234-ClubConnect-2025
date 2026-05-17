@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:csc234_clubconnect/models/category_model.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../services/storage_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,27 +22,35 @@ class CreateEventScreen extends StatefulWidget {
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
   final _nameController     = TextEditingController();
-  final _hostNameController = TextEditingController();
   final _locationController = TextEditingController();
   final _detailController   = TextEditingController();
+  final _memberController   = TextEditingController(text: '0');
 
-  DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
-  int _memberLimit = 0;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
   Uint8List? _coverBytes;
   bool _isSubmitting = false;
+  /// Controls whether the event is publicly visible to all community members.
+  bool _isPublished = false;
+
+  // ── Per-field inline error messages — null = no error ────────────────────
+  String? _nameError;
+  String? _startDateError;
+  String? _locationError;
+  String? _detailError;
+  String? _membersError;
 
   static const int _nameMax   = 50;
   static const int _detailMax = 500;
-  static const int _memberMin = 0;
-  static const int _memberMax = 999;
 
   @override
   void dispose() {
     _nameController.dispose();
-    _hostNameController.dispose();
     _locationController.dispose();
     _detailController.dispose();
+    _memberController.dispose();
     super.dispose();
   }
 
@@ -57,86 +65,126 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() => _coverBytes = bytes);
   }
 
-  Future<void> _pickDate() async {
+  ThemeData _datePickerTheme(BuildContext ctx) => Theme.of(ctx).copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFFFF6B4A),
+          onPrimary: Colors.white,
+          surface: Colors.white,
+          onSurface: Color(0xFF212121),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B4A)),
+        ),
+      );
+
+  ThemeData _timePickerTheme(BuildContext ctx) => Theme.of(ctx).copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFFFF6B4A),
+          onPrimary: Colors.white,
+          surface: Colors.white,
+          onSurface: Colors.black,
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B4A)),
+        ),
+        timePickerTheme: TimePickerThemeData(
+          backgroundColor: Colors.white,
+          dialBackgroundColor: const Color(0xFFF5F5F5),
+          dayPeriodColor: WidgetStateColor.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? const Color(0xFFFF6B4A) : Colors.white),
+          dayPeriodTextColor: WidgetStateColor.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? Colors.white : Colors.black),
+        ),
+      );
+
+  Future<void> _pickStartDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? now,
+      initialDate: _startDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFFFF6B4A),
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: Color(0xFF212121),
-          ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFFF6B4A),
-            ),
-          ),
-        ),
-        child: child!,
-      ),
+      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) {
+      setState(() {
+        _startDate = picked;
+        _startDateError = null; // clear error once a date is picked
+      });
+    }
   }
 
-  Future<void> _pickTime() async {
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate ?? now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
+    );
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
+  Future<void> _pickStartTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
+      initialTime: _startTime ?? TimeOfDay.now(),
       initialEntryMode: TimePickerEntryMode.input,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          textTheme: GoogleFonts.poppinsTextTheme(Theme.of(ctx).textTheme),
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFFFF6B4A),
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: Colors.black,
-          ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFFF6B4A),
-            ),
-          ),
-          timePickerTheme: TimePickerThemeData(
-            backgroundColor: Colors.white,
-            dialBackgroundColor: const Color(0xFFF5F5F5),
-            dayPeriodColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected)
-                ? const Color(0xFFFF6B4A)
-                : Colors.white,
-            ),
-            dayPeriodTextColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected)
-                ? Colors.white
-                : Colors.black,
-            ),
-          ),
-        ),
-        child: child!,
-      ),
+      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
     );
-    if (picked != null) setState(() => _selectedTime = picked);
+    if (picked != null) setState(() => _startTime = picked);
+  }
+
+  Future<void> _pickEndTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _endTime ?? _startTime ?? TimeOfDay.now(),
+      initialEntryMode: TimePickerEntryMode.input,
+      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
+    );
+    if (picked != null) setState(() => _endTime = picked);
+  }
+
+  /// Checks all required fields; populates per-field errors and returns false
+  /// when at least one field is invalid.
+  bool _validate() {
+    final nameErr = _nameController.text.trim().isEmpty
+        ? AppStrings.createEventErrName : null;
+    final dateErr = _startDate == null
+        ? AppStrings.createEventErrDate : null;
+    final locationErr = _locationController.text.trim().isEmpty
+        ? AppStrings.createEventErrLocation : null;
+    final detailErr = _detailController.text.trim().isEmpty
+        ? AppStrings.createEventErrDetail : null;
+    final membersErr = (int.tryParse(_memberController.text) ?? 0) < 1
+        ? AppStrings.createEventErrMembers : null;
+
+    setState(() {
+      _nameError      = nameErr;
+      _startDateError = dateErr;
+      _locationError  = locationErr;
+      _detailError    = detailErr;
+      _membersError   = membersErr;
+    });
+
+    return nameErr == null &&
+        dateErr == null &&
+        locationErr == null &&
+        detailErr == null &&
+        membersErr == null;
   }
 
   Future<void> _onCreate() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      _showSnack(AppStrings.createEventErrName);
-      return;
-    }
-    if (_selectedDate == null) {
-      _showSnack(AppStrings.createEventErrDate);
-      return;
-    }
+    if (!_validate()) return;
 
     setState(() => _isSubmitting = true);
+
+    final hostName =
+        context.read<AppAuthProvider>().user?.displayName ?? '';
+    final ep = context.read<EventProvider>();
 
     try {
       final ep = context.read<EventProvider>();
@@ -147,44 +195,101 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             .uploadEventImage(_coverBytes!, widget.communityId);
       }
 
-      final time = _selectedTime ?? const TimeOfDay(hour: 0, minute: 0);
-      final fullDate = DateTime(
-        _selectedDate!.year,
-        _selectedDate!.month,
-        _selectedDate!.day,
-        time.hour,
-        time.minute,
+      final memberLimit = int.tryParse(_memberController.text) ?? 0;
+      final st = _startTime ?? const TimeOfDay(hour: 0, minute: 0);
+      final et = _endTime ?? st;
+      final startDateTime = DateTime(
+        _startDate!.year, _startDate!.month, _startDate!.day,
+        st.hour, st.minute,
+      );
+      final endBase = _endDate ?? _startDate!;
+      final endDateTime = DateTime(
+        endBase.year, endBase.month, endBase.day,
+        et.hour, et.minute,
       );
 
+
       await ep.createEvent(
-            roomId: widget.communityId,
             communityId: widget.communityId,
-            title: name,
-            startDate: Timestamp.fromDate(fullDate),
-            //location: _locationController.text.trim(),
+            title: _nameController.text.trim(),
             description: _detailController.text.trim(),
-            maxAttendees: _memberLimit,
-            imageUrl: coverImageUrl,
-            tags: List<CategoryModel>.empty(), // TODO: Add category selection
-            endDate: Timestamp.fromDate(fullDate.add(const Duration(hours: 2))), // Default to 2-hour duration
+            location: _locationController.text.trim(),
+            tags: const [],
+            startDate: Timestamp.fromDate(startDateTime),
+            endDate: Timestamp.fromDate(endDateTime),
+            roomId: widget.communityId,
+            imageUrl: coverImageUrl.isEmpty ? null : coverImageUrl,
+            maxAttendees: memberLimit,
+            
+            isPublished: _isPublished,
           );
 
-      if (mounted) {
-        final errorMsg = ep.error;
-        if (errorMsg != null) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.createEventSuccess)));
-          context.pop();
-        }
+      if (!mounted) return;
+      if (ep.error != null) {
+        _showSnack(ep.error!);
+      } else {
+        _showSnack(AppStrings.createEventSuccess);
+        context.pop();
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
+  /// Snackbar is used only for backend errors and success — not for field validation.
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// Card placed directly above the Create button.
+  /// Toggling [_isPublished] controls whether the event appears in the feed.
+  Widget _buildPublishEventCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingS + 2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+        border: Border.all(color: const Color(0xFFE8DFD8)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Make Event Public',
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontML,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Club members can always see this. Turn on to make it public.',
+                  style: AppTextStyles.poppins(
+                    fontSize: AppSizes.fontXS,
+                    color: AppColors.textGray,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSizes.paddingS),
+          // Orange when active
+          Switch(
+            value: _isPublished,
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            onChanged: (bool newValue) => setState(() => _isPublished = newValue),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -221,57 +326,57 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           controller: _nameController,
                           hint: AppStrings.createEventNameHint,
                           maxLength: _nameMax,
-                          onChanged: (_) => setState(() {}),
+                          errorText: _nameError,
+                          onChanged: (_) => setState(() => _nameError = null),
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
-                        // ── Host Name ──────────────────────────────────────
-                        _FieldLabel(AppStrings.createEventHostName),
-                        _LimitedTextField(
-                          controller: _hostNameController,
-                          hint: AppStrings.createEventHostNameHint,
-                          maxLength: 50,
-                          onChanged: (_) => setState(() {}),
+                        // ── Start Date ─────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventStartDate),
+                        _PickerField(
+                          icon: Icons.calendar_month_outlined,
+                          text: _startDate != null
+                              ? DateFormat('dd/MM/yyyy').format(_startDate!)
+                              : AppStrings.createEventDateHint,
+                          isPlaceholder: _startDate == null,
+                          errorText: _startDateError,
+                          onTap: _pickStartDate,
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
-                        // ── Date & Time ────────────────────────────────────
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _FieldLabel(AppStrings.createEventDate),
-                                  _PickerField(
-                                    icon: Icons.calendar_month_outlined,
-                                    text: _selectedDate != null
-                                        ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
-                                        : AppStrings.createEventDateHint,
-                                    isPlaceholder: _selectedDate == null,
-                                    onTap: _pickDate,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: AppSizes.paddingM),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _FieldLabel(AppStrings.createEventTime),
-                                  _PickerField(
-                                    icon: Icons.access_time_outlined,
-                                    text: _selectedTime != null
-                                        ? _selectedTime!.format(context)
-                                        : AppStrings.createEventTimeHint,
-                                    isPlaceholder: _selectedTime == null,
-                                    onTap: _pickTime,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        // ── End Date ───────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventEndDate),
+                        _PickerField(
+                          icon: Icons.calendar_month_outlined,
+                          text: _endDate != null
+                              ? DateFormat('dd/MM/yyyy').format(_endDate!)
+                              : AppStrings.createEventDateHint,
+                          isPlaceholder: _endDate == null,
+                          onTap: _pickEndDate,
+                        ),
+                        const SizedBox(height: AppSizes.paddingM),
+
+                        // ── Start Time ─────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventStartTime),
+                        _PickerField(
+                          icon: Icons.access_time_outlined,
+                          text: _startTime != null
+                              ? _startTime!.format(context)
+                              : AppStrings.createEventTimeHint,
+                          isPlaceholder: _startTime == null,
+                          onTap: _pickStartTime,
+                        ),
+                        const SizedBox(height: AppSizes.paddingM),
+
+                        // ── End Time ───────────────────────────────────────
+                        _FieldLabel(AppStrings.createEventEndTime),
+                        _PickerField(
+                          icon: Icons.access_time_outlined,
+                          text: _endTime != null
+                              ? _endTime!.format(context)
+                              : AppStrings.createEventTimeHint,
+                          isPlaceholder: _endTime == null,
+                          onTap: _pickEndTime,
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
@@ -281,6 +386,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           controller: _locationController,
                           icon: Icons.location_on_outlined,
                           hint: AppStrings.createEventLocationHint,
+                          errorText: _locationError,
+                          onChanged: () => setState(() => _locationError = null),
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
@@ -291,22 +398,46 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           hint: AppStrings.createEventDetailHint,
                           maxLength: _detailMax,
                           maxLines: 4,
-                          onChanged: (_) => setState(() {}),
+                          errorText: _detailError,
+                          onChanged: (_) => setState(() => _detailError = null),
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
                         // ── Members ────────────────────────────────────────
                         _FieldLabel(AppStrings.createEventMembers),
                         _MemberCounter(
-                          value: _memberLimit,
-                          min: _memberMin,
-                          max: _memberMax,
-                          onDecrement: () => setState(
-                              () => _memberLimit = (_memberLimit - 1).clamp(_memberMin, _memberMax)),
-                          onIncrement: () => setState(
-                              () => _memberLimit = (_memberLimit + 1).clamp(_memberMin, _memberMax)),
+                          controller: _memberController,
+                          onDecrement: () {
+                            final v = int.tryParse(_memberController.text) ?? 0;
+                            if (v > 0) {
+                              _memberController.text = (v - 1).toString();
+                              setState(() => _membersError = null);
+                            }
+                          },
+                          onIncrement: () {
+                            final v = int.tryParse(_memberController.text) ?? 0;
+                            _memberController.text = (v + 1).toString();
+                            setState(() => _membersError = null);
+                          },
+                          onChanged: (val) {
+                            final parsed = int.tryParse(val);
+                            final normalized =
+                                (parsed == null || parsed < 0) ? '0' : parsed.toString();
+                            if (normalized != val) {
+                              _memberController.text = normalized;
+                              _memberController.selection = TextSelection.collapsed(
+                                offset: normalized.length,
+                              );
+                            }
+                            setState(() => _membersError = null);
+                          },
                         ),
+                        if (_membersError != null) _InlineError(_membersError!),
                         const SizedBox(height: AppSizes.paddingXL),
+
+                        // ── Publish Event toggle ───────────────────────────
+                        _buildPublishEventCard(),
+                        const SizedBox(height: AppSizes.paddingM),
 
                         // ── Create button ──────────────────────────────────
                         SizedBox(
@@ -465,20 +596,23 @@ class _FieldLabel extends StatelessWidget {
       child: Text(
         text,
         style: AppTextStyles.poppins(
-          fontSize: AppSizes.fontML,     // 16px
-          fontWeight: FontWeight.w600,   // SemiBold
+          fontSize: AppSizes.fontML,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 }
 
-// Text field with character counter — Poppins Light 14px hint
+/// Text field with character counter.
+/// When [errorText] is non-null the underline turns red and the error is shown
+/// inline via [InputDecoration.errorText]; the character counter is hidden.
 class _LimitedTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final int maxLength;
   final int maxLines;
+  final String? errorText;
   final ValueChanged<String>? onChanged;
 
   const _LimitedTextField({
@@ -486,6 +620,7 @@ class _LimitedTextField extends StatelessWidget {
     required this.hint,
     required this.maxLength,
     this.maxLines = 1,
+    this.errorText,
     this.onChanged,
   });
 
@@ -504,9 +639,20 @@ class _LimitedTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppTextStyles.poppins(
-              fontSize: AppSizes.fontSM,     // 14px
-              fontWeight: FontWeight.w300,   // Light
+              fontSize: AppSizes.fontSM,
+              fontWeight: FontWeight.w300,
               color: AppColors.fieldPlaceholder,
+            ),
+            errorText: errorText,
+            errorStyle: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXS,
+              color: Colors.red,
+            ),
+            errorBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.red),
             ),
             isDense: true,
             contentPadding: const EdgeInsets.only(bottom: 4),
@@ -518,140 +664,197 @@ class _LimitedTextField extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          '${controller.text.length}/$maxLength',
-          style: AppTextStyles.poppins(
-            fontSize: AppSizes.fontXXS,
-            color: AppColors.textGray,
+        // Hide counter while an error is displayed to avoid visual clutter.
+        if (errorText == null)
+          Text(
+            '${controller.text.length}/$maxLength',
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXXS,
+              color: AppColors.textGray,
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
-// Text field with inline icon — icon and field on the same line, bottom border on the row
+/// Text field with a leading icon.
+/// When [errorText] is non-null the bottom border and icon turn red and
+/// [_InlineError] is rendered below the row.
 class _IconTextField extends StatelessWidget {
   final TextEditingController controller;
   final IconData icon;
   final String hint;
+  final String? errorText;
+  final VoidCallback? onChanged;
 
   const _IconTextField({
     required this.controller,
     required this.icon,
     required this.hint,
+    this.errorText,
+    this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.inputBorder)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18, color: AppColors.textGray),
-          const SizedBox(width: AppSizes.paddingS),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: AppTextStyles.poppins(fontSize: AppSizes.fontSM),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: AppTextStyles.poppins(
-                  fontSize: AppSizes.fontSM,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.fieldPlaceholder,
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-              ),
-            ),
+    final Color borderColor =
+        errorText != null ? Colors.red : AppColors.inputBorder;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: borderColor)),
           ),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: errorText != null ? Colors.red : AppColors.textGray,
+              ),
+              const SizedBox(width: AppSizes.paddingS),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  onChanged: onChanged != null ? (_) => onChanged!() : null,
+                  style: AppTextStyles.poppins(fontSize: AppSizes.fontSM),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: AppTextStyles.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.w300,
+                      color: AppColors.fieldPlaceholder,
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (errorText != null) _InlineError(errorText!),
+      ],
     );
   }
 }
 
-// Date / time picker row — Poppins Light 14px placeholder
+/// Date / time picker row.
+/// When [errorText] is non-null the bottom border and icon turn red and
+/// [_InlineError] is rendered below the row.
 class _PickerField extends StatelessWidget {
   final IconData icon;
   final String text;
   final bool isPlaceholder;
   final VoidCallback onTap;
+  final String? errorText;
 
   const _PickerField({
     required this.icon,
     required this.text,
     required this.isPlaceholder,
     required this.onTap,
+    this.errorText,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.inputBorder)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: AppColors.textGray),
-            const SizedBox(width: AppSizes.paddingXS),
-            Expanded(
-              child: Text(
-                text,
-                style: AppTextStyles.poppins(
-                  fontSize: AppSizes.fontSM,                                   // 14px
-                  fontWeight: isPlaceholder ? FontWeight.w300 : FontWeight.w400, // Light if placeholder
-                  color: isPlaceholder ? AppColors.fieldPlaceholder : AppColors.textDark,
-                ),
-              ),
+    final Color borderColor =
+        errorText != null ? Colors.red : AppColors.inputBorder;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: borderColor)),
             ),
-          ],
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: errorText != null ? Colors.red : AppColors.textGray,
+                ),
+                const SizedBox(width: AppSizes.paddingXS),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: AppTextStyles.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight:
+                          isPlaceholder ? FontWeight.w300 : FontWeight.w400,
+                      color: isPlaceholder
+                          ? AppColors.fieldPlaceholder
+                          : AppColors.textDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        if (errorText != null) _InlineError(errorText!),
+      ],
     );
   }
 }
 
 class _MemberCounter extends StatelessWidget {
-  final int value;
-  final int min;
-  final int max;
+  final TextEditingController controller;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
+  final ValueChanged<String> onChanged;
 
   const _MemberCounter({
-    required this.value,
-    required this.min,
-    required this.max,
+    required this.controller,
     required this.onDecrement,
     required this.onIncrement,
+    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _CounterButton(icon: Icons.remove, onTap: value > min ? onDecrement : null),
+        _CounterButton(icon: Icons.remove, onTap: onDecrement),
         const SizedBox(width: AppSizes.paddingM),
-        Text(
-          value.toString(),
-          style: AppTextStyles.poppins(
-            fontSize: AppSizes.fontL,
-            fontWeight: FontWeight.w600,
+        SizedBox(
+          width: 56,
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            onChanged: onChanged,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontL,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.only(bottom: 4),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.inputBorder),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.inputBorder),
+              ),
+            ),
           ),
         ),
         const SizedBox(width: AppSizes.paddingM),
-        _CounterButton(icon: Icons.add, onTap: value < max ? onIncrement : null),
+        _CounterButton(icon: Icons.add, onTap: onIncrement),
       ],
     );
   }
@@ -659,23 +862,42 @@ class _MemberCounter extends StatelessWidget {
 
 class _CounterButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   const _CounterButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 32,
         height: 32,
-        decoration: BoxDecoration(
-          color: enabled ? AppColors.primary : const Color(0xFFBDBDBD),
+        decoration: const BoxDecoration(
+          color: AppColors.primary,
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 18, color: enabled ? AppColors.cardWhite : const Color(0xFF757575)),
+        child: Icon(icon, size: 18, color: AppColors.cardWhite),
+      ),
+    );
+  }
+}
+
+/// Red Poppins text shown directly below a field when validation fails.
+class _InlineError extends StatelessWidget {
+  final String message;
+  const _InlineError(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        message,
+        style: AppTextStyles.poppins(
+          fontSize: AppSizes.fontXS,
+          color: Colors.red,
+        ),
       ),
     );
   }

@@ -1,11 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/auth_result.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// Sign Up
   Future<User> signUp({
     required String email,
     required String password,
@@ -20,7 +20,6 @@ class AuthService {
         email: email,
         password: password,
       );
-
       final user = credential.user!;
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
@@ -35,14 +34,15 @@ class AuthService {
         'updatedAt': FieldValue.serverTimestamp(),
         'mutedCommunities': [], // Initialize with empty list for muted communities
       });
-
       return credential.user!;
     } catch (e) {
       throw Exception(e.toString());
     }
   }
 
-  /// Sign In
+  Future<void> updatePhotoURL(String uid, String url) =>
+      _db.collection('users').doc(uid).update({'photoURL': url});
+
   Future<UserCredential> signIn({
     required String email,
     required String password,
@@ -57,15 +57,11 @@ class AuthService {
     }
   }
 
-  /// Sign Out
-  Future<void> signOut() async {
-    await _auth.signOut();
-  }
+  Future<void> signOut() async => _auth.signOut();
 
-  /// Current user stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  /// Phone verification
+
   Future<void> verifyPhone({
     required String phoneNumber,
     required Function(String verificationId) codeSent,
@@ -75,17 +71,12 @@ class AuthService {
       verificationCompleted: (PhoneAuthCredential credential) async {
         await _auth.signInWithCredential(credential);
       },
-      verificationFailed: (e) {
-        throw Exception(e.message);
-      },
-      codeSent: (verificationId, _) {
-        codeSent(verificationId);
-      },
+      verificationFailed: (e) => throw Exception(e.message),
+      codeSent: (verificationId, _) => codeSent(verificationId),
       codeAutoRetrievalTimeout: (_) {},
     );
   }
 
-  /// Confirm OTP
   Future<void> confirmOtp({
     required String verificationId,
     required String smsCode,
@@ -94,8 +85,20 @@ class AuthService {
       verificationId: verificationId,
       smsCode: smsCode,
     );
-
     await _auth.signInWithCredential(credential);
+  }
+
+  /// Mock pre-check used by the register form before navigating to the phone
+  /// verification step. Returns [EmailAlreadyRegistered] for
+  /// 'existing@test.com'; otherwise [Success].
+  ///
+  /// Replace with a real Firebase email-availability check in production.
+  static Future<AuthResult> preCheckSignUp(String email) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (email.toLowerCase() == 'existing@test.com') {
+      return const EmailAlreadyRegistered();
+    }
+    return const Success();
   }
 }
 

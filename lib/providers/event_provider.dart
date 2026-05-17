@@ -10,18 +10,59 @@ class EventProvider extends ChangeNotifier {
   final EventService _service;
   List<EventModel> events = [];
   List<MessageModel> eventMessages = [];
+  List<EventModel> publishedEvents = [];
   bool isLoading = false;
   String? error;
 
   StreamSubscription<List<EventModel>>? _eventsSub;
   StreamSubscription<List<MessageModel>>? _eventMessagesSub;
   final Map<String, String> _nameCache = {};
+  StreamSubscription<List<EventModel>>? _publishedSub;
 
-  EventProvider({EventService? service})
-      : _service = service ?? EventService();
+  EventProvider({EventService? service}) : _service = service ?? EventService();
 
   // ── Events stream ──────────────────────────────────────────────────────────
 
+  void reassemble() {
+    _publishedSub?.cancel();
+    _publishedSub = null;
+    loadPublishedEvents();
+  }
+
+  void loadPublishedEvents() {
+    debugPrint('[Events] loadPublishedEvents() called');
+    debugPrint('[Events] _publishedSub is null: ${_publishedSub == null}');
+    if (_publishedSub != null) {
+      debugPrint('[Events] subscription already active — skipping');
+      return;
+    }
+    try {
+      _publishedSub = _service.getPublishedEvents().listen(
+        (list) {
+          debugPrint('[Events] received ${list.length} events');
+          publishedEvents = list;
+          notifyListeners();
+        },
+        onError: (e) {
+          debugPrint('[Events] STREAM ERROR: $e');
+          debugPrint('[EventProvider] getPublishedEvents error: $e');
+          error = e.toString();
+          _publishedSub = null;
+          notifyListeners();
+        },
+      );
+      debugPrint('[Events] subscription created: $_publishedSub');
+    } catch (e) {
+      debugPrint('[Events] EXCEPTION creating subscription: $e');
+    }
+  }
+
+  void clearPublishedEvents() {
+    publishedEvents = [];
+    _publishedSub?.cancel();
+    notifyListeners();
+  }
+  
   void loadEvents(String communityId) {
     _eventsSub?.cancel();
     _eventsSub = _service.getEvents(communityId).listen(
@@ -60,8 +101,7 @@ class EventProvider extends ChangeNotifier {
 
   void loadEventMessages(String communityId, String eventId) {
     _eventMessagesSub?.cancel();
-    _eventMessagesSub =
-        _service.getEventMessages(communityId, eventId).listen(
+    _eventMessagesSub = _service.getEventMessages(communityId, eventId).listen(
       (list) {
         eventMessages = list;
         notifyListeners();
@@ -101,8 +141,8 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> sendEventImageMessage(
           String communityId, String eventId, Uint8List bytes) =>
-      _run(() => _service.sendEventImageMessage(communityId, eventId,
-          bytes: bytes));
+      _run(() =>
+          _service.sendEventImageMessage(communityId, eventId, bytes: bytes));
 
   // ── Event actions ──────────────────────────────────────────────────────────
 
@@ -110,23 +150,27 @@ class EventProvider extends ChangeNotifier {
     required String communityId,
     required String title,
     required String description,
+    required String location,
     required List<CategoryModel> tags,
     required Timestamp startDate,
     required Timestamp endDate,
     required String roomId,
     String? imageUrl,
     int? maxAttendees,
+    required bool isPublished,  
   }) =>
       _run(() => _service.createEvent(
             communityId: communityId,
             title: title,
             description: description,
+            location: location,
             tags: tags,
             startDate: startDate,
             endDate: endDate,
             roomId: roomId,
             imageUrl: imageUrl,
             maxAttendees: maxAttendees,
+            isPublished: isPublished,
           ));
 
   Future<void> joinEvent(String communityId, String eventId) =>
@@ -137,6 +181,10 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> deleteEvent(String communityId, String eventId) =>
       _run(() => _service.deleteEvent(communityId, eventId));
+
+  Future<void> deleteEventMessage(
+          String communityId, String eventId, String messageId) =>
+      _run(() => _service.deleteEventMessage(communityId, eventId, messageId));
 
   // ── Helper ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +206,7 @@ class EventProvider extends ChangeNotifier {
   void dispose() {
     _eventsSub?.cancel();
     _eventMessagesSub?.cancel();
+    _publishedSub?.cancel();
     super.dispose();
   }
 }

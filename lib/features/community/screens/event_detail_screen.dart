@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_chat_args.dart';
 import '../../../models/event_model.dart';
+import '../../../models/community_model.dart';
 import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/community_provider.dart';
+import '../../../providers/smart_bill_provider.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel event;
@@ -25,6 +27,7 @@ class EventDetailScreen extends StatefulWidget {
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
   AttendeeProvider? _attendeeProvider;
+  Future<CommunityModel?>? _communityFuture;
 
   static const _avatarColors = [
     Color(0xFFFFB347),
@@ -44,6 +47,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       _attendeeProvider!.loadAttendees(widget.communityId, widget.event.id);
       await _attendeeProvider!
           .checkIsAttending(widget.communityId, widget.event.id);
+      if (!mounted) return;
+      context.read<SmartBillProvider>().loadBillByEvent(widget.communityId, widget.event.id);
+      _communityFuture = context.read<CommunityProvider>().fetchCommunity(widget.communityId);
+      setState(() {});
     });
   }
 
@@ -61,6 +68,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
+
+  Future<void> _onCreateBillTap() async {
+    await context.push(
+      '/create-bill',
+      extra: {
+        'communityId': widget.communityId,
+        'eventId': widget.event.id,
+        'eventName': widget.event.title,
+      },
+    );
+  }
 
   void _goToChat() {
     final ap = context.read<AttendeeProvider>();
@@ -109,8 +127,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final ap = context.watch<AttendeeProvider>();
-    final dateStr = DateFormat('d MMMM yyyy  hh:mm a')
-        .format(widget.event.startDate.toDate());
+    context.watch<SmartBillProvider>();
+    final dateStr = widget.event.formattedDateRange;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isHost = _isHost;
     final memberCount = ap.attendees.length;
@@ -171,7 +189,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           const SizedBox(height: 14),
                           _IconRow(
                               icon: Icons.location_on,
-                              text: widget.event.description),
+                              text: widget.event.location),
                         ],
 
                         // Event Detail section
@@ -216,7 +234,50 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                         // Bills card
                         const SizedBox(height: AppSizes.paddingM),
-                        const _BillsCard(),
+                        _BillsCard(
+                          communityId:  widget.communityId,
+                          eventId:      widget.event.id,
+                          isHost:       isHost,
+                          isAttending:  ap.isAttending,
+                          onCreateBill: _onCreateBillTap,
+                        ),
+
+                        // Rules section
+                        FutureBuilder<CommunityModel?>(
+                          future: _communityFuture,
+                          builder: (context, snapshot) {
+                            final rules = snapshot.data?.rules ?? [];
+                            if (rules.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: AppSizes.paddingM),
+                                Text(
+                                  'Rules',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: AppSizes.fontSM,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSizes.paddingXS),
+                                ...rules.asMap().entries.map(
+                                  (e) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      '${e.key + 1}. ${e.value.text}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: AppSizes.fontSM,
+                                        fontWeight: FontWeight.w300,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
 
                         SizedBox(height: AppSizes.paddingXL + bottomPad),
                       ],
@@ -240,29 +301,69 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               AppSizes.paddingM,
               bottomPad > 0 ? bottomPad : AppSizes.paddingL,
             ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: ap.isLoading ? null : _onButtonTap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  disabledBackgroundColor: AppColors.inputBorder,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+            child: Column(
+              children: [
+                if (!isHost && ap.isAttending) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: ap.isLoading ? null : _goToChat,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: AppColors.inputBorder,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSizes.radiusPill),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppSizes.paddingM),
+                      ),
+                      child: Text(
+                        'Go to Chat',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppSizes.fontML,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.cardWhite,
+                        ),
+                      ),
+                    ),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
-                ),
-                child: Text(
-                  buttonLabel,
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontML,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.cardWhite,
+                  const SizedBox(height: AppSizes.paddingS),
+                ],
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: ap.isLoading ? null : _onButtonTap,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (!isHost && ap.isAttending)
+                          ? AppColors.cardWhite
+                          : AppColors.primary,
+                      foregroundColor: (!isHost && ap.isAttending)
+                          ? AppColors.primary
+                          : AppColors.cardWhite,
+                      disabledBackgroundColor: AppColors.inputBorder,
+                      elevation: 0,
+                      side: (!isHost && ap.isAttending)
+                          ? const BorderSide(color: AppColors.primary)
+                          : BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSizes.radiusPill),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: AppSizes.paddingM),
+                    ),
+                    child: Text(
+                      buttonLabel,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppSizes.fontML,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -481,58 +582,128 @@ class _AvatarCircle extends StatelessWidget {
 // ── Event's bills card ────────────────────────────────────────────────────────
 
 class _BillsCard extends StatelessWidget {
-  const _BillsCard();
+  final String       communityId;
+  final String       eventId;
+  final bool         isHost;
+  final bool         isAttending;
+  final VoidCallback onCreateBill;
+
+  const _BillsCard({
+    required this.communityId,
+    required this.eventId,
+    required this.isHost,
+    required this.isAttending,
+    required this.onCreateBill,
+  });
+
+  Widget _card({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.paddingM,
+          vertical: AppSizes.paddingM,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+          border: Border.all(color: const Color(0xFFE8DFD8)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontSM,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppSizes.fontXXS,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFFF6B4A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSizes.paddingS),
+            Text(
+              '→',
+              style: GoogleFonts.poppins(
+                fontSize: AppSizes.fontL,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingM,
-        vertical: AppSizes.paddingM,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        border: Border.all(color: const Color(0xFFE8DFD8)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Event's bills",
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontSM,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'view bill summary that each need to pay',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppSizes.fontXXS,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFFF6B4A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSizes.paddingS),
-          Text(
-            '→',
-            style: GoogleFonts.poppins(
-              fontSize: AppSizes.fontL,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
+    final provider = context.watch<SmartBillProvider>();
+    final bill     = provider.bill;
+    final hasBill  = bill != null;
+
+    // isHost + no bill: show Create Bill
+    if (isHost && !hasBill) {
+      return _card(
+        context:  context,
+        title:    'Create Bill',
+        subtitle: 'Create & manage the bill for this event',
+        onTap:    onCreateBill,
+      );
+    }
+
+    // isHost + has bill: show Manage Bill → BillSummaryScreen
+    if (isHost && hasBill) {
+      return _card(
+        context:  context,
+        title:    'Manage Bill',
+        subtitle: 'View and manage the bill summary',
+        onTap: () => context.push('/bill-summary', extra: {
+          'communityId':       communityId,
+          'eventId':           eventId,
+          'billId':            bill.id,
+          'isCurrentUserHost': true,
+        }),
+      );
+    }
+
+    // non-host: hide if not attending (includes loading state where isAttending is false)
+    if (!isAttending) return const SizedBox.shrink();
+
+    // member + no bill: hide section
+    if (!hasBill) return const SizedBox.shrink();
+
+    // member + has bill: show View Bill → BillSummaryScreen (member view)
+    return _card(
+      context:  context,
+      title:    'View Bill',
+      subtitle: 'View the bill and pay your share',
+      onTap: () => context.push('/bill-summary', extra: {
+        'communityId':       communityId,
+        'eventId':           eventId,
+        'billId':            bill.id,
+        'isCurrentUserHost': false,
+      }),
     );
   }
 }

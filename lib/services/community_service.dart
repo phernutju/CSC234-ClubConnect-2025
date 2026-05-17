@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/category_model.dart';
 import '../models/community_model.dart';
@@ -55,29 +55,37 @@ class CommunityService {
   CollectionReference<Map<String, dynamic>> _members(String communityId) =>
       _communities.doc(communityId).collection('members');
 
+  // Tracks which users were active in a community within the last 24h.
+  // Path: community_activity/{communityId}/activeUsers/{userId}
+  CollectionReference<Map<String, dynamic>> _activityUsers(
+          String communityId) =>
+      _db
+          .collection('community_activity')
+          .doc(communityId)
+          .collection('activeUsers');
+
   // ── Communities ────────────────────────────────────────────────────────────
 
   Stream<List<CommunityModel>> getCommunities() {
-    return _communities
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
+    return _communities.orderBy('createdAt', descending: true).snapshots().map(
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
   // Alternative: Get communities with limit for performance
   Stream<List<CommunityModel>> getCommunitiesLimited({int limit = 20}) {
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     return _communities
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
@@ -88,24 +96,24 @@ class CommunityService {
 
   // Alternative: Get communities by specific IDs
   Stream<List<CommunityModel>> getCommunitiesByIds(List<String> communityIds) {
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     if (communityIds.isEmpty) return Stream.value([]);
 
     return _communities
         .where(FieldPath.documentId, whereIn: communityIds)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
   // Get communities filtered by category name (client-side, tags are stored as maps)
   Stream<List<CommunityModel>> getCommunitiesByCategory(String categoryName) {
-    return _communities
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
+    return _communities.orderBy('createdAt', descending: true).snapshots().map(
           (snap) => snap.docs
               .map((doc) => CommunityModel.fromJson(doc))
               .where((c) => c.tags.any((t) => t.name == categoryName))
@@ -148,9 +156,8 @@ class CommunityService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => CommunityModel.fromJson(doc))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => CommunityModel.fromJson(doc)).toList(),
         );
   }
 
@@ -179,7 +186,8 @@ class CommunityService {
     final createdAt = FieldValue.serverTimestamp();
     String coverImageURL = '';
     if (coverImageBytes != null) {
-      coverImageURL = await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
+      coverImageURL =
+          await _storage.uploadCommunityImage(coverImageBytes, communityRef.id);
     }
     final batch = _db.batch();
     batch.set(communityRef, {
@@ -193,6 +201,7 @@ class CommunityService {
       'createdAt': createdAt,
       'updatedAt': createdAt,
       'createdBy': user.uid,
+      'stats': const CommunityStats().toMap(),
     });
     batch.set(_members(communityRef.id).doc(user.uid), {
       'joinedAt': createdAt,
@@ -232,6 +241,22 @@ class CommunityService {
     await _communities.doc(communityId).update(updates);
   }
 
+  /// Permanently removes the community and its members subcollection.
+  /// Only the creator is authorised to call this.
+  Future<void> deleteCommunity(String communityId) async {
+    final user = _requireAuth();
+    await _requireCreator(communityId, user.uid);
+
+    // Fetch and batch-delete all member documents before removing the community.
+    final membersSnap = await _members(communityId).get();
+    final batch = _db.batch();
+    for (final doc in membersSnap.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(_communities.doc(communityId));
+    await batch.commit();
+  }
+
   // ── Membership ─────────────────────────────────────────────────────────────
 
   Future<void> joinCommunity(String communityId) async {
@@ -242,11 +267,11 @@ class CommunityService {
       throw Exception('Already a member of this community');
     }
 
+    final displayName = await getUserDisplayName(user.uid);
     final communityDoc = await _communities.doc(communityId).get();
     final communityName =
         communityDoc.data()?['communityName'] as String? ?? '';
-    final createdById =
-        communityDoc.data()?['createdById'] as String?;
+    final createdById = (communityDoc.data()?['createdBy'] ?? communityDoc.data()?['createdById']) as String?;
 
     final batch = _db.batch();
     batch.set(memberRef, {
@@ -257,18 +282,19 @@ class CommunityService {
       'memberCount': FieldValue.increment(1),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    batch.set(_messages(communityId).doc(), {
+      'senderId': 'system',
+      'isSystem': true,
+      'type': 'joined',
+      'senderName': displayName,
+      'text': '$displayName joined the group',
+      'imageURL': '',
+      'timestamp': FieldValue.serverTimestamp(),
+      'seenBy': [],
+    });
     await batch.commit();
-
-    if (createdById != null && createdById != user.uid) {
-      final joinerName = await getUserDisplayName(user.uid);
-      await _notifications.createNotification(createdById, {
-        'communityId': communityId,
-        'mentionedBy': user.uid,
-        'title': joinerName,
-        'description': '$joinerName joined $communityName',
-        'type': 'join',
-      });
-    }
+    _fireAndForget(_incrementStat(communityId, 'joins24h'));
+    _fireAndForget(trackActiveUser(communityId));
   }
 
   Future<void> leaveCommunity(String communityId) async {
@@ -280,32 +306,56 @@ class CommunityService {
       throw Exception('Transfer ownership before leaving');
     }
 
+    final displayName = await getUserDisplayName(user.uid);
     final batch = _db.batch();
     batch.delete(_members(communityId).doc(user.uid));
     batch.update(_communities.doc(communityId), {
       'memberCount': FieldValue.increment(-1),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    batch.set(_messages(communityId).doc(), {
+      'senderId': 'system',
+      'isSystem': true,
+      'type': 'left',
+      'senderName': displayName,
+      'text': '$displayName left the group',
+      'imageURL': '',
+      'timestamp': FieldValue.serverTimestamp(),
+      'seenBy': [],
+    });
     await batch.commit();
   }
 
   Future<void> kickMember(String communityId, String userId) async {
     _requireAuth();
+    final displayName = await getUserDisplayName(userId);
     final batch = _db.batch();
     batch.delete(_members(communityId).doc(userId));
     batch.update(_communities.doc(communityId), {
       'memberCount': FieldValue.increment(-1),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    batch.set(_messages(communityId).doc(), {
+      'senderId': 'system',
+      'isSystem': true,
+      'type': 'kicked',
+      'senderName': displayName,
+      'text': '$displayName was removed from the group',
+      'imageURL': '',
+      'timestamp': FieldValue.serverTimestamp(),
+      'seenBy': [],
+    });
     await batch.commit();
   }
 
   Stream<List<MemberModel>> getMembers(String communityId) {
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     return _members(communityId).snapshots().map(
-      (snap) => snap.docs
-          .map((doc) => MemberModel.fromJson(doc.data(), doc.id))
-          .toList(),
-    );
+          (snap) => snap.docs
+              .map((doc) => MemberModel.fromJson(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   Future<void> editMember(
@@ -335,13 +385,14 @@ class CommunityService {
   // ── Messages ───────────────────────────────────────────────────────────────
 
   Stream<List<MessageModel>> getMessages(String communityId) {
+    if (_auth.currentUser == null)
+      return Stream.error(Exception('Not authenticated'));
     return _messages(communityId)
         .orderBy('timestamp', descending: false)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => MessageModel.fromJson(doc.data(), doc.id))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => MessageModel.fromFirestore(doc)).toList(),
         );
   }
 
@@ -349,7 +400,6 @@ class CommunityService {
     String communityId, {
     required String text,
     String imageURL = '',
-    String rules = '',
     String? replyToId,
     String? replyToSenderName,
     String? replyToText,
@@ -360,6 +410,10 @@ class CommunityService {
     final user = _requireAuth();
     if (user.uid.isEmpty) throw ArgumentError('uid must not be empty');
     await _requireMemberDoc(communityId, user.uid);
+
+    final communityDoc = await _communities.doc(communityId).get();
+    final rulesList = (communityDoc.data()?['rules'] as List<dynamic>?)?.map((r) => RuleModel.fromMap(r)).toList() ?? [];
+    final rulesString = rulesList.asMap().entries.map((e) => '${e.key + 1}. ${e.value.text}').join('\n');
 
     final trimmed = text.trim();
     if (trimmed.isEmpty && imageURL.isEmpty) {
@@ -386,11 +440,9 @@ class CommunityService {
       if (replyToId != null) 'replyToId': replyToId,
       if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
       if (replyToText != null) 'replyToText': replyToText,
-      if (mentions.isNotEmpty) 'mentions': mentions,
     });
-
     if (trimmed.isNotEmpty) {
-      final result = await GeminiService.moderateMessage(trimmed, rules: rules);
+      final result = await GeminiService.moderateMessage(trimmed, rules: rulesString);
       if (result.isViolating) {
         final count = await _reportService.submitAiViolation(
           userId: user.uid,
@@ -406,11 +458,9 @@ class CommunityService {
         );
       }
     }
-
     final needsNotification =
         (replyToSenderId != null && replyToSenderId != user.uid) ||
             mentions.any((uid) => uid != user.uid);
-
     if (needsNotification) {
       final communityDoc = await _communities.doc(communityId).get();
       final communityName =
@@ -439,6 +489,9 @@ class CommunityService {
         });
       }
     }
+
+    _fireAndForget(_incrementStat(communityId, 'messages24h'));
+    _fireAndForget(trackActiveUser(communityId));
   }
 
   Future<void> sendImageMessage(
@@ -462,11 +515,210 @@ class CommunityService {
     });
   }
 
+  Future<void> deleteMessage(String communityId, String messageId) async {
+    final user = _requireAuth();
+    final doc = await _messages(communityId).doc(messageId).get();
+    if (!doc.exists) throw Exception('Message not found');
+    if (doc.data()?['senderId'] != user.uid) {
+      throw Exception('Can only delete your own messages');
+    }
+    await _messages(communityId).doc(messageId).delete();
+  }
+
   // ── Users ──────────────────────────────────────────────────────────────────
 
   Future<String> getUserDisplayName(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();
-    return doc.data()?['displayName'] as String? ?? 'User';
+    return doc.data()?['displayName'] as String? ?? '';
+  }
+
+  /// Single doc read returning both displayName and photoURL.
+  Future<({String displayName, String photoURL})> getUserInfo(String uid) async {
+    final doc = await _db.collection('users').doc(uid).get();
+    final data = doc.data();
+    return (
+      displayName: data?['displayName'] as String? ?? '',
+      photoURL: data?['photoURL'] as String? ?? '',
+    );
+  }
+
+  // ── Trending & Recommendations ─────────────────────────────────────────────
+
+  /// Communities ordered by trendingScore descending.
+  /// Requires Firestore composite index: communities / stats.trendingScore DESC
+  Stream<List<CommunityModel>> fetchTrendingCommunities({int limit = 20}) {
+    return _communities
+        .orderBy('stats.trendingScore', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(CommunityModel.fromJson).toList());
+  }
+
+  /// Score formula: tagMatches*5 + trendingBoost (capped 20).
+  /// Excludes communities the user already joined.
+  /// Falls back to trending list when user has no interests.
+  Future<List<CommunityModel>> fetchRecommendedCommunities({
+    required String userId,
+    required List<String> joinedCommunityIds,
+    int limit = 20,
+  }) async {
+    final userDoc = await _db.collection('users').doc(userId).get();
+    final interests = List<String>.from(userDoc.data()?['interests'] ?? []);
+    final joinedSet = joinedCommunityIds.toSet();
+
+    if (interests.isEmpty) {
+      try {
+        return await fetchTrendingCommunities(limit: limit).first;
+      } catch (_) {
+        return [];
+      }
+    }
+
+    final snap = await _communities.limit(100).get();
+    final scored = <_ScoredCommunity>[];
+
+    for (final doc in snap.docs) {
+      final community = CommunityModel.fromJson(doc);
+      if (joinedSet.contains(community.id)) continue;
+
+      final tagSlugs = community.tags.map((t) => t.slug).toSet();
+      final tagMatches = interests.where(tagSlugs.contains).length;
+      final trendingBoost =
+          (community.stats.trendingScore / 10.0).clamp(0.0, 20.0);
+      final score = tagMatches * 5.0 + trendingBoost;
+
+      if (score > 0) scored.add(_ScoredCommunity(community, score));
+    }
+
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    return scored.take(limit).map((s) => s.community).toList();
+  }
+
+  // ── Activity Tracking ──────────────────────────────────────────────────────
+
+  /// Deduplicates active-user counting to once per user per 24h window.
+  ///
+  /// Uses a transaction so concurrent calls cannot both pass the 24h check
+  /// and double-increment the counter. All reads happen before all writes
+  /// (Firestore transaction requirement).
+  Future<void> trackActiveUser(String communityId) async {
+    final user = _requireAuth();
+    final activityRef = _activityUsers(communityId).doc(user.uid);
+    final communityRef = _communities.doc(communityId);
+
+    await _db.runTransaction((tx) async {
+      final activitySnap = await tx.get(activityRef);
+      final now = Timestamp.now();
+
+      final lastActiveAt = activitySnap.data()?['lastActiveAt'] as Timestamp?;
+      final shouldCount = !activitySnap.exists ||
+          lastActiveAt == null ||
+          now.toDate().difference(lastActiveAt.toDate()) >=
+              const Duration(hours: 24);
+
+      // Read community doc before any writes (only when we need to update stats).
+      DocumentSnapshot<Map<String, dynamic>>? communitySnap;
+      if (shouldCount) communitySnap = await tx.get(communityRef);
+
+      // ── Writes ────────────────────────────────────────────────────────────
+      // Always refresh lastActiveAt so the 24h window is anchored to latest activity.
+      tx.set(activityRef, {'lastActiveAt': now});
+
+      if (!shouldCount || communitySnap == null || !communitySnap.exists)
+        return;
+
+      // First activity in this 24h window — increment counter and recalc score.
+      final statsMap =
+          (communitySnap.data()?['stats'] as Map<String, dynamic>?) ?? {};
+      final newActive = (statsMap['activeUsers24h'] as int? ?? 0) + 1;
+      final newScore = _computeTrendingScore(<String, dynamic>{
+        ...statsMap,
+        'activeUsers24h': newActive,
+      });
+
+      tx.update(communityRef, {
+        'stats.activeUsers24h': FieldValue.increment(1),
+        'stats.trendingScore': newScore,
+        'stats.lastTrendingUpdate': now,
+      });
+    });
+  }
+
+  /// Call when a user reacts to a message.
+  Future<void> incrementReactionCount(String communityId) =>
+      _incrementStat(communityId, 'reactions24h');
+
+  /// Increments a 24h stat counter with lazy window reset.
+  /// If >24h since statsWindowStart, all counters reset before incrementing.
+  Future<void> _incrementStat(String communityId, String field) async {
+    final ref = _communities.doc(communityId);
+    final snap = await ref.get();
+    if (!snap.exists) return;
+
+    final statsMap = (snap.data()?['stats'] as Map<String, dynamic>?) ?? {};
+    final windowStart = statsMap['statsWindowStart'] as Timestamp?;
+    final now = Timestamp.now();
+    final windowExpired = windowStart == null ||
+        now.toDate().difference(windowStart.toDate()) >=
+            const Duration(hours: 24);
+
+    if (windowExpired) {
+      // New 24h window — reset all counters then set this field to 1.
+      final fresh = <String, dynamic>{
+        'messages24h': 0,
+        'activeUsers24h': 0,
+        'joins24h': 0,
+        'reactions24h': 0,
+        'statsWindowStart': now,
+        'lastTrendingUpdate': now,
+        field: 1,
+      };
+      fresh['trendingScore'] = _computeTrendingScore(fresh);
+      await ref.update({'stats': fresh});
+    } else {
+      final newScore = _computeTrendingScore({
+        'messages24h': (statsMap['messages24h'] as int? ?? 0) +
+            (field == 'messages24h' ? 1 : 0),
+        'activeUsers24h': (statsMap['activeUsers24h'] as int? ?? 0) +
+            (field == 'activeUsers24h' ? 1 : 0),
+        'joins24h':
+            (statsMap['joins24h'] as int? ?? 0) + (field == 'joins24h' ? 1 : 0),
+        'reactions24h': (statsMap['reactions24h'] as int? ?? 0) +
+            (field == 'reactions24h' ? 1 : 0),
+      });
+      await ref.update({
+        'stats.$field': FieldValue.increment(1),
+        'stats.trendingScore': newScore,
+        'stats.lastTrendingUpdate': now,
+      });
+    }
+  }
+
+  /// trendingScore = messages*1 + activeUsers*4 + joins*3 + reactions*2
+  static double _computeTrendingScore(Map<String, dynamic> stats) {
+    return (stats['messages24h'] as int? ?? 0) * 1.0 +
+        (stats['activeUsers24h'] as int? ?? 0) * 4.0 +
+        (stats['joins24h'] as int? ?? 0) * 3.0 +
+        (stats['reactions24h'] as int? ?? 0) * 2.0;
+  }
+
+  /// Runs a future without awaiting it; swallows errors so stats failures
+  /// never surface to the user.
+  void _fireAndForget(Future<void> future) {
+    future.catchError((_) {});
+  }
+
+  // Extensibility hook for future ML-based personalization.
+  // Increments the per-user interest score for a tag slug.
+  // Call after join/message in communities with matching tags.
+  // ignore: unused_element
+  Future<void> _incrementInterestScore(String userId, String tagSlug) async {
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('interestScores')
+        .doc(tagSlug)
+        .set({'score': FieldValue.increment(1)}, SetOptions(merge: true));
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -502,4 +754,11 @@ class CommunityService {
       throw Exception('Only the community creator can perform this action');
     }
   }
+}
+
+// Private value type used only inside fetchRecommendedCommunities.
+class _ScoredCommunity {
+  final CommunityModel community;
+  final double score;
+  const _ScoredCommunity(this.community, this.score);
 }

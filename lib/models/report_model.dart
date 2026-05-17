@@ -81,7 +81,7 @@ class ReportModel {
       reviewedAt: map['reviewedAt'] != null
           ? (map['reviewedAt'] as Timestamp).toDate()
           : null,
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 

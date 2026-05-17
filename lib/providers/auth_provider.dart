@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 
 class AuthException implements Exception {
   final String message;
-  const AuthException(this.message);
+  final String code;
+  const AuthException(this.message, [this.code = '']);
   @override
   String toString() => message;
 }
@@ -16,18 +19,19 @@ enum OtpState { idle, sendingOtp, codeSent, verifying, verified, error }
 
 class AppAuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
 
   User? user;
   String? role;
   bool isBanned = false;
   bool isMuted = false;
+  DateTime? muteExpiresAt;
   String? banReason;
   DateTime? banExpiresAt;
   String? durationLabel;
-  DateTime? muteExpiresAt;
-  bool isLoading = false;
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
   OtpState _otpState = OtpState.idle;
   String? _verificationId;
@@ -58,6 +62,7 @@ class AppAuthProvider extends ChangeNotifier {
   String? _bio;
   List<String>? _tags;
   String? _photoURL;
+  Uint8List? _imageBytes;
 
   AppAuthProvider() {
     _auth.authStateChanges().listen((u) {
@@ -157,8 +162,9 @@ class AppAuthProvider extends ChangeNotifier {
     return phone; // +6680000000
   }
 
-  void setExtraInfo(String photoURL, String displayName, String bio) {
+  void setExtraInfo(String photoURL, String displayName, String bio, {Uint8List? imageBytes}) {
     _photoURL = photoURL;
+    _imageBytes = imageBytes;
     _displayName = displayName;
     _bio = bio;
   }
@@ -224,42 +230,39 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   Future<void> signUp() async {
-    isLoading = true;
+    _isLoading = true;
     notifyListeners();
     try {
       if (_email == null || _password == null || _displayName == null) {
-        throw AuthException('Missing required signup data');
+        throw Exception('Missing required signup data');
       }
-      final cred = await _auth.createUserWithEmailAndPassword(
+      final newUser = await _authService.signUp(
         email: _email!,
         password: _password!,
+        displayName: _displayName!,
+        phoneNumber: _phone ?? '',
+        interests: _tags ?? [],
+        bio: _bio ?? '',
+        photoURL: _photoURL ?? '',
       );
-      await _db.collection('users').doc(cred.user!.uid).set({
-        'uid': cred.user!.uid,
-        'displayName': _displayName,
-        'email': _email,
-        'phoneNumber': _phone ?? '',
-        'photoURL': _photoURL ?? '',
-        'bio': _bio ?? '',
-        'interests': _tags ?? [],
-        'role': 'user',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      if (_imageBytes != null) {
+        final url = await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
+        await _authService.updatePhotoURL(newUser.uid, url);
+      }
       _clearSignupData();
-    } on FirebaseAuthException catch (e) {
-      throw AuthException(_mapError(e.code));
+    } catch (e) {
+      debugPrint('SignUp error: $e');
+      rethrow;
     } finally {
-      isLoading = false;
+      _isLoading = false;
       notifyListeners();
     }
   }
-
   Future<void> signIn({
     required String email,
     required String password,
   }) async {
-    isLoading = true;
+    _isLoading = true;
     notifyListeners();
     try {
       final credential = await _auth.signInWithEmailAndPassword(
@@ -270,7 +273,7 @@ class AppAuthProvider extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapError(e.code));
     } finally {
-      isLoading = false;
+      _isLoading = false;
       notifyListeners();
     }
   }
@@ -285,6 +288,7 @@ class AppAuthProvider extends ChangeNotifier {
     _tags = null;
     _bio = null;
     _photoURL = null;
+    _imageBytes = null;
   }
 
   String _mapError(String code) {

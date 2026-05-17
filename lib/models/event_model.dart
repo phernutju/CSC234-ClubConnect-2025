@@ -1,21 +1,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart' show TimeOfDay;
+import 'package:intl/intl.dart';
 import 'package:csc234_clubconnect/models/category_model.dart';
 
-enum EventStatus { upcoming, ongoing, ended }
+enum EventStatus { upcoming, ongoing, ended, closed }
 
 class EventModel {
   final String id;
   final String title;
-  final String description;   // user puts location info here naturally
-  final String? imageUrl;     // optional cover photo
+  final String description;
+  final String location;
+  final String? imageUrl;
   final Timestamp createdAt;
   final String createdBy;
   final List<String> attendees;
   final List<CategoryModel> tags;
-  final String roomId;        // links to Room (type: event) which has createdAt
-  final int? maxAttendees;    // null = unlimited
-  final Timestamp startDate;       // event start
-  final Timestamp endDate;    // event end — Room uses this as expiresAt
+  final String roomId;
+  final int? maxAttendees;
+  final Timestamp startDate;
+  final Timestamp endDate;
+  final EventStatus status;
+  final bool isPublished;
+  final String communityId;
 
   EventModel({
     required this.id,
@@ -25,21 +31,18 @@ class EventModel {
     required this.createdAt,
     required this.attendees,
     required this.tags,
+    required this.location,
     required this.roomId,
     required this.startDate,
     required this.endDate,
+    required this.status,
     this.imageUrl,
     this.maxAttendees,
+    this.isPublished = false,
+    this.communityId = '',
   });
 
   // ─── Derived Getters ───────────────────────────
-
-  EventStatus get status {
-    final now = DateTime.now();
-    if (now.isBefore(startDate.toDate())) return EventStatus.upcoming;
-    if (now.isAfter(endDate.toDate())) return EventStatus.ended;
-    return EventStatus.ongoing;
-  }
 
   bool get isFull =>
       maxAttendees != null && attendees.length >= maxAttendees!;
@@ -49,6 +52,31 @@ class EventModel {
   int get attendeeCount => attendees.length;
 
   bool isAttending(String userId) => attendees.contains(userId);
+
+  String get formattedDateRange {
+    final start = startDate.toDate();
+    final end = endDate.toDate();
+    final sameDay = start.year == end.year &&
+        start.month == end.month &&
+        start.day == end.day;
+    final dayFmt = DateFormat('d MMMM yyyy');
+    final timeFmt = DateFormat('hh:mm a');
+    if (sameDay) {
+      return '${dayFmt.format(start)}  ${timeFmt.format(start)} - ${timeFmt.format(end)}';
+    }
+    return '${dayFmt.format(start)} ${timeFmt.format(start)} - '
+        '${dayFmt.format(end)} ${timeFmt.format(end)}';
+  }
+
+  TimeOfDay get startTime {
+    final d = startDate.toDate();
+    return TimeOfDay(hour: d.hour, minute: d.minute);
+  }
+
+  TimeOfDay get endTime {
+    final d = endDate.toDate();
+    return TimeOfDay(hour: d.hour, minute: d.minute);
+  }
 
   // ─── Serialization ─────────────────────────────
 
@@ -66,27 +94,39 @@ class EventModel {
       createdAt: json['createdAt'] ?? Timestamp.now(),
       createdBy: json['createdBy'] ?? '',
       attendees: List<String>.from(json['attendees'] ?? []),
-      tags: (json['tags'] as List<dynamic>?)?.map((t) => CategoryModel.fromMap(t)).toList() ?? [],
+      tags: (json['tags'] as List<dynamic>?)
+              ?.map((t) => CategoryModel.fromMap(t))
+              .toList() ??
+          [],
       roomId: json['roomId'] ?? '',
       maxAttendees: json['maxAttendees'] as int?,
       startDate: json['startDate'] ?? Timestamp.now(),
       endDate: json['endDate'] ?? json['expiresAt'] ?? Timestamp.now(),
+      status: EventStatus.values.firstWhere(
+        (s) => s.name == json['status'],
+        orElse: () => EventStatus.upcoming,
+      ),
+      location: json['location'] ?? '',
+      communityId: json['communityId'] as String? ?? '',
+      isPublished: json['isPublished'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'description': description,
-    'imageUrl': imageUrl,
-    'createdBy': createdBy,
-    'attendees': attendees,
-    'tags': tags.map((tag) => tag.toJson()).toList(),
-    'roomId': roomId,
-    'maxAttendees': maxAttendees,
-    'startDate': startDate,
-    'endDate': endDate,
-  };
+        'id': id,
+        'title': title,
+        'description': description,
+        'imageUrl': imageUrl,
+        'createdBy': createdBy,
+        'attendees': attendees,
+        'tags': tags.map((tag) => tag.toJson()).toList(),
+        'roomId': roomId,
+        'maxAttendees': maxAttendees,
+        'startDate': startDate,
+        'endDate': endDate,
+        'status': status.toString().split('.').last,
+        'isPublished': isPublished,
+      };
 
   Map<String, dynamic> toFirestore() {
     final map = toJson();
@@ -113,6 +153,8 @@ class EventModel {
       maxAttendees: maxAttendees ?? this.maxAttendees,
       startDate: startDate,
       endDate: endDate,
+      location: location,
+      status: status,
     );
   }
 }

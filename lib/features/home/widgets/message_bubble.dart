@@ -20,11 +20,13 @@ class ChatMessage {
   final bool isSent;
   final String senderName;
   final String senderId;
+  final DateTime timestamp;
   final String time;
   final String? readCount;
   final String? replyToName;
   final String? replyToText;
-  /// Maps @displayName → uid for mention highlighting and tap-to-profile.
+  final bool isSystemMessage;
+  final String type;
   final Map<String, String> mentionMap;
 
   const ChatMessage({
@@ -35,10 +37,13 @@ class ChatMessage {
     required this.isSent,
     required this.senderName,
     required this.senderId,
+    required this.timestamp,
     required this.time,
     this.readCount,
     this.replyToName,
     this.replyToText,
+    this.isSystemMessage = false,
+    this.type = '',
     this.mentionMap = const {},
   });
 }
@@ -66,6 +71,9 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (message.isSystemMessage) {
+      return _SystemPill(type: message.type, senderName: message.senderName, fallbackText: message.text);
+    }
     return GestureDetector(
       onLongPressStart: onLongPress == null
           ? null
@@ -77,6 +85,57 @@ class MessageBubble extends StatelessWidget {
               onSenderTap: onSenderTap,
               onMentionTap: onMentionTap,
             ),
+    );
+  }
+}
+
+// ── System message pill (centered, LINE-style) ────────────────────────────────
+
+String _systemText(String type, String senderName) {
+  switch (type) {
+    case 'joined': return '$senderName joined the group';
+    case 'left':   return '$senderName left the group';
+    case 'kicked': return '$senderName was removed from the group';
+    default:       return '';
+  }
+}
+
+class _SystemPill extends StatelessWidget {
+  final String type;
+  final String senderName;
+  final String fallbackText;
+
+  const _SystemPill({
+    required this.type,
+    required this.senderName,
+    required this.fallbackText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _systemText(type, senderName).isNotEmpty
+        ? _systemText(type, senderName)
+        : fallbackText;
+    if (label.isEmpty) return const SizedBox.shrink();
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: AppSizes.systemPillMarginV),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.systemPillPadH,
+          vertical: AppSizes.systemPillPadV,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.systemPillBg,
+          borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.body(
+            fontSize: AppSizes.fontXS,
+            color: AppColors.systemPillText,
+          ),
+        ),
+      ),
     );
   }
 }

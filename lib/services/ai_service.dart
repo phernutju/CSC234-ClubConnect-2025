@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
+import '../models/smart_bill_model.dart';
 
 class ModerationResult {
   final bool isViolating;
@@ -35,7 +36,6 @@ class GeminiService {
       return const ModerationResult(
           isViolating: false, violatedRules: [], reason: '');
     }
-
     final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
 
     final prompt = '''
@@ -72,7 +72,7 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
         {'role': 'user', 'content': prompt},
       ],
     });
-
+    print('[AI] prompt="$prompt"');
     for (var attempt = 0; attempt < _maxRetries; attempt++) {
       final response = await http.post(
         Uri.parse(_endpoint),
@@ -334,6 +334,89 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       // ignore: avoid_print
       print('[IMG] error: $e');
       return false;
+    }
+  }
+
+  static Future<AiVerificationResult> verifyPaymentSlip(
+    String slipUrl,
+    double expectedAmount,
+  ) async {
+    final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
+    final fallback = AiVerificationResult(
+      detectedAmount: 0,
+      expectedAmount: expectedAmount,
+      recipientMatch: false,
+      result: 'mismatch',
+    );
+
+    try {
+      final response = await http.post(
+        Uri.parse(_endpoint),
+        headers: {
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': 'nvidia/nemotron-nano-12b-v2-vl:free',
+          'max_tokens': 200,
+          'temperature': 0,
+          'messages': [
+            {
+              'role': 'user',
+              'content': [
+                {
+                  'type': 'image_url',
+                  'image_url': {'url': slipUrl},
+                },
+                {
+                  'type': 'text',
+                  'text': 'This is a Thai bank transfer slip image. '
+                      'Analyse the slip and extract the transfer amount. '
+                      'Expected amount: ${expectedAmount.toStringAsFixed(2)} THB. '
+                      'Determine: (1) the detected transfer amount in THB, '
+                      '(2) whether this looks like a real (not fake/edited) bank slip, '
+                      '(3) whether the detected amount matches the expected amount (within 1 THB tolerance). '
+                      'Reply with JSON only, no explanation: '
+                      '{"detectedAmount":<number>,"isRealSlip":<true|false>,"amountMatch":<true|false>}',
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      // ignore: avoid_print
+      print('[SLIP] status=${response.statusCode} body=${response.body}');
+      if (response.statusCode != 200) return fallback;
+
+      final body = jsonDecode(response.body);
+      final msg = body['choices']?[0]?['message'];
+      final content = (msg?['content'] as String? ?? '').trim();
+      final reasoning = (msg?['reasoning'] as String? ?? '').trim();
+      final combined = content.isNotEmpty ? content : reasoning;
+
+      final jsonMatch = RegExp(
+        r'\{[^{}]*"detectedAmount"[^{}]*\}',
+        dotAll: true,
+      ).firstMatch(combined);
+      if (jsonMatch == null) return fallback;
+
+      final parsed = jsonDecode(jsonMatch.group(0)!);
+      final detected = (parsed['detectedAmount'] as num?)?.toDouble() ?? 0;
+      final isReal = parsed['isRealSlip'] as bool? ?? false;
+      final amountMatch = parsed['amountMatch'] as bool? ?? false;
+      final isMatch = isReal && amountMatch;
+
+      return AiVerificationResult(
+        detectedAmount: detected,
+        expectedAmount: expectedAmount,
+        recipientMatch: isReal,
+        result: isMatch ? 'match' : 'mismatch',
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('[SLIP] error: $e');
+      return fallback;
     }
   }
 }

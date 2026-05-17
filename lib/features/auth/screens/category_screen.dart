@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
+import '../../../services/category_service.dart';
+import '../../home/widgets/interest_chip.dart';
 import '../widgets/step_progress_bar.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/category_provider.dart';
@@ -18,6 +20,8 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   final Set<String> _selected = {};
+  late final Future<List<String>> _categoriesFuture =
+      CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
 
   void _toggleCategory(String label) {
     setState(() {
@@ -29,21 +33,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
     });
   }
 
-  Future<void> _onGetStarted() async {
-    final tags = _selected.toList();
-    final provider = context.read<AppAuthProvider>();
-    provider.setInterests(tags);
-    try {
-      await provider.signUp();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign up failed: $e')),
-      );
-      return;
-    }
-    if (!mounted) return;
-    context.go('/home');
+  void _onGetStarted() {
+    context.push('/community-standards');
   }
 
   @override
@@ -113,116 +104,54 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: AppSizes.paddingL),
 
               Expanded(
-                child: Consumer<CategoryProvider>(
-                  builder: (context, catProvider, _) {
-                    if (catProvider.isLoading) {
-                      return const Center(child: CircularProgressIndicator());
+                child: FutureBuilder<List<String>>(
+                  future: _categoriesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppColors.primary),
+                      );
                     }
-                    if (catProvider.error != null) {
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSizes.paddingL),
+                          child: Text(
+                            'Could not load categories.\n${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.body(color: AppColors.textGray),
+                          ),
+                        ),
+                      );
+                    }
+                    final names = snapshot.data ?? [];
+                    if (names.isEmpty) {
                       return Center(
                         child: Text(
-                          'Failed to load categories',
+                          'No categories found.\nCheck the "categories" collection and field name.',
+                          textAlign: TextAlign.center,
                           style: AppTextStyles.body(color: AppColors.textGray),
                         ),
                       );
                     }
-                    return _CategoryChipGrid(
-                      categories: catProvider.approvedCategories
-                          .map((c) => c.name)
-                          .toList(),
-                      selected: _selected,
-                      onTap: _toggleCategory,
+                    return SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: names
+                            .map((name) => InterestChip(
+                                  label: name,
+                                  selected: _selected.contains(name),
+                                  onTap: () => _toggleCategory(name),
+                                ))
+                            .toList(),
+                      ),
                     );
                   },
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-class _CategoryChipGrid extends StatelessWidget {
-  final List<String> categories;
-  final Set<String> selected;
-  final ValueChanged<String> onTap;
-
-  const _CategoryChipGrid({
-    required this.categories,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Wrap(
-        spacing: AppSizes.paddingS,
-        runSpacing: AppSizes.paddingS,
-        children: categories.map((label) {
-          return _CategoryChip(
-            label: label,
-            isSelected: selected.contains(label),
-            onTap: () => onTap(label),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _CategoryChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF000000) : Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: isSelected
-              ? null
-              : Border.all(color: const Color(0xFFDDDDDD), width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.roboto(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
-              ),
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 4),
-              const Text(
-                '✓',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ],
         ),
       ),
     );

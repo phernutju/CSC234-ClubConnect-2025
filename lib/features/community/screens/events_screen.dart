@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_detail_args.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/event_provider.dart';
+import '../../../providers/profile_provider.dart';
+import '../widgets/event_card.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class EventsScreen extends StatefulWidget {
   final String communityId;
@@ -161,7 +162,7 @@ class _EventList extends StatelessWidget {
       itemCount: events.length,
       separatorBuilder: (_, __) => const SizedBox(height: AppSizes.paddingM),
       itemBuilder: (context, index) =>
-          _EventCard(event: events[index], communityId: communityId),
+          _EventCard(event: events[index], communityId: communityId, currentMembers: events[index].attendeeCount),
     );
   }
 }
@@ -171,15 +172,17 @@ class _EventList extends StatelessWidget {
 class _EventCard extends StatelessWidget {
   final EventModel event;
   final String communityId;
+  final int currentMembers;
 
   const _EventCard({
     required this.event,
     required this.communityId,
+    this.currentMembers = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    final dateLine = DateFormat('d MMMM yyyy  hh:mm a').format(event.startDate.toDate());
+    final dateLine = event.formattedDateRange;
 
     return Container(
       decoration: BoxDecoration(
@@ -266,13 +269,22 @@ class _EventCard extends StatelessWidget {
 
                 // Host name
                 if (event.createdBy.isNotEmpty)
-                  Text(
-                    'by ${event.createdBy}',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppSizes.fontXS,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF837A7A),
-                    ),
+                  FutureBuilder(
+                    future: context.read<ProfileProvider>().fetchUserById(event.createdBy),
+                    builder: (context, snapshot) {
+                      final hostLabel = snapshot.hasData
+                          ? snapshot.data!.displayName
+                          : event.createdBy;
+
+                      return Text(
+                        'by $hostLabel',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppSizes.fontXS,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF837A7A),
+                        ),
+                      );
+                    },
                   ),
                 const SizedBox(height: AppSizes.paddingS),
 

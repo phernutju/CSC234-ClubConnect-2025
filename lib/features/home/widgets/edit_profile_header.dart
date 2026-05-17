@@ -7,6 +7,7 @@ import '../../../constants/app_constants.dart';
 /// The avatar circle also has a camera-icon overlay for picking a profile picture.
 class EditProfileHeader extends StatelessWidget {
   final Uint8List? avatarBytes;
+  final String? photoUrl; // existing Firestore URL shown before a new image is picked
   final VoidCallback onAvatarTap;
   final Uint8List? coverBytes;
   final VoidCallback onCoverTap;
@@ -14,6 +15,7 @@ class EditProfileHeader extends StatelessWidget {
   const EditProfileHeader({
     super.key,
     required this.avatarBytes,
+    this.photoUrl,
     required this.onAvatarTap,
     required this.coverBytes,
     required this.onCoverTap,
@@ -99,9 +101,16 @@ class EditProfileHeader extends StatelessWidget {
                           Border.all(color: AppColors.cardWhite, width: 3),
                     ),
                     clipBehavior: Clip.antiAlias,
+                    // Priority: newly picked bytes → existing network URL → blank.
                     child: avatarBytes != null
                         ? Image.memory(avatarBytes!, fit: BoxFit.cover)
-                        : null,
+                        : (photoUrl != null && photoUrl!.isNotEmpty)
+                            ? Image.network(
+                                photoUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              )
+                            : null,
                   ),
 
                   // Coral camera button — bottom-right of avatar
