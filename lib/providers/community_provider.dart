@@ -126,6 +126,8 @@ class CommunityProvider extends ChangeNotifier {
   int discoverCurrentPage = 0;
   bool isDiscoverLoading = false;
   final List<DocumentSnapshot<Map<String, dynamic>>?> _discoverCursors = [null];
+  String _discoverOrderField = 'createdAt';
+  bool _discoverDescending = true;
 
   int get discoverTotalPages =>
       discoverTotalCount <= 0 ? 0 : ((discoverTotalCount + 9) ~/ 10);
@@ -389,7 +391,13 @@ class CommunityProvider extends ChangeNotifier {
   // ── Discover pagination ────────────────────────────────────────────────────
 
   /// Fetches the total community count and the first page simultaneously.
-  Future<void> loadDiscoverFirstPage() async {
+  /// Passing [orderField] / [descending] changes and persists the active sort.
+  Future<void> loadDiscoverFirstPage({
+    String? orderField,
+    bool? descending,
+  }) async {
+    if (orderField != null) _discoverOrderField = orderField;
+    if (descending != null) _discoverDescending = descending;
     isDiscoverLoading = true;
     discoverCurrentPage = 0;
     _discoverCursors
@@ -399,7 +407,10 @@ class CommunityProvider extends ChangeNotifier {
     try {
       final results = await Future.wait([
         _service.getCommunitiesCount(),
-        _service.getCommunitiesPage(),
+        _service.getCommunitiesPage(
+          orderField: _discoverOrderField,
+          descending: _discoverDescending,
+        ),
       ]);
       discoverTotalCount = results[0] as int;
       final snap = results[1] as QuerySnapshot<Map<String, dynamic>>;
@@ -425,8 +436,11 @@ class CommunityProvider extends ChangeNotifier {
     isDiscoverLoading = true;
     notifyListeners();
     try {
-      final snap =
-          await _service.getCommunitiesPage(afterDoc: _discoverCursors[page]);
+      final snap = await _service.getCommunitiesPage(
+        afterDoc: _discoverCursors[page],
+        orderField: _discoverOrderField,
+        descending: _discoverDescending,
+      );
       discoverPage = snap.docs.map((d) => CommunityModel.fromJson(d)).toList();
       discoverCurrentPage = page;
       final nextPage = page + 1;

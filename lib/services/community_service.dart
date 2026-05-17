@@ -121,14 +121,16 @@ class CommunityService {
         );
   }
 
-  /// Returns a page of communities (newest first) using cursor-based pagination.
+  /// Returns a page of communities using cursor-based pagination.
   /// Pass the last document from the previous page as [afterDoc] to advance.
   Future<QuerySnapshot<Map<String, dynamic>>> getCommunitiesPage({
     int pageSize = 10,
     DocumentSnapshot<Map<String, dynamic>>? afterDoc,
+    String orderField = 'createdAt',
+    bool descending = true,
   }) async {
     Query<Map<String, dynamic>> q = _communities
-        .orderBy('createdAt', descending: true)
+        .orderBy(orderField, descending: descending)
         .limit(pageSize);
     if (afterDoc != null) q = q.startAfterDocument(afterDoc);
     return q.get();

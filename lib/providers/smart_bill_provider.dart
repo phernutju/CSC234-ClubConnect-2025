@@ -77,6 +77,10 @@ class SmartBillProvider extends ChangeNotifier {
     );
   }
 
+  Future<SmartBillModel?> fetchBillByEvent(
+          String communityId, String eventId) =>
+      _service.getBillByEvent(communityId, eventId);
+
   void loadMyPayment(
       String communityId, String eventId, String billId, String userId) {
     _paymentSub?.cancel();

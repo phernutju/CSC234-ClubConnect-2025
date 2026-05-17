@@ -9,6 +9,7 @@ import '../../../models/message_model.dart';
 import '../../../models/profile_args.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
+import '../../../providers/smart_bill_provider.dart';
 import '../../home/widgets/message_bubble.dart';
 import '../../home/widgets/message_input_bar.dart';
 import '../../home/widgets/message_long_press_menu.dart';
@@ -210,11 +211,31 @@ class _EventChatScreenState extends State<EventChatScreen> {
     }
   }
 
-  void _onBills() {
+  Future<void> _onBills() async {
     setState(() => _menuOpen = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bills feature coming soon')),
-    );
+    final bill = await context.read<SmartBillProvider>().fetchBillByEvent(
+          widget.communityId,
+          widget.event.id,
+        );
+    if (!mounted) return;
+    if (bill != null) {
+      context.push('/bill-summary', extra: {
+        'communityId': widget.communityId,
+        'eventId': widget.event.id,
+        'billId': bill.id,
+        'isCurrentUserHost': _isHost,
+      });
+    } else if (_isHost) {
+      context.push('/create-bill', extra: {
+        'communityId': widget.communityId,
+        'eventId': widget.event.id,
+        'eventName': widget.event.title,
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bill has not been created yet')),
+      );
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────────

@@ -330,6 +330,8 @@ class _TabContent extends StatelessWidget {
 
 enum _EventFilter { all, myClubs, otherClubs }
 
+enum _DiscoverSort { newestFirst, oldestFirst, mostMembers, leastMembers }
+
 /// Inline Events tab: loads and shows published events within the Home screen.
 class _GlobalEventsTab extends StatefulWidget {
   const _GlobalEventsTab();
@@ -444,63 +446,144 @@ class _EventFilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<_EventFilter>(
-      offset: const Offset(0, 36),
-      color: AppColors.cardWhite,
-      onSelected: onChanged,
-      itemBuilder: (_) => _EventFilter.values
-          .map((f) => PopupMenuItem<_EventFilter>(
-                value: f,
-                child: Text(
-                  _label(f),
-                  style: AppTextStyles.poppins(
-                    fontSize: AppSizes.fontXS,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ))
-          .toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.paddingS,
-          vertical: AppSizes.paddingXS,
+    final itemStyle = AppTextStyles.poppins(
+      fontSize: AppSizes.fontXS,
+      fontWeight: FontWeight.w600,
+      color: AppColors.textDark,
+    );
+    return Theme(
+      data: Theme.of(context).copyWith(
+        popupMenuTheme: PopupMenuThemeData(
+          color: AppColors.cardWhite,
+          textStyle: itemStyle,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.inputFill,
-          borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          border: Border.all(color: AppColors.inputBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _label(value),
-              style: AppTextStyles.poppins(
-                fontSize: AppSizes.fontXS,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
-            ),
-            const SizedBox(width: AppSizes.paddingXS),
-            const Icon(Icons.keyboard_arrow_down,
-                color: AppColors.primary, size: 16),
-          ],
+      ),
+      child: PopupMenuButton<_EventFilter>(
+        offset: const Offset(0, 36),
+        onSelected: onChanged,
+        itemBuilder: (_) => _EventFilter.values
+            .map((f) => PopupMenuItem<_EventFilter>(
+                  value: f,
+                  child: Text(_label(f)),
+                ))
+            .toList(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingS,
+            vertical: AppSizes.paddingXS,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.inputFill,
+            borderRadius: BorderRadius.circular(AppSizes.radiusS),
+            border: Border.all(color: AppColors.inputBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_label(value), style: itemStyle),
+              const SizedBox(width: AppSizes.paddingXS),
+              const Icon(Icons.keyboard_arrow_down,
+                  color: AppColors.primary, size: 16),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _MyClubList extends StatelessWidget {
+class _DiscoverSortDropdown extends StatelessWidget {
+  final _DiscoverSort value;
+  final ValueChanged<_DiscoverSort> onChanged;
+
+  const _DiscoverSortDropdown({required this.value, required this.onChanged});
+
+  String _label(_DiscoverSort s) => switch (s) {
+        _DiscoverSort.newestFirst  => 'Newest first',
+        _DiscoverSort.oldestFirst  => 'Oldest first',
+        _DiscoverSort.mostMembers  => 'Most members',
+        _DiscoverSort.leastMembers => 'Least members',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final itemStyle = AppTextStyles.poppins(
+      fontSize: AppSizes.fontXS,
+      fontWeight: FontWeight.w600,
+      color: AppColors.textDark,
+    );
+    return Theme(
+      data: Theme.of(context).copyWith(
+        popupMenuTheme: PopupMenuThemeData(
+          color: AppColors.cardWhite,
+          textStyle: itemStyle,
+        ),
+      ),
+      child: PopupMenuButton<_DiscoverSort>(
+        offset: const Offset(0, 36),
+        onSelected: onChanged,
+        itemBuilder: (_) => _DiscoverSort.values
+            .map((s) => PopupMenuItem<_DiscoverSort>(
+                  value: s,
+                  child: Text(_label(s)),
+                ))
+            .toList(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.paddingS,
+            vertical: AppSizes.paddingXS,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.inputFill,
+            borderRadius: BorderRadius.circular(AppSizes.radiusS),
+            border: Border.all(color: AppColors.inputBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_label(value), style: itemStyle),
+              const SizedBox(width: AppSizes.paddingXS),
+              const Icon(Icons.keyboard_arrow_down,
+                  color: AppColors.primary, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MyClubList extends StatefulWidget {
   final List<CommunityModel> communities;
   final void Function(CommunityModel) onTap;
 
   const _MyClubList({required this.communities, required this.onTap});
 
   @override
+  State<_MyClubList> createState() => _MyClubListState();
+}
+
+class _MyClubListState extends State<_MyClubList> {
+  _DiscoverSort _sort = _DiscoverSort.newestFirst;
+
+  List<CommunityModel> get _sorted {
+    final list = List<CommunityModel>.from(widget.communities);
+    switch (_sort) {
+      case _DiscoverSort.newestFirst:
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case _DiscoverSort.oldestFirst:
+        list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      case _DiscoverSort.mostMembers:
+        list.sort((a, b) => b.memberCount.compareTo(a.memberCount));
+      case _DiscoverSort.leastMembers:
+        list.sort((a, b) => a.memberCount.compareTo(b.memberCount));
+    }
+    return list;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (communities.isEmpty) {
+    if (widget.communities.isEmpty) {
       return Center(
         child: Text(
           AppStrings.myClubEmpty,
@@ -509,21 +592,49 @@ class _MyClubList extends StatelessWidget {
         ),
       );
     }
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-      children: communities
-          .map((c) => ClubCard(
-              name: c.communityName,
-              description: c.description.isEmpty
-                  ? c.tags.map((t) => t.name).join(', ')
-                  : c.description,
-              category: c.tags.isNotEmpty ? c.tags.first.name : '',
-              memberCount:
-                  '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-              coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
-              onTap: () => onTap(c),
-            ))
-          .toList(),
+    final sorted = _sorted;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.paddingM,
+            AppSizes.paddingS,
+            AppSizes.paddingM,
+            0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _DiscoverSortDropdown(
+                value: _sort,
+                onChanged: (v) => setState(() => _sort = v),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+            itemCount: sorted.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, i) {
+              final c = sorted[i];
+              return ClubCard(
+                name: c.communityName,
+                description: c.description.isEmpty
+                    ? c.tags.map((t) => t.name).join(', ')
+                    : c.description,
+                category: c.tags.isNotEmpty ? c.tags.first.name : '',
+                memberCount:
+                    '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+                coverImageUrl:
+                    c.coverImageURL.isEmpty ? null : c.coverImageURL,
+                onTap: () => widget.onTap(c),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -555,7 +666,7 @@ class _SelectableCategory extends StatelessWidget {
   }
 }
 
-class _DiscoverTab extends StatelessWidget {
+class _DiscoverTab extends StatefulWidget {
   /// Pre-filtered community list (search + category) from the parent.
   /// Used when search or category filter is active (non-paginated view).
   final List<CommunityModel> communities;
@@ -575,12 +686,35 @@ class _DiscoverTab extends StatelessWidget {
   });
 
   @override
+  State<_DiscoverTab> createState() => _DiscoverTabState();
+}
+
+class _DiscoverTabState extends State<_DiscoverTab> {
+  _DiscoverSort _sort = _DiscoverSort.newestFirst;
+
+  static (String, bool) _sortParams(_DiscoverSort sort) => switch (sort) {
+        _DiscoverSort.newestFirst  => ('createdAt',   true),
+        _DiscoverSort.oldestFirst  => ('createdAt',   false),
+        _DiscoverSort.mostMembers  => ('memberCount', true),
+        _DiscoverSort.leastMembers => ('memberCount', false),
+      };
+
+  void _onSortChanged(_DiscoverSort sort) {
+    setState(() => _sort = sort);
+    final (field, desc) = _sortParams(sort);
+    context.read<CommunityProvider>().loadDiscoverFirstPage(
+      orderField: field,
+      descending: desc,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cp = context.watch<CommunityProvider>();
 
     // Use server-side pagination only when no search or category filter is active.
-    final isPaginated = searchQuery.isEmpty && selectedCategory == null;
-    final displayList = isPaginated ? cp.discoverPage : communities;
+    final isPaginated = widget.searchQuery.isEmpty && widget.selectedCategory == null;
+    final displayList = isPaginated ? cp.discoverPage : widget.communities;
 
     const categoryColors = [
       AppColors.categoryGreen,
@@ -611,7 +745,7 @@ class _DiscoverTab extends StatelessWidget {
         key: ValueKey(isPaginated ? cp.discoverCurrentPage : -1),
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
         children: [
-          ..._buildCommunityCards(displayList, onTap),
+          ..._buildCommunityCards(displayList, widget.onTap),
           if (showPagination)
             Padding(
               padding: const EdgeInsets.fromLTRB(0, AppSizes.paddingM, 0, AppSizes.paddingM),
@@ -632,25 +766,36 @@ class _DiscoverTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Category filter chips
+        // Category chips + sort dropdown on same row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                for (int i = 0; i < userInterests.length; i++) ...[
-                  if (i > 0) const SizedBox(width: AppSizes.paddingS),
-                  _SelectableCategory(
-                    label: userInterests[i],
-                    color: categoryColors[i % categoryColors.length],
-                    isSelected: selectedCategory == userInterests[i],
-                    onTap: () => onCategoryChanged(userInterests[i]),
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      for (int i = 0; i < widget.userInterests.length; i++) ...[
+                        if (i > 0) const SizedBox(width: AppSizes.paddingS),
+                        _SelectableCategory(
+                          label: widget.userInterests[i],
+                          color: categoryColors[i % categoryColors.length],
+                          isSelected: widget.selectedCategory == widget.userInterests[i],
+                          onTap: () => widget.onCategoryChanged(widget.userInterests[i]),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+              const SizedBox(width: AppSizes.paddingS),
+              _DiscoverSortDropdown(
+                value: _sort,
+                onChanged: _onSortChanged,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: AppSizes.paddingM),
