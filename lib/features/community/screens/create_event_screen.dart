@@ -185,6 +185,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final hostName =
         context.read<AppAuthProvider>().user?.displayName ?? '';
     final ep = context.read<EventProvider>();
+    final messenger = ScaffoldMessenger.of(context);
 
     try {
       final ep = context.read<EventProvider>();
@@ -224,11 +225,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             isPublished: _isPublished,
           );
 
-      if (!mounted) return;
       if (ep.error != null) {
-        _showSnack(ep.error!);
-      } else {
-        _showSnack(AppStrings.createEventSuccess);
+        messenger.showSnackBar(SnackBar(content: Text(ep.error!)));
+      } else if (mounted) {
         context.pop();
       }
     } finally {
