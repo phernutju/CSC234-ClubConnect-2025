@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../constants/app_constants.dart';
 
@@ -48,6 +48,15 @@ class _MessageInputBarState extends State<MessageInputBar> {
   void initState() {
     super.initState();
     _focusNode.addListener(() => setState(() {}));
+    _focusNode.onKeyEvent = (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.enter &&
+          widget.enabled) {
+        widget.onSend();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    };
   }
 
   @override
@@ -117,6 +126,8 @@ class _MessageInputBarState extends State<MessageInputBar> {
                     focusNode: _focusNode,
                     enabled: widget.enabled,
                     textAlignVertical: TextAlignVertical.center,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: widget.enabled ? (_) => widget.onSend() : null,
                     decoration: InputDecoration(
                       hintText: showHint ? AppStrings.chatInputHint : null,
                       hintStyle: AppTextStyles.poppins(
