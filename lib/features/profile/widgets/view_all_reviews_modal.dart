@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/rating_model.dart';
+import '../../../providers/community_provider.dart';
 
 // ── File-scoped helpers ────────────────────────────────────────────────────────
 
@@ -229,10 +231,25 @@ class _RatingSummaryCard extends StatelessWidget {
   }
 }
 
-class _ReviewItem extends StatelessWidget {
+class _ReviewItem extends StatefulWidget {
   final RatingModel rating;
 
   const _ReviewItem({required this.rating});
+
+  @override
+  State<_ReviewItem> createState() => _ReviewItemState();
+}
+
+class _ReviewItemState extends State<_ReviewItem> {
+  late Future<String> _communityNameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _communityNameFuture = context
+        .read<CommunityProvider>()
+        .resolveCommunityName(widget.rating.communityName);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -241,43 +258,47 @@ class _ReviewItem extends StatelessWidget {
       decoration: const BoxDecoration(
         border: Border(
           left: BorderSide(
-            color: AppColors.primary, // #FF6B4A
-            width: AppSizes.commentBorderWidth, // 3
+            color: AppColors.primary,
+            width: AppSizes.commentBorderWidth,
           ),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Line: Stars + Meta info
           Row(
             children: [
-              _buildSmallStars(rating.stars),
+              _buildSmallStars(widget.rating.stars),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(
-                  '· ${_relativeTime(rating.submittedAt)} · from ${rating.communityName}',
-                  style: AppTextStyles.body(
-                    fontSize: AppSizes.fontXXS, // 10
-                    fontWeight: FontWeight.w300, // Inter Light
-                    color: AppColors.commentMeta, // #BABABA
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: FutureBuilder<String>(
+                  future: _communityNameFuture,
+                  builder: (context, snapshot) {
+                    final name = snapshot.data ?? widget.rating.communityName;
+                    return Text(
+                      '· ${_relativeTime(widget.rating.submittedAt)} · from $name',
+                      style: AppTextStyles.body(
+                        fontSize: AppSizes.fontXXS,
+                        fontWeight: FontWeight.w300,
+                        color: AppColors.commentMeta,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
                 ),
               ),
             ],
           ),
-          
-          // Comment Text (Only show if not empty)
-          if (rating.comment.isNotEmpty) ...[
+
+          if (widget.rating.comment.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              rating.comment,
+              widget.rating.comment,
               style: AppTextStyles.body(
-                fontSize: AppSizes.fontXXS, // 10
-                fontWeight: FontWeight.normal, // Inter Regular
-                color: AppColors.commentBody, // #837A7A
+                fontSize: AppSizes.fontXXS,
+                fontWeight: FontWeight.normal,
+                color: AppColors.commentBody,
               ),
             ),
           ],

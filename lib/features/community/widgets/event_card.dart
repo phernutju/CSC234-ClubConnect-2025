@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -93,6 +94,8 @@ class _EventCardState extends State<EventCard> {
   Widget build(BuildContext context) {
     final dateLine = widget.event.formattedDateRange;
     final isClosed = widget.event.status == EventStatus.closed;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final isJoined = currentUid.isNotEmpty && widget.event.isAttending(currentUid);
 
     return GestureDetector(
       onTap: isClosed
@@ -178,20 +181,49 @@ class _EventCardState extends State<EventCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Event title + member count
+                    // Event title + joined badge + member count
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: Text(
-                            widget.event.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
-                              fontSize: AppSizes.fontML,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textDark,
-                            ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.event.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: AppSizes.fontML,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                              ),
+                              if (isJoined) ...[
+                                const SizedBox(width: AppSizes.paddingXS),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSizes.paddingS,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(
+                                        AppSizes.interestChipRadius),
+                                  ),
+                                  child: Text(
+                                    'Joined',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: AppSizes.fontXXS,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.cardWhite,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         const SizedBox(width: AppSizes.paddingS),
