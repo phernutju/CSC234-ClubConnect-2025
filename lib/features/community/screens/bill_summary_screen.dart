@@ -309,6 +309,11 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
   // ── Member totals ─────────────────────────────────────────────────────────
   Widget _buildMemberTotals(
       SmartBillModel bill, Map<String, double> totals) {
+    final currentUid = context.read<AppAuthProvider>().user?.uid;
+    final paymentStatus = context.read<SmartBillProvider>().myPayment?.status;
+    final hasPaid =
+        paymentStatus == 'verifying' || paymentStatus == 'verified';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -318,15 +323,21 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           final idx = e.key;
           final member = e.value;
           final amount = totals[member.uid] ?? 0;
+          final isMe = member.uid == currentUid;
+          final isPaid = isMe && hasPaid;
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Container(
               padding: const EdgeInsets.symmetric(
                   horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isPaid ? const Color(0xFFE8F9F0) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _kBorder)),
+                  border: Border.all(
+                      color: isPaid
+                          ? const Color(0xFF86EFAC)
+                          : _kBorder,
+                      width: 0.5)),
               child: Row(children: [
                 CircleAvatar(
                   radius: 18,
@@ -349,7 +360,9 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                           style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: _kDark)),
+                              color: isPaid
+                                  ? _kSuccess
+                                  : _kDark)),
                       if (member.uid == bill.hostId)
                         Container(
                           margin: const EdgeInsets.only(top: 2),

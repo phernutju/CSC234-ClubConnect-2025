@@ -24,12 +24,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
 
   void _toggleCategory(String label) {
-    if (!_selected.contains(label) && _selected.length >= 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You can select up to 10 interests')),
-      );
-      return;
-    }
     setState(() {
       if (_selected.contains(label)) {
         _selected.remove(label);

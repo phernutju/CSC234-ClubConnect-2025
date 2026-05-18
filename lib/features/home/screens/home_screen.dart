@@ -333,7 +333,7 @@ class _TabContent extends StatelessWidget {
   }
 }
 
-enum _EventFilter { all, myClubs, otherClubs }
+enum _EventFilter { all, joined, myClubs, otherClubs }
 
 enum _DiscoverSort { newestFirst, oldestFirst, mostMembers, leastMembers }
 
@@ -447,10 +447,14 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
         .map((c) => c.id)
         .toSet();
 
+    final currentUid = context.watch<AppAuthProvider>().user?.uid ?? '';
+
     final publicEvents = ep.publishedEvents.where((e) => e.isPublished).toList();
 
     final byFilter = switch (_filter) {
       _EventFilter.all => publicEvents,
+      _EventFilter.joined =>
+        publicEvents.where((e) => e.attendees.contains(currentUid)).toList(),
       _EventFilter.myClubs =>
         publicEvents.where((e) => myIds.contains(e.communityId)).toList(),
       _EventFilter.otherClubs =>
@@ -577,6 +581,7 @@ class _EventFilterDropdown extends StatelessWidget {
 
   String _label(_EventFilter f) => switch (f) {
         _EventFilter.all => 'All Events',
+        _EventFilter.joined => 'Joined',
         _EventFilter.myClubs => 'My Clubs',
         _EventFilter.otherClubs => 'Other Clubs',
       };

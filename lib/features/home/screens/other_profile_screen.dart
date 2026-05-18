@@ -1,3 +1,4 @@
+import 'package:csc234_clubconnect/providers/community_provider.dart';
 import 'package:csc234_clubconnect/providers/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -575,13 +576,25 @@ class _CommentsSection extends StatelessWidget {
   }
 }
 
-/// One comment row built from a [RatingModel].
-/// Meta line: "N min ago · from [Community]"
-/// Body line: comment text, or filled/empty star string if no comment.
-class _CommentRow extends StatelessWidget {
+class _CommentRow extends StatefulWidget {
   final ReviewModel rating;
 
   const _CommentRow({required this.rating});
+
+  @override
+  State<_CommentRow> createState() => _CommentRowState();
+}
+
+class _CommentRowState extends State<_CommentRow> {
+  late Future<String> _communityNameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _communityNameFuture = context
+        .read<CommunityProvider>()
+        .resolveCommunityName(widget.rating.communityId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -599,16 +612,22 @@ class _CommentRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${_relativeTime(rating.createdAt.toDate())} · from ${rating.communityName.isNotEmpty ? rating.communityName : rating.communityId}',
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontXXS,
-              fontWeight: FontWeight.w300,
-              color: AppColors.commentMeta,
-            ),
+          FutureBuilder<String>(
+            future: _communityNameFuture,
+            builder: (context, snapshot) {
+              final name = snapshot.data ?? widget.rating.communityId;
+              return Text(
+                '${_relativeTime(widget.rating.createdAt.toDate())} · from $name',
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontXXS,
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.commentMeta,
+                ),
+              );
+            },
           ),
           Text(
-            _reviewBody(rating),
+            _reviewBody(widget.rating),
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               color: AppColors.commentBody,

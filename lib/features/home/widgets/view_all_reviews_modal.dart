@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/review_model.dart';
+import '../../../providers/community_provider.dart';
 
 // ── File-scoped helpers ────────────────────────────────────────────────────────
 
@@ -224,14 +226,29 @@ class _RatingSummaryCard extends StatelessWidget {
   }
 }
 
-class _ReviewItem extends StatelessWidget {
+class _ReviewItem extends StatefulWidget {
   final ReviewModel review;
 
   const _ReviewItem({required this.review});
 
   @override
+  State<_ReviewItem> createState() => _ReviewItemState();
+}
+
+class _ReviewItemState extends State<_ReviewItem> {
+  late Future<String> _communityNameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _communityNameFuture = context
+        .read<CommunityProvider>()
+        .resolveCommunityName(widget.review.communityId);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final stars = review.score;
+    final stars = widget.review.score;
 
     return Container(
       padding: const EdgeInsets.only(left: AppSizes.paddingS),
@@ -251,23 +268,29 @@ class _ReviewItem extends StatelessWidget {
               _buildSmallStars(stars.toInt()),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(
-                  '· ${_relativeTime(review.createdAt.toDate())} · from ${review.communityId}',
-                  style: AppTextStyles.body(
-                    fontSize: AppSizes.fontXXS,
-                    fontWeight: FontWeight.w300,
-                    color: AppColors.commentMeta,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: FutureBuilder<String>(
+                  future: _communityNameFuture,
+                  builder: (context, snapshot) {
+                    final name = snapshot.data ?? widget.review.communityId;
+                    return Text(
+                      '· ${_relativeTime(widget.review.createdAt.toDate())} · from $name',
+                      style: AppTextStyles.body(
+                        fontSize: AppSizes.fontXXS,
+                        fontWeight: FontWeight.w300,
+                        color: AppColors.commentMeta,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
                 ),
               ),
             ],
           ),
-          if (review.comment.isNotEmpty) ...[
+          if (widget.review.comment.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              review.comment,
+              widget.review.comment,
               style: AppTextStyles.body(
                 fontSize: AppSizes.fontXXS,
                 fontWeight: FontWeight.normal,

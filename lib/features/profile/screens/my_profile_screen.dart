@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/rating_model.dart';
+import '../../../providers/community_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../providers/rating_provider.dart';
 import '../widgets/interest_chip.dart';
@@ -748,10 +749,25 @@ class _CommentsSection extends StatelessWidget {
 }
 
 /// One comment row built from a [RatingModel].
-class _CommentRow extends StatelessWidget {
+class _CommentRow extends StatefulWidget {
   final RatingModel rating;
 
   const _CommentRow({required this.rating});
+
+  @override
+  State<_CommentRow> createState() => _CommentRowState();
+}
+
+class _CommentRowState extends State<_CommentRow> {
+  late Future<String> _communityNameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _communityNameFuture = context
+        .read<CommunityProvider>()
+        .resolveCommunityName(widget.rating.communityName);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -769,16 +785,22 @@ class _CommentRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${_relativeTime(rating.submittedAt)} · from ${rating.communityName}',
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontXXS,
-              fontWeight: FontWeight.w300,
-              color: AppColors.commentMeta,
-            ),
+          FutureBuilder<String>(
+            future: _communityNameFuture,
+            builder: (context, snapshot) {
+              final name = snapshot.data ?? widget.rating.communityName;
+              return Text(
+                '${_relativeTime(widget.rating.submittedAt)} · from $name',
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontXXS,
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.commentMeta,
+                ),
+              );
+            },
           ),
           Text(
-            _ratingBody(rating),
+            _ratingBody(widget.rating),
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               color: AppColors.commentBody,

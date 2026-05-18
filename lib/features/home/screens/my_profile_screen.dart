@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/review_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/community_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
@@ -791,10 +792,25 @@ class _CommentsSection extends StatelessWidget {
   }
 }
 
-class _CommentRow extends StatelessWidget {
+class _CommentRow extends StatefulWidget {
   final ReviewModel review;
 
   const _CommentRow({required this.review});
+
+  @override
+  State<_CommentRow> createState() => _CommentRowState();
+}
+
+class _CommentRowState extends State<_CommentRow> {
+  late Future<String> _communityNameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _communityNameFuture = context
+        .read<CommunityProvider>()
+        .resolveCommunityName(widget.review.communityId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -812,16 +828,22 @@ class _CommentRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${_relativeTime(review.createdAt.toDate())} · from ${review.communityId}',
-            style: AppTextStyles.body(
-              fontSize: AppSizes.fontXXS,
-              fontWeight: FontWeight.w300,
-              color: AppColors.commentMeta,
-            ),
+          FutureBuilder<String>(
+            future: _communityNameFuture,
+            builder: (context, snapshot) {
+              final name = snapshot.data ?? widget.review.communityId;
+              return Text(
+                '${_relativeTime(widget.review.createdAt.toDate())} · from $name',
+                style: AppTextStyles.body(
+                  fontSize: AppSizes.fontXXS,
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.commentMeta,
+                ),
+              );
+            },
           ),
           Text(
-            _reviewBody(review),
+            _reviewBody(widget.review),
             style: AppTextStyles.body(
               fontSize: AppSizes.fontXXS,
               color: AppColors.commentBody,
