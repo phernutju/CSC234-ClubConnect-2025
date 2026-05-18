@@ -8,6 +8,7 @@ import '../../../models/notification_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../../../providers/notification_provider.dart';
+import '../../../providers/profile_provider.dart';
 import '../widgets/notification_item.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -137,11 +138,49 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _NotificationList extends StatelessWidget {
+class _NotificationList extends StatefulWidget {
   final Map<String, List<NotificationModel>> grouped;
   final String userId;
 
   const _NotificationList({required this.grouped, required this.userId});
+
+  @override
+  State<_NotificationList> createState() => _NotificationListState();
+}
+
+class _NotificationListState extends State<_NotificationList> {
+  final Map<String, String> _photoCache = {};
+  final Set<String> _fetching = {};
+
+  @override
+  void didUpdateWidget(_NotificationList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _fetchMissingPhotos();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchMissingPhotos());
+  }
+
+  void _fetchMissingPhotos() {
+    final pp = context.read<ProfileProvider>();
+    final allNotifs = widget.grouped.values.expand((l) => l);
+    for (final n in allNotifs) {
+      final uid = n.mentionedBy;
+      if (uid.isEmpty || _photoCache.containsKey(uid) || _fetching.contains(uid)) continue;
+      _fetching.add(uid);
+      pp.fetchUserById(uid).then((user) {
+        if (mounted) {
+          setState(() {
+            _photoCache[uid] = user.photoURL;
+            _fetching.remove(uid);
+          });
+        }
+      }).catchError((_) { _fetching.remove(uid); });
+    }
+  }
 
   VoidCallback? _buildOnTap(BuildContext context, NotificationModel n) {
     final isNavigable = n.type == 'reply' || n.type == 'mention';
@@ -152,7 +191,7 @@ class _NotificationList extends StatelessWidget {
       if (n.isRead) return null;
       return () => context
           .read<NotificationProvider>()
-          .markAsRead(userId, n.id);
+          .markAsRead(widget.userId, n.id);
     }
 
     return () async {
@@ -160,7 +199,7 @@ class _NotificationList extends StatelessWidget {
       final communityProvider = context.read<CommunityProvider>();
 
       if (!n.isRead) {
-        notifProvider.markAsRead(userId, n.id);
+        notifProvider.markAsRead(widget.userId, n.id);
       }
 
       final targetCommunityId =
@@ -188,7 +227,7 @@ class _NotificationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sections = grouped.entries.toList();
+    final sections = widget.grouped.entries.toList();
 
     return ListView.builder(
       padding: const EdgeInsets.only(
@@ -211,6 +250,7 @@ class _NotificationList extends StatelessWidget {
                 title: n.title,
                 body: n.description,
                 isRead: n.isRead,
+                photoUrl: _photoCache[n.mentionedBy] ?? '',
                 onTap: _buildOnTap(context, n),
               ),
             ),

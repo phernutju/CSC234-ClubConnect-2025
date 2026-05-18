@@ -12,6 +12,7 @@ class NotificationItem extends StatelessWidget {
   final String title;
   final String senderName;
   final String communityName;
+  final String photoUrl;
 
   /// The message snippet shown below the mention line (e.g. "@name message text").
   final String body;
@@ -25,6 +26,7 @@ class NotificationItem extends StatelessWidget {
     required this.body,
     this.senderName = '',
     this.communityName = '',
+    this.photoUrl = '',
     this.isRead = true,
     this.onTap,
     this.onDismiss,
@@ -45,13 +47,20 @@ class NotificationItem extends StatelessWidget {
                 // Avatar with unread dot
                 Stack(
                   children: [
-                    Container(
-                      width: AppSizes.avatarSmall,
-                      height: AppSizes.avatarSmall,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.avatarSalmon,
-                      ),
+                    CircleAvatar(
+                      radius: AppSizes.avatarSmall / 2,
+                      backgroundColor: AppColors.avatarSalmon,
+                      backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                      child: photoUrl.isEmpty
+                          ? Text(
+                              title.isNotEmpty ? title[0].toUpperCase() : '?',
+                              style: AppTextStyles.body(
+                                fontSize: AppSizes.fontS,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.cardWhite,
+                              ),
+                            )
+                          : null,
                     ),
                     if (!isRead)
                       Positioned(
