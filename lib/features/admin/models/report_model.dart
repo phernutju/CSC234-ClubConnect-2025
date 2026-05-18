@@ -19,9 +19,10 @@ class AdminReportModel {
   final String aiDetectedLabel;
   final String category;
   final String reportedText;
-  final String username;
+  final String username;           // display name of target user
   final String userDescription;
-  final String groupName;
+  final String groupName;          // community display name
+  final String communityId;        // raw Firestore community ID
   final String timeAgo;
   final double hateSpeechScore;
   final double harassmentScore;
@@ -30,8 +31,13 @@ class AdminReportModel {
   final String source;
   final List<ContextMessage> contextMessages;
   final String targetUserId;
+  final String targetUserPhotoURL;
+  final String reporterId;
+  final String reporterName;       // display name of reporter
+  final String reporterPhotoURL;
   final String description;
-  final String status; // 'pending', 'urgent', 'reviewed', etc.
+  final String status;
+  final bool isUserReport;
 
   const AdminReportModel({
     required this.id,
@@ -41,6 +47,7 @@ class AdminReportModel {
     required this.username,
     required this.userDescription,
     required this.groupName,
+    this.communityId = '',
     required this.timeAgo,
     required this.hateSpeechScore,
     required this.harassmentScore,
@@ -49,8 +56,13 @@ class AdminReportModel {
     required this.source,
     required this.contextMessages,
     this.targetUserId = '',
+    this.targetUserPhotoURL = '',
+    this.reporterId = '',
+    this.reporterName = '',
+    this.reporterPhotoURL = '',
     this.description = '',
     this.status = 'pending',
+    this.isUserReport = false,
   });
 
   String get severityLabel {
@@ -60,6 +72,39 @@ class AdminReportModel {
     if (max >= 0.4) return 'MEDIUM';
     return 'LOW';
   }
+
+  AdminReportModel copyWithEnrichment({
+    String? displayName,
+    String? photoURL,
+    String? reporterDisplayName,
+    String? reporterPhotoUrl,
+    String? communityName,
+  }) =>
+      AdminReportModel(
+        id: id,
+        aiDetectedLabel: aiDetectedLabel,
+        category: category,
+        reportedText: reportedText,
+        username: displayName ?? username,
+        userDescription: userDescription,
+        groupName: communityName ?? groupName,
+        communityId: communityId,
+        timeAgo: timeAgo,
+        hateSpeechScore: hateSpeechScore,
+        harassmentScore: harassmentScore,
+        profanityScore: profanityScore,
+        threatScore: threatScore,
+        source: source,
+        contextMessages: contextMessages,
+        targetUserId: targetUserId,
+        targetUserPhotoURL: photoURL ?? targetUserPhotoURL,
+        reporterId: reporterId,
+        reporterName: reporterDisplayName ?? reporterName,
+        reporterPhotoURL: reporterPhotoUrl ?? reporterPhotoURL,
+        description: description,
+        status: status,
+        isUserReport: isUserReport,
+      );
 
   factory AdminReportModel.fromReportModel(fs.ReportModel r) {
     String timeAgo(DateTime dt) {
@@ -88,6 +133,7 @@ class AdminReportModel {
     }
 
     final reason = r.reason;
+    final isUser = r.source == fs.ReportSource.user;
     return AdminReportModel(
       id: r.reportId.isNotEmpty ? r.reportId : 'R-???',
       aiDetectedLabel: r.source != fs.ReportSource.user ? 'AI detected' : 'User report',
@@ -96,6 +142,7 @@ class AdminReportModel {
       username: r.targetUserId,
       userDescription: 'Reported user',
       groupName: r.communityId,
+      communityId: r.communityId,
       timeAgo: timeAgo(r.createdAt),
       hateSpeechScore: reason == fs.ReportReason.hateSpeech ? 0.8 : 0.1,
       harassmentScore: reason == fs.ReportReason.harassment ? 0.8 : 0.1,
@@ -104,8 +151,13 @@ class AdminReportModel {
       source: sourceLabel(r.source),
       contextMessages: [],
       targetUserId: r.targetUserId,
+      targetUserPhotoURL: '',
+      reporterId: r.reporterId,
+      reporterName: r.reporterId,
+      reporterPhotoURL: '',
       description: r.description ?? '',
       status: r.status.name,
+      isUserReport: isUser,
     );
   }
 }
@@ -119,6 +171,7 @@ final List<AdminReportModel> mockReports = const [
     username: 'username1',
     userDescription: 'Member of CS Gaming Hub',
     groupName: 'CS Gaming Hub',
+    communityId: '',
     timeAgo: '5 m',
     hateSpeechScore: 0.8,
     harassmentScore: 0.2,
@@ -142,6 +195,7 @@ final List<AdminReportModel> mockReports = const [
     username: 'troll_user',
     userDescription: 'Member of Badminton Club',
     groupName: 'Badminton Club',
+    communityId: '',
     timeAgo: '12 m',
     hateSpeechScore: 0.3,
     harassmentScore: 0.85,
@@ -164,6 +218,7 @@ final List<AdminReportModel> mockReports = const [
     username: 'spammer99',
     userDescription: 'New member',
     groupName: 'General Chat',
+    communityId: '',
     timeAgo: '20 m',
     hateSpeechScore: 0.0,
     harassmentScore: 0.1,
@@ -186,6 +241,7 @@ final List<AdminReportModel> mockReports = const [
     username: 'darkuser42',
     userDescription: 'Member of Coding Club',
     groupName: 'Coding Club',
+    communityId: '',
     timeAgo: '35 m',
     hateSpeechScore: 0.2,
     harassmentScore: 0.5,
@@ -209,6 +265,7 @@ final List<AdminReportModel> mockReports = const [
     username: 'gatekeep3r',
     userDescription: 'Member of Dev Society',
     groupName: 'Dev Society',
+    communityId: '',
     timeAgo: '1 h',
     hateSpeechScore: 0.75,
     harassmentScore: 0.6,

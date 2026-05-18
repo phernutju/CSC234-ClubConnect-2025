@@ -85,6 +85,11 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     setState(() => _rulesControllers.add(ctrl));
   }
 
+  void _deleteRule(int index) {
+    _rulesControllers[index].dispose();
+    setState(() => _rulesControllers.removeAt(index));
+  }
+
   Future<void> _onCreate() async {
     final name  = _nameController.text.trim();
     final about = _aboutController.text.trim();
@@ -188,6 +193,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       _RulesSection(
                         controllers: _rulesControllers,
                         onAddRule: _addRule,
+                        onDeleteRule: _deleteRule,
                         errorText: _rulesError,
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
@@ -503,11 +509,13 @@ class _CategoryEditRowState extends State<_CategoryEditRow> {
 class _RulesSection extends StatefulWidget {
   final List<TextEditingController> controllers;
   final VoidCallback onAddRule;
+  final void Function(int) onDeleteRule;
   final String? errorText;
 
   const _RulesSection({
     required this.controllers,
     required this.onAddRule,
+    required this.onDeleteRule,
     this.errorText,
   });
 
@@ -610,41 +618,60 @@ class _RulesSectionState extends State<_RulesSection> {
         const SizedBox(height: AppSizes.paddingS),
 
         ...widget.controllers.asMap().entries.map((entry) {
-          final i   = entry.key;
+          final i    = entry.key;
           final ctrl = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.paddingS),
-            child: TextField(
-              controller: ctrl,
-              style: AppTextStyles.poppins(
-                fontSize: AppSizes.fontM,
-                color: AppColors.textDark,
-              ),
-              decoration: InputDecoration(
-                hintText: '${i + 1}. ${AppStrings.createRulesHint}',
-                hintStyle: AppTextStyles.poppins(
-                  fontSize: AppSizes.fontM,
-                  color: AppColors.fieldPlaceholder,
-                ),
-                enabledBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(
-                    color: AppColors.fieldPlaceholder,
-                    width: AppSizes.fieldBorderWidth,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: ctrl,
+                    style: AppTextStyles.poppins(
+                      fontSize: AppSizes.fontM,
+                      color: AppColors.textDark,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '${i + 1}. ${AppStrings.createRulesHint}',
+                      hintStyle: AppTextStyles.poppins(
+                        fontSize: AppSizes.fontM,
+                        color: AppColors.fieldPlaceholder,
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: AppColors.fieldPlaceholder,
+                          width: AppSizes.fieldBorderWidth,
+                        ),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
+                          width: AppSizes.fieldBorderWidth,
+                        ),
+                      ),
+                      border: const UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: AppColors.fieldPlaceholder,
+                          width: AppSizes.fieldBorderWidth,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(
-                    color: AppColors.primary,
-                    width: AppSizes.fieldBorderWidth,
+                if (widget.controllers.length > 1)
+                  GestureDetector(
+                    onTap: () => widget.onDeleteRule(i),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: AppSizes.paddingS),
+                      child: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: AppColors.textGray,
+                      ),
+                    ),
                   ),
-                ),
-                border: const UnderlineInputBorder(
-                  borderSide: BorderSide(
-                    color: AppColors.fieldPlaceholder,
-                    width: AppSizes.fieldBorderWidth,
-                  ),
-                ),
-              ),
+              ],
             ),
           );
         }),

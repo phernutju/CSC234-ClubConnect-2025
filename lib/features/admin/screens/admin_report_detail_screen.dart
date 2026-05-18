@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../../models/profile_args.dart';
 import '../../../models/report_model.dart' as fs;
 import '../../../providers/report_provider.dart';
 import '../../../services/report_service.dart';
@@ -155,6 +157,17 @@ class _ReportCard extends StatelessWidget {
   final AdminReportModel report;
   const _ReportCard({required this.report});
 
+  void _goToProfile(BuildContext context, String userId, String username) {
+    if (userId.isEmpty) return;
+    context.push('/other-profile',
+        extra: ProfileArgs(
+          userId: userId,
+          username: username,
+          communityName: report.groupName,
+          communityId: report.communityId,
+        ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -172,7 +185,33 @@ class _ReportCard extends StatelessWidget {
           const SizedBox(height: 12),
           _InfoRow(label: 'SOURCE', value: report.source),
           const SizedBox(height: 12),
-          _InfoRow(label: 'USER', value: '@${report.username}'),
+          _InfoRow(label: 'COMMUNITY', value: report.groupName),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildAvatar(report.targetUserPhotoURL),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _InfoRow(
+                  label: 'USER',
+                  value: '@${report.username}',
+                  onTap: report.targetUserId.isNotEmpty
+                      ? () => _goToProfile(context, report.targetUserId, report.username)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          if (report.isUserReport && report.reporterId.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _InfoRow(
+              label: 'REPORTED BY',
+              value: '@${report.reporterName.isNotEmpty ? report.reporterName : report.reporterId}',
+              onTap: () => _goToProfile(context, report.reporterId,
+                  report.reporterName.isNotEmpty ? report.reporterName : report.reporterId),
+            ),
+          ],
           const SizedBox(height: 12),
           Text(
             'REPORTED MESSAGE',
@@ -202,10 +241,28 @@ class _ReportCard extends StatelessWidget {
           ),
           if (report.description.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _InfoRow(label: 'AI REASON', value: report.description),
+            _InfoRow(
+              label: report.isUserReport ? 'USER REASON' : 'AI REASON',
+              value: report.description,
+            ),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildAvatar(String photoURL) {
+    if (photoURL.isNotEmpty) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundImage: NetworkImage(photoURL),
+        backgroundColor: const Color(0xFFE8A598),
+      );
+    }
+    return const CircleAvatar(
+      radius: 20,
+      backgroundColor: Color(0xFFE8A598),
+      child: Icon(Icons.person, color: Colors.white, size: 20),
     );
   }
 }
@@ -213,10 +270,22 @@ class _ReportCard extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
-  const _InfoRow({required this.label, required this.value});
+  final VoidCallback? onTap;
+  const _InfoRow({required this.label, required this.value, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final valueWidget = Text(
+      value,
+      style: GoogleFonts.inter(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        color: onTap != null ? const Color(0xFFFF6B4A) : const Color(0xFF000000),
+        decoration: onTap != null ? TextDecoration.underline : null,
+        decorationColor: const Color(0xFFFF6B4A),
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -226,11 +295,9 @@ class _InfoRow extends StatelessWidget {
                 fontWeight: FontWeight.w400,
                 color: const Color(0xFF797979))),
         const SizedBox(height: 2),
-        Text(value,
-            style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF000000))),
+        onTap != null
+            ? GestureDetector(onTap: onTap, child: valueWidget)
+            : valueWidget,
       ],
     );
   }

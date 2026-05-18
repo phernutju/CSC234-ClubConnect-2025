@@ -6,7 +6,6 @@ import '../../../constants/app_constants.dart';
 import '../../../models/review_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
-import '../../../services/category_service.dart';
 import '../widgets/interest_chip.dart';
 import '../widgets/edit_profile_header.dart';
 import '../widgets/category_picker_popup.dart';
@@ -587,9 +586,6 @@ class _InterestsEditRow extends StatefulWidget {
 }
 
 class _InterestsEditRowState extends State<_InterestsEditRow> {
-  late final Future<List<String>> _categoriesFuture =
-      CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first ;
-
   void _openPopup(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -605,61 +601,54 @@ class _InterestsEditRowState extends State<_InterestsEditRow> {
     );
   }
 
-  // Selected first, then fill remaining slots from unselected. Always 3 real names.
-  List<String> _buildPreview(List<String> all) {
-    final selected =
-        all.where((c) => widget.selectedInterests.contains(c)).toList();
-    final unselected =
-        all.where((c) => !widget.selectedInterests.contains(c)).toList();
-    return [...selected, ...unselected].take(3).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<String>>(
-      future: _categoriesFuture,
-      builder: (context, snapshot) {
-        final preview = _buildPreview(snapshot.data ?? []);
-        return Wrap(
-          spacing: AppSizes.paddingS,
-          runSpacing: AppSizes.paddingS,
-          children: [
-            ...preview.map(
-              (cat) => InterestChip(
-                label: cat,
-                selected: widget.selectedInterests.contains(cat),
-                onTap: () => widget.onToggle(cat),
-              ),
+    final selected = widget.selectedInterests.toList();
+    return Wrap(
+      spacing: AppSizes.paddingS,
+      runSpacing: AppSizes.paddingS,
+      children: [
+        ...selected.map(
+          (cat) => InterestChip(
+            label: cat,
+            selected: true,
+            onTap: () => widget.onToggle(cat),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => _openPopup(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.paddingM,
+              vertical: AppSizes.paddingXS,
             ),
-            GestureDetector(
-              onTap: () => _openPopup(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingM,
-                  vertical: AppSizes.paddingXS,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
-                  border: Border.all(color: AppColors.inputBorder),
-                ),
-                child: const Icon(Icons.add, size: 14, color: AppColors.textDark),
-              ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+              border: Border.all(color: AppColors.inputBorder),
             ),
-          ],
-        );
-      },
+            child: const Icon(Icons.add, size: 14, color: AppColors.textDark),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _SelectedInterestsView extends StatelessWidget {
+class _SelectedInterestsView extends StatefulWidget {
   final Set<String> selectedInterests;
 
   const _SelectedInterestsView({required this.selectedInterests});
 
   @override
+  State<_SelectedInterestsView> createState() => _SelectedInterestsViewState();
+}
+
+class _SelectedInterestsViewState extends State<_SelectedInterestsView> {
+  bool _showAll = false;
+
+  @override
   Widget build(BuildContext context) {
-    if (selectedInterests.isEmpty) {
+    if (widget.selectedInterests.isEmpty) {
       return Row(
         children: [
           const _PlaceholderChip(),
@@ -679,29 +668,52 @@ class _SelectedInterestsView extends StatelessWidget {
       );
     }
 
-    return Wrap(
-      spacing: AppSizes.paddingS,
-      runSpacing: AppSizes.paddingS,
-      children: selectedInterests.map((interest) {
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.paddingM,
-            vertical: AppSizes.paddingXS,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
-            border: Border.all(color: AppColors.inputBorder),
-          ),
-          child: Text(
-            interest,
-            style: AppTextStyles.poppins(
-              fontSize: AppSizes.fontSM,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
+    final interests = widget.selectedInterests.toList();
+    final showToggle = interests.length > 10;
+    final displayed = (!_showAll && showToggle) ? interests.take(10).toList() : interests;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: AppSizes.paddingS,
+          runSpacing: AppSizes.paddingS,
+          children: displayed.map((interest) {
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.paddingM,
+                vertical: AppSizes.paddingXS,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+                border: Border.all(color: AppColors.inputBorder),
+              ),
+              child: Text(
+                interest,
+                style: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontSM,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        if (showToggle) ...[
+          const SizedBox(height: AppSizes.paddingS),
+          GestureDetector(
+            onTap: () => setState(() => _showAll = !_showAll),
+            child: Text(
+              _showAll ? 'Show less' : 'Show all (${interests.length})',
+              style: AppTextStyles.poppins(
+                fontSize: AppSizes.fontSM,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
             ),
           ),
-        );
-      }).toList(),
+        ],
+      ],
     );
   }
 }

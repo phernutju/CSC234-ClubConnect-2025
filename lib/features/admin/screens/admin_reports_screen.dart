@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../../models/profile_args.dart';
 import '../../../models/report_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/report_provider.dart';
@@ -159,7 +161,55 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
   }
 }
 
-class _ReportsTab extends StatelessWidget {
+class _ReportsTab extends StatefulWidget {
+  @override
+  State<_ReportsTab> createState() => _ReportsTabState();
+}
+
+class _ReportsTabState extends State<_ReportsTab> {
+  final Map<String, AdminReportModel> _enriched = {};
+  final Set<String> _enriching = {};
+
+  void _enrichAll(List<AdminReportModel> base) {
+    for (final r in base) {
+      if (!_enriched.containsKey(r.id) && !_enriching.contains(r.id)) {
+        _enriching.add(r.id);
+        _enrichSingle(r);
+      }
+    }
+  }
+
+  Future<void> _enrichSingle(AdminReportModel base) async {
+    try {
+      final targetInfoF = UserService.getUserInfo(base.targetUserId);
+      final reporterInfoF = UserService.getUserInfo(base.reporterId);
+      final communityF = UserService.getCommunityName(base.communityId);
+      final targetInfo = await targetInfoF;
+      final reporterInfo = await reporterInfoF;
+      final communityName = await communityF;
+      final enriched = base.copyWithEnrichment(
+        displayName: targetInfo.displayName.isNotEmpty ? targetInfo.displayName : base.targetUserId,
+        photoURL: targetInfo.photoURL,
+        reporterDisplayName: reporterInfo.displayName.isNotEmpty ? reporterInfo.displayName : base.reporterId,
+        reporterPhotoUrl: reporterInfo.photoURL,
+        communityName: communityName.isNotEmpty ? communityName : base.communityId,
+      );
+      if (mounted) {
+        setState(() {
+          _enriched[base.id] = enriched;
+          _enriching.remove(base.id);
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _enriched[base.id] = base;
+          _enriching.remove(base.id);
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ReportModel>>(
@@ -181,8 +231,14 @@ class _ReportsTab extends StatelessWidget {
         }
 
         final firestoreReports = snapshot.data ?? [];
-        final reports = firestoreReports
+        final baseReports = firestoreReports
             .map((r) => AdminReportModel.fromReportModel(r))
+            .toList();
+
+        _enrichAll(baseReports);
+
+        final reports = baseReports
+            .map((r) => _enriched[r.id] ?? r)
             .toList();
 
         if (reports.isEmpty) {
@@ -290,22 +346,36 @@ class _ReportsTab extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const CircleAvatar(
-                            radius: 22,
-                            backgroundColor: Color(0xFFE8A598)),
+                        _buildAvatar(r.targetUserPhotoURL, radius: 22),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('@${r.username}',
-                                  style: GoogleFonts.poppins(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.black),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              Text(r.source,
+                              GestureDetector(
+                                onTap: r.targetUserId.isNotEmpty
+                                    ? () => context.push('/other-profile',
+                                        extra: ProfileArgs(
+                                          userId: r.targetUserId,
+                                          username: r.username,
+                                          communityName: r.groupName,
+                                          communityId: r.communityId,
+                                        ))
+                                    : null,
+                                child: Text('@${r.username}',
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: r.targetUserId.isNotEmpty
+                                            ? const Color(0xFFFF6B4A)
+                                            : Colors.black,
+                                        decoration: r.targetUserId.isNotEmpty
+                                            ? TextDecoration.underline
+                                            : null),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              Text(r.groupName,
                                   style: GoogleFonts.poppins(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
@@ -322,6 +392,21 @@ class _ReportsTab extends StatelessWidget {
           },
         );
       },
+    );
+  }
+
+  Widget _buildAvatar(String photoURL, {double radius = 22}) {
+    if (photoURL.isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: NetworkImage(photoURL),
+        backgroundColor: const Color(0xFFE8A598),
+      );
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0xFFE8A598),
+      child: Icon(Icons.person, color: Colors.white, size: radius),
     );
   }
 }

@@ -110,6 +110,7 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
                   communityName: widget.communityName,
                   userId: widget.userId,
                   photoURL: profile?.photoURL,
+                  coverBannerUrl: profile?.coverBannerUrl,
                 ),
 
                 Padding(
@@ -210,12 +211,14 @@ class _ProfileHeader extends StatelessWidget {
   final String communityName;
   final String userId;
   final String? photoURL;
+  final String? coverBannerUrl;
 
   const _ProfileHeader({
     required this.username,
     required this.communityName,
     required this.userId,
     this.photoURL,
+    this.coverBannerUrl,
   });
 
   @override
@@ -224,25 +227,33 @@ class _ProfileHeader extends StatelessWidget {
       height: AppSizes.profileHeaderHeight + AppSizes.avatarLarge / 2,
       child: Stack(
         children: [
-          // Gradient band
+          // Banner photo or gradient fallback
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Container(
+            child: SizedBox(
               height: AppSizes.profileHeaderHeight,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.profileHeaderStart,
-                    AppColors.profileHeaderEnd,
-                    AppColors.profileHeaderEnd,
-                  ],
-                  stops: [0.0, 0.44, 0.9],
-                ),
-              ),
+              child: (coverBannerUrl != null && coverBannerUrl!.isNotEmpty)
+                  ? Image.network(
+                      coverBannerUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                    )
+                  : Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.profileHeaderStart,
+                            AppColors.profileHeaderEnd,
+                            AppColors.profileHeaderEnd,
+                          ],
+                          stops: [0.0, 0.44, 0.9],
+                        ),
+                      ),
+                    ),
             ),
           ),
 

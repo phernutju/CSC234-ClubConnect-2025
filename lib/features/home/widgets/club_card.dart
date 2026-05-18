@@ -9,6 +9,7 @@ class ClubCard extends StatelessWidget {
   final String category;
   final String memberCount;
   final String? coverImageUrl;
+  final bool hasUnread;
   final VoidCallback? onTap;
 
   const ClubCard({
@@ -18,6 +19,7 @@ class ClubCard extends StatelessWidget {
     required this.category,
     required this.memberCount,
     this.coverImageUrl,
+    this.hasUnread = false,
     this.onTap,
   });
 
@@ -38,7 +40,18 @@ class ClubCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _ClubThumbnail(coverImageUrl: coverImageUrl),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _ClubThumbnail(coverImageUrl: coverImageUrl),
+                if (hasUnread)
+                  const Positioned(
+                    top: -4,
+                    right: -4,
+                    child: _GlowDot(),
+                  ),
+              ],
+            ),
 
             const SizedBox(width: AppSizes.paddingM),
 
@@ -56,6 +69,60 @@ class ClubCard extends StatelessWidget {
 }
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+/// Animated pulsing dot shown when the club has unread messages.
+class _GlowDot extends StatefulWidget {
+  const _GlowDot();
+
+  @override
+  State<_GlowDot> createState() => _GlowDotState();
+}
+
+class _GlowDotState extends State<_GlowDot> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (_, __) => Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: _pulse.value * 0.75),
+              blurRadius: 8 * _pulse.value,
+              spreadRadius: 2 * _pulse.value,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// Filled coral pill badge — inline category tag shown next to community name.
 class _CategoryBadge extends StatelessWidget {

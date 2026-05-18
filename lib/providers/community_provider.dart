@@ -59,6 +59,14 @@ class CommunityProvider extends ChangeNotifier {
 
   bool isMuted(String communityId) => _mutedCommunities.contains(communityId);
 
+  /// Real-time unread indicator for a single community.
+  /// Returns a stream that emits true when there are messages the current user hasn't seen.
+  Stream<bool> hasUnreadStream(String communityId) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return Stream.value(false);
+    return _service.streamHasUnread(communityId, uid);
+  }
+
   void toggleMute(String communityId) {
     if (_mutedCommunities.contains(communityId)) {
       _mutedCommunities.remove(communityId);

@@ -571,6 +571,27 @@ class CommunityService {
     }
   }
 
+  /// Streams whether the community has any message the current user hasn't seen.
+  /// Skips system messages (join/left). Returns false if no user messages exist.
+  Stream<bool> streamHasUnread(String communityId, String userId) {
+    if (communityId.isEmpty || userId.isEmpty) return Stream.value(false);
+    return _messages(communityId)
+        .orderBy('timestamp', descending: true)
+        .limit(5)
+        .snapshots()
+        .map((snap) {
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final isSystem = (data['isSystem'] as bool?) == true ||
+            (data['senderId'] as String?) == 'system';
+        if (isSystem) continue;
+        final seenBy = List<String>.from(data['seenBy'] ?? []);
+        return !seenBy.contains(userId);
+      }
+      return false;
+    });
+  }
+
   Future<void> deleteMessage(String communityId, String messageId) async {
     final user = _requireAuth();
     final doc = await _messages(communityId).doc(messageId).get();

@@ -47,6 +47,12 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
   }
 
   void _toggle(String name) {
+    if (!_localSelected.contains(name) && _localSelected.length >= 10 && !widget.singleSelect) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can select up to 10 interests')),
+      );
+      return;
+    }
     setState(() {
       if (_localSelected.contains(name)) {
         _localSelected.remove(name);

@@ -19,20 +19,24 @@ class ReportService {
   // ── Methods ────────────────────────────────────────────────────────────────
 
   Future<void> submitReport(ReportModel report) async {
-    _requireAuth();
+    try {
+      _requireAuth();
+      final duplicate = await hasUserReportedMessage(
+        report.reporterId,
+        report.messageId,
+      );
+      if (duplicate) throw Exception('Already reported this message');
 
-    final duplicate = await hasUserReportedMessage(
-      report.reporterId,
-      report.messageId,
-    );
-    if (duplicate) throw Exception('Already reported this message');
-
-    final ref = _reports.doc();
-    await ref.set({
-      ...report.toMap(),
-      'reportId': ref.id,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+      final ref = _reports.doc();
+      await ref.set({
+        ...report.toMap(),
+        'reportId': ref.id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error submitting report: $e');
+      rethrow;
+    }
   }
 
   Future<List<ReportModel>> getReportsByCommunity(String communityId) async {
@@ -40,9 +44,7 @@ class ReportService {
         .where('communityId', isEqualTo: communityId)
         .orderBy('createdAt', descending: true)
         .get();
-    return snap.docs
-        .map((doc) => ReportModel.fromMap(doc.data()))
-        .toList();
+    return snap.docs.map((doc) => ReportModel.fromMap(doc.data())).toList();
   }
 
   Future<List<ReportModel>> getReportsByUser(String reporterId) async {
@@ -50,9 +52,7 @@ class ReportService {
         .where('reporterId', isEqualTo: reporterId)
         .orderBy('createdAt', descending: true)
         .get();
-    return snap.docs
-        .map((doc) => ReportModel.fromMap(doc.data()))
-        .toList();
+    return snap.docs.map((doc) => ReportModel.fromMap(doc.data())).toList();
   }
 
   Future<void> updateReportStatus(
@@ -143,13 +143,13 @@ class ReportService {
 
   Stream<List<ReportModel>> streamPendingReports() {
     return _reports
-        .where('status', whereIn: [ReportStatus.pending.name, ReportStatus.urgent.name])
+        .where('status',
+            whereIn: [ReportStatus.pending.name, ReportStatus.urgent.name])
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((doc) => ReportModel.fromMap(doc.data()))
-              .toList(),
+          (snap) =>
+              snap.docs.map((doc) => ReportModel.fromMap(doc.data())).toList(),
         );
   }
 

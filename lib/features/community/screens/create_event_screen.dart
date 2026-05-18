@@ -228,6 +228,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       if (ep.error != null) {
         messenger.showSnackBar(SnackBar(content: Text(ep.error!)));
       } else if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Event created successfully!')),
+        );
         context.pop();
       }
     } finally {

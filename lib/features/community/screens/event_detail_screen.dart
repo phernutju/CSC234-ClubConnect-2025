@@ -105,6 +105,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final eventId = widget.event.id;
 
     if (ap.isAttending) {
+      final uid = context.read<AppAuthProvider>().user?.uid ?? '';
+      final billMembers = context.read<SmartBillProvider>().bill?.members ?? [];
+      if (billMembers.any((m) => m.uid == uid)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                "You can't leave this event because you're part of its Smart Bill."),
+          ),
+        );
+        return;
+      }
       await ap.leaveEvent(communityId, eventId);
       if (!mounted) return;
       if (ap.error != null) {
@@ -875,6 +886,10 @@ class _BillsCard extends StatelessWidget {
 
     // member + no bill: hide section
     if (!hasBill) return const SizedBox.shrink();
+
+    // member + has bill but not listed in bill members: hide section
+    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
+    if (!bill.members.any((m) => m.uid == uid)) return const SizedBox.shrink();
 
     // member + has bill: show View Bill → BillSummaryScreen (member view)
     return _card(

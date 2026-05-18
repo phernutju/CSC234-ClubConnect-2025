@@ -110,4 +110,20 @@ class UserService {
               return data;
             }).toList());
   }
+
+  static Future<({String displayName, String photoURL})> getUserInfo(String uid) async {
+    if (uid.isEmpty) return (displayName: '', photoURL: '');
+    final doc = await _db.collection('users').doc(uid).get();
+    final data = doc.data();
+    return (
+      displayName: data?['displayName'] as String? ?? '',
+      photoURL: data?['photoURL'] as String? ?? '',
+    );
+  }
+
+  static Future<String> getCommunityName(String communityId) async {
+    if (communityId.isEmpty) return '';
+    final doc = await _db.collection('communities').doc(communityId).get();
+    return doc.data()?['communityName'] as String? ?? '';
+  }
 }

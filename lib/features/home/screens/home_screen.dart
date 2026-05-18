@@ -617,7 +617,7 @@ class _MyClubList extends StatelessWidget {
       final bTs = b.lastMessageAt ?? b.createdAt;
       return bTs.compareTo(aTs);
     });
-    return list;
+    return list.take(10).toList();
   }
 
   @override
@@ -639,24 +639,60 @@ class _MyClubList extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
             itemCount: sorted.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) {
-              final c = sorted[i];
-              return ClubCard(
-                name: c.communityName,
-                description: c.description.isEmpty
-                    ? c.tags.map((t) => t.name).join(', ')
-                    : c.description,
-                category: c.tags.isNotEmpty ? c.tags.first.name : '',
-                memberCount:
-                    '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-                coverImageUrl:
-                    c.coverImageURL.isEmpty ? null : c.coverImageURL,
-                onTap: () => onTap(c),
-              );
-            },
+            itemBuilder: (_, i) => _UnreadAwareClubCard(
+              community: sorted[i],
+              onTap: () => onTap(sorted[i]),
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _UnreadAwareClubCard extends StatefulWidget {
+  final CommunityModel community;
+  final VoidCallback onTap;
+
+  const _UnreadAwareClubCard({required this.community, required this.onTap});
+
+  @override
+  State<_UnreadAwareClubCard> createState() => _UnreadAwareClubCardState();
+}
+
+class _UnreadAwareClubCardState extends State<_UnreadAwareClubCard> {
+  late Stream<bool> _unreadStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _unreadStream = context.read<CommunityProvider>().hasUnreadStream(widget.community.id);
+  }
+
+  @override
+  void didUpdateWidget(_UnreadAwareClubCard old) {
+    super.didUpdateWidget(old);
+    if (old.community.id != widget.community.id) {
+      _unreadStream = context.read<CommunityProvider>().hasUnreadStream(widget.community.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.community;
+    return StreamBuilder<bool>(
+      stream: _unreadStream,
+      builder: (context, snap) => ClubCard(
+        name: c.communityName,
+        description: c.description.isEmpty
+            ? c.tags.map((t) => t.name).join(', ')
+            : c.description,
+        category: c.tags.isNotEmpty ? c.tags.first.name : '',
+        memberCount: '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+        coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+        hasUnread: snap.data ?? false,
+        onTap: widget.onTap,
+      ),
     );
   }
 }

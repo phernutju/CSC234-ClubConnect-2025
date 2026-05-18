@@ -114,6 +114,36 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
       return _emptyScaffold();
     }
 
+    final uid = context.read<AppAuthProvider>().user?.uid ?? '';
+    final canView = widget.isCurrentUserHost || bill.members.any((m) => m.uid == uid);
+    if (!canView) {
+      return Scaffold(
+        backgroundColor: _kBg,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, size: 48, color: _kPrimary),
+              const SizedBox(height: 16),
+              Text(
+                "You're not a member of this bill.",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: _kDark,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => context.pop(),
+                child: const Text('Go Back', style: TextStyle(color: _kPrimary)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final memberTotals = provider.getMemberTotals();
 
     return Scaffold(
