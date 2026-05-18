@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/chat_args.dart';
@@ -347,6 +348,7 @@ class _GlobalEventsTab extends StatefulWidget {
 
 class _GlobalEventsTabState extends State<_GlobalEventsTab> {
   _EventFilter _filter = _EventFilter.all;
+  DateTime? _filterDate;
   final Map<String, String> _communityNames = {};
   final Set<String> _fetchingIds = {};
 
@@ -385,14 +387,46 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
     }
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _filterDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: AppColors.cardWhite,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) setState(() => _filterDate = picked);
+  }
+
   List<EventModel> _applySearch(List<EventModel> events) {
+    var result = events;
     final q = widget.searchQuery.trim().toLowerCase();
-    if (q.isEmpty) return events;
-    return events.where((e) =>
-      e.title.toLowerCase().contains(q) ||
-      e.description.toLowerCase().contains(q) ||
-      (_communityNames[e.communityId] ?? '').toLowerCase().contains(q),
-    ).toList();
+    if (q.isNotEmpty) {
+      result = result.where((e) =>
+        e.title.toLowerCase().contains(q) ||
+        e.description.toLowerCase().contains(q) ||
+        (_communityNames[e.communityId] ?? '').toLowerCase().contains(q),
+      ).toList();
+    }
+    if (_filterDate != null) {
+      final d = _filterDate!;
+      final dayStart = DateTime(d.year, d.month, d.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      result = result.where((e) {
+        final start = e.startDate.toDate();
+        final end = e.endDate.toDate();
+        return start.isBefore(dayEnd) && end.isAfter(dayStart);
+      }).toList();
+    }
+    return result;
   }
 
   @override
@@ -438,6 +472,58 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              GestureDetector(
+                onTap: _pickDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.paddingS,
+                    vertical: AppSizes.paddingXS,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _filterDate != null
+                        ? AppColors.primary.withValues(alpha: 0.1)
+                        : AppColors.inputFill,
+                    borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    border: Border.all(
+                      color: _filterDate != null
+                          ? AppColors.primary
+                          : AppColors.inputBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today,
+                          size: 14,
+                          color: _filterDate != null
+                              ? AppColors.primary
+                              : AppColors.textGray),
+                      const SizedBox(width: 4),
+                      Text(
+                        _filterDate != null
+                            ? DateFormat('d MMM').format(_filterDate!)
+                            : 'Date',
+                        style: AppTextStyles.poppins(
+                          fontSize: AppSizes.fontXS,
+                          fontWeight: FontWeight.w600,
+                          color: _filterDate != null
+                              ? AppColors.primary
+                              : AppColors.textDark,
+                        ),
+                      ),
+                      if (_filterDate != null) ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => setState(() => _filterDate = null),
+                          child: const Icon(Icons.close,
+                              size: 14, color: AppColors.primary),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSizes.paddingS),
               _EventFilterDropdown(
                 value: _filter,
                 onChanged: (v) => setState(() => _filter = v),

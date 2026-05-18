@@ -232,17 +232,17 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _mentionQuery = null);
   }
 
-  List<({String uid, String displayName})> _buildSuggestions(CommunityProvider cp, String currentUid) {
+  List<({String uid, String displayName, String photoUrl})> _buildSuggestions(CommunityProvider cp, String currentUid) {
     final q = _mentionQuery;
     if (q == null) return [];
 
-    final results = <({String uid, String displayName})>[];
+    final results = <({String uid, String displayName, String photoUrl})>[];
     for (final m in cp.members) {
       if (m.userId == currentUid) continue;
       final name = cp.displayNameOf(m.userId);
       if (name.isEmpty) continue;
       if (q.isEmpty || name.toLowerCase().contains(q.toLowerCase())) {
-        results.add((uid: m.userId, displayName: name));
+        results.add((uid: m.userId, displayName: name, photoUrl: cp.photoURLOf(m.userId)));
       }
     }
     return results;
@@ -601,7 +601,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final memberDisplay = cp.members.isNotEmpty
         ? cp.members.length.toString()
-        : widget.memberCount;
+        : '';
     final suggestions = _buildSuggestions(cp, currentUid);
 
     return Scaffold(
@@ -618,7 +618,7 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               // ── App bar ──────────────────────────────────────────────────
               _ChatAppBar(
-                communityName: widget.communityName,
+                communityName: cp.activeCommunity?.communityName ?? widget.communityName,
                 memberCount: memberDisplay,
                 onMenuTap: () => setState(() => _menuOpen = !_menuOpen),
               ),
@@ -772,7 +772,7 @@ class _ChatScreenState extends State<ChatScreen> {
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
 
 class _MentionSuggestionsBar extends StatelessWidget {
-  final List<({String uid, String displayName})> suggestions;
+  final List<({String uid, String displayName, String photoUrl})> suggestions;
   final void Function(String displayName, String uid) onSelect;
 
   const _MentionSuggestionsBar({required this.suggestions, required this.onSelect});
@@ -795,13 +795,20 @@ class _MentionSuggestionsBar extends StatelessWidget {
           final s = suggestions[i];
           return ListTile(
             dense: true,
-            leading: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.avatarSalmon,
-              ),
+            leading: CircleAvatar(
+              radius: 16,
+              backgroundColor: AppColors.avatarSalmon,
+              backgroundImage: s.photoUrl.isNotEmpty ? NetworkImage(s.photoUrl) : null,
+              child: s.photoUrl.isEmpty
+                  ? Text(
+                      s.displayName.isNotEmpty ? s.displayName[0].toUpperCase() : '?',
+                      style: AppTextStyles.body(
+                        fontSize: AppSizes.fontXS,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.cardWhite,
+                      ),
+                    )
+                  : null,
             ),
             title: Text(
               s.displayName,
@@ -898,8 +905,11 @@ class _ChatAppBar extends StatelessWidget {
     required this.onMenuTap,
   });
 
-  String get _title =>
-      memberCount.isEmpty ? communityName : '$communityName ($memberCount)';
+  String get _title {
+    // Strip any trailing (N) suffix from communityName to avoid double-count
+    final cleanName = communityName.replaceAll(RegExp(r'\s*\(\d+\)\s*$'), '');
+    return memberCount.isEmpty ? cleanName : '$cleanName ($memberCount)';
+  }
 
   @override
   Widget build(BuildContext context) {

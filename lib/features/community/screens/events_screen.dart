@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/event_model.dart';
@@ -23,6 +24,8 @@ class EventsScreen extends StatefulWidget {
 }
 
 class _EventsScreenState extends State<EventsScreen> {
+  DateTime? _filterDate;
+
   @override
   void initState() {
     super.initState();
@@ -42,22 +45,61 @@ class _EventsScreenState extends State<EventsScreen> {
     return count.isEmpty ? widget.communityName : '${widget.communityName} ($count)';
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _filterDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: AppColors.cardWhite,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _filterDate = picked);
+    }
+  }
+
+  List<EventModel> _filtered(List<EventModel> events) {
+    if (_filterDate == null) return events;
+    final d = _filterDate!;
+    return events.where((e) {
+      final start = e.startDate.toDate();
+      final end = e.endDate.toDate();
+      final dayStart = DateTime(d.year, d.month, d.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      return start.isBefore(dayEnd) && end.isAfter(dayStart);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final ep = context.watch<EventProvider>();
+    final filtered = _filtered(ep.events);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
           _EventsAppBar(title: _title),
+          _DateFilterBar(
+            selectedDate: _filterDate,
+            onPickDate: _pickDate,
+            onClear: () => setState(() => _filterDate = null),
+          ),
           Expanded(
             child: ep.isLoading && ep.events.isEmpty
                 ? const Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
                   )
-                : ep.events.isEmpty
+                : filtered.isEmpty
                     ? const _EmptyState()
-                    : _EventList(events: ep.events, communityId: widget.communityId, communityName: widget.communityName),
+                    : _EventList(events: filtered, communityId: widget.communityId, communityName: widget.communityName),
           ),
         ],
       ),
@@ -66,6 +108,88 @@ class _EventsScreenState extends State<EventsScreen> {
         shape: const CircleBorder(),
         onPressed: () => context.push('/create-event', extra: widget.communityId),
         child: const Icon(Icons.add, color: AppColors.cardWhite),
+      ),
+    );
+  }
+}
+
+// ── Date filter bar ───────────────────────────────────────────────────────────
+
+class _DateFilterBar extends StatelessWidget {
+  final DateTime? selectedDate;
+  final VoidCallback onPickDate;
+  final VoidCallback onClear;
+
+  const _DateFilterBar({
+    required this.selectedDate,
+    required this.onPickDate,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFilter = selectedDate != null;
+    return Container(
+      color: AppColors.cardWhite,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.paddingM,
+        vertical: AppSizes.paddingS,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onPickDate,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingM,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: hasFilter ? AppColors.primary : AppColors.textGray.withValues(alpha: 0.3),
+                  ),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                  color: hasFilter ? AppColors.primary.withValues(alpha: 0.08) : AppColors.background,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 18,
+                      color: hasFilter ? AppColors.primary : AppColors.textGray,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      hasFilter
+                          ? DateFormat('d MMMM yyyy').format(selectedDate!)
+                          : 'Filter by date',
+                      style: AppTextStyles.poppins(
+                        fontSize: AppSizes.fontS,
+                        color: hasFilter ? AppColors.primary : AppColors.textGray,
+                        fontWeight: hasFilter ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (hasFilter) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onClear,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.textGray.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 16, color: AppColors.textGray),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
