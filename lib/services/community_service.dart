@@ -203,6 +203,14 @@ class CommunityService {
     return CommunityModel.fromJson(doc);
   }
 
+  Future<CommunityModel?> getCommunityDebug(String communityId) async {
+    final doc = await _communities.doc(communityId).get();
+    debugPrint('[Comments] result doc exists: ${doc.exists}');
+    debugPrint('[Comments] result data: ${doc.data()}');
+    if (!doc.exists) return null;
+    return CommunityModel.fromJson(doc);
+  }
+
   Future<String> createCommunity({
     required String communityName,
     required List<CategoryModel> category,

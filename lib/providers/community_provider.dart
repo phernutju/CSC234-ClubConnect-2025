@@ -15,6 +15,7 @@ class CommunityProvider extends ChangeNotifier {
   final Set<String> _mutedCommunities = {};
   final Map<String, String> _nameCache = {};
   final Map<String, String> _photoCache = {};
+  final Map<String, String> _communityNameByIdCache = {};
   List<CommunityModel> communities = [];
   List<CommunityModel> myCommunities = [];
   List<CommunityModel> trendingCommunities = [];
@@ -73,6 +74,25 @@ class CommunityProvider extends ChangeNotifier {
 
   /// Returns the cached photo URL for [uid], or empty string if not yet fetched.
   String photoURLOf(String uid) => _photoCache[uid] ?? '';
+
+  /// Returns the community name for [communityId]. Fetches from Firestore if not cached.
+  /// Falls back to 'Unknown community' if the community no longer exists.
+  Future<String> resolveCommunityName(String communityId) async {
+    if (_communityNameByIdCache.containsKey(communityId)) {
+      return _communityNameByIdCache[communityId]!;
+    }
+    debugPrint('[Comments] looking up communityId: $communityId');
+    try {
+      final community = await _service.getCommunityDebug(communityId);
+      final name = community?.communityName ?? 'Unknown community';
+      _communityNameByIdCache[communityId] = name;
+      return name;
+    } catch (e) {
+      debugPrint('[Comments] lookup threw: $e');
+      _communityNameByIdCache[communityId] = 'Unknown community';
+      return 'Unknown community';
+    }
+  }
 
   /// Fetches and caches displayName + photoURL for [uid] in one Firestore read.
   /// No-ops if already cached. Notifies listeners when data arrives.
