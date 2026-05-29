@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../services/auth_service.dart';
@@ -145,7 +146,13 @@ class AppAuthProvider extends ChangeNotifier {
         muteExpiresAt = muteExpiresTs?.toDate();
       }
       _safeNotify();
-    }, onError: (_) {
+    }, onError: (Object e, StackTrace st) {
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider user-doc stream failure',
+        information: ['uid=$uid'],
+      );
       role = 'user';
       isBanned = false;
       isMuted = false;
@@ -200,10 +207,15 @@ class AppAuthProvider extends ChangeNotifier {
           notifyListeners();
         },
       );
-    } catch (e) {
+    } catch (e, st) {
       _otpState = OtpState.error;
       _otpError = e.toString();
       _canResend = true;
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.sendOtp failed',
+      );
       notifyListeners();
     }
   }
@@ -226,9 +238,14 @@ class AppAuthProvider extends ChangeNotifier {
       await _authService.signOut(); // clear phone-auth session; account created later at CategoryScreen
       _otpState = OtpState.verified;
       notifyListeners();
-    } catch (e) {
+    } catch (e, st) {
       _otpState = OtpState.error;
       _otpError = e.toString();
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.verifyOtp failed',
+      );
       notifyListeners();
     }
   }
@@ -279,10 +296,19 @@ class AppAuthProvider extends ChangeNotifier {
         await _authService.updatePhotoURL(newUser.uid, url);
       }
       }
-      
+
       _clearSignupData();
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('SignUp error: $e');
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.signUp failed',
+        information: [
+          'isGoogle=${_googleCredential != null}',
+          'email=${_email ?? _googleEmail ?? ''}',
+        ],
+      );
       rethrow;
     } finally {
       _isLoading = false;
@@ -301,8 +327,31 @@ class AppAuthProvider extends ChangeNotifier {
         password: password,
       );
       user = credential.user;
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, st) {
+      // Only log non-credential errors — wrong-password / user-not-found are
+      // expected user mistakes and would otherwise spam the dashboard.
+      const expectedCodes = {
+        'wrong-password',
+        'user-not-found',
+        'invalid-email',
+        'invalid-credential',
+      };
+      if (!expectedCodes.contains(e.code)) {
+        FirebaseCrashlytics.instance.recordError(
+          e,
+          st,
+          reason: 'AppAuthProvider.signIn FirebaseAuth error',
+          information: ['code=${e.code}'],
+        );
+      }
       throw AuthException(_mapError(e.code));
+    } catch (e, st) {
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.signIn unexpected error',
+      );
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -339,8 +388,13 @@ class AppAuthProvider extends ChangeNotifier {
       _googleDisplayName = data.displayName;
       _googleEmail = data.email;
       _googlePhotoURL = data.photoURL;
-    } catch (e) {
+    } catch (e, st) {
       _pendingGoogleRegistration = false;
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.startGoogleRegistration failed',
+      );
       rethrow;
     } finally {
       _isLoading = false;
