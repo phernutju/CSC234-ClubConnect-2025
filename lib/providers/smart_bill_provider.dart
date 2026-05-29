@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import '../models/smart_bill_model.dart';
 import '../services/smart_bill_service.dart';
@@ -115,8 +116,10 @@ class SmartBillProvider extends ChangeNotifier {
     try {
       await _service.deleteBill(communityId, eventId, billId);
       return true;
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'deleteBill',
+          info: ['communityId=$communityId', 'eventId=$eventId', 'billId=$billId']);
       notifyListeners();
       return false;
     }
@@ -131,8 +134,10 @@ class SmartBillProvider extends ChangeNotifier {
     try {
       await _service.settleBill(communityId, eventId, billId);
       return true;
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'settleBill',
+          info: ['communityId=$communityId', 'eventId=$eventId', 'billId=$billId']);
       return false;
     } finally {
       isLoading = false;
@@ -145,8 +150,10 @@ class SmartBillProvider extends ChangeNotifier {
     try {
       await _service.verifyPaymentManually(
           communityId, eventId, billId, userId);
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'verifyMemberPayment',
+          info: ['billId=$billId', 'userId=$userId']);
       notifyListeners();
     }
   }
@@ -156,8 +163,10 @@ class SmartBillProvider extends ChangeNotifier {
     try {
       await _service.rejectPaymentManually(
           communityId, eventId, billId, userId);
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'rejectMemberPayment',
+          info: ['billId=$billId', 'userId=$userId']);
       notifyListeners();
     }
   }
@@ -167,8 +176,10 @@ class SmartBillProvider extends ChangeNotifier {
     try {
       await _service.unverifyPaymentManually(
           communityId, eventId, billId, userId);
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'unverifyMemberPayment',
+          info: ['billId=$billId', 'userId=$userId']);
       notifyListeners();
     }
   }
@@ -253,8 +264,10 @@ class SmartBillProvider extends ChangeNotifier {
 
       bill = created;
       return created;
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'createAndPublishBill',
+          info: ['communityId=$communityId', 'eventId=$eventId', 'hostId=$hostId']);
       return null;
     } finally {
       isLoading = false;
@@ -329,8 +342,10 @@ class SmartBillProvider extends ChangeNotifier {
 
       bill = updated;
       return updated;
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'updateAndPublishBill',
+          info: ['communityId=$communityId', 'eventId=$eventId', 'billId=${existingBill.id}']);
       return null;
     } finally {
       isLoading = false;
@@ -406,8 +421,16 @@ class SmartBillProvider extends ChangeNotifier {
 
       notifyListeners();
       return result;
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'submitAndVerify',
+          info: [
+            'communityId=$communityId',
+            'eventId=$eventId',
+            'billId=$billId',
+            'userId=$userId',
+            'amountDue=$amountDue',
+          ]);
       return null;
     } finally {
       isLoading = false;
@@ -443,8 +466,15 @@ class SmartBillProvider extends ChangeNotifier {
       );
       myPayment = payment;
       return payment;
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'submitPaymentWithSlip',
+          info: [
+            'communityId=$communityId',
+            'eventId=$eventId',
+            'billId=$billId',
+            'userId=$userId',
+          ]);
       return null;
     } finally {
       isLoading = false;
@@ -461,8 +491,10 @@ class SmartBillProvider extends ChangeNotifier {
       final result = await _service.verifySlip(slipBytes, expectedAmount);
       lastVerification = result;
       return result;
-    } catch (e) {
+    } catch (e, st) {
       error = e.toString();
+      _recordError(e, st, 'verifySlip',
+          info: ['expectedAmount=$expectedAmount', 'slipBytes=${slipBytes.length}']);
       return null;
     } finally {
       isVerifying = false;
@@ -493,9 +525,28 @@ class SmartBillProvider extends ChangeNotifier {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  void _onError(Object e) {
+  void _onError(Object e, [StackTrace? st]) {
     error = e.toString();
+    FirebaseCrashlytics.instance.recordError(
+      e,
+      st,
+      reason: 'SmartBillProvider stream error',
+    );
     notifyListeners();
+  }
+
+  void _recordError(
+    Object e,
+    StackTrace st,
+    String op, {
+    List<Object> info = const [],
+  }) {
+    FirebaseCrashlytics.instance.recordError(
+      e,
+      st,
+      reason: 'SmartBillProvider.$op failed',
+      information: info,
+    );
   }
 
   void clearBill() {

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/smart_bill_model.dart';
 import 'ai_service.dart';
@@ -162,25 +163,70 @@ class SmartBillService {
 
   Future<String> uploadQrImage(String communityId, String eventId,
       String billId, Uint8List bytes) async {
-    final ref = _storage
-        .ref('communities/$communityId/events/$eventId/bills/$billId/qr.jpg');
-    final task =
-        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-    return task.ref.getDownloadURL();
+    try {
+      final ref = _storage.ref(
+          'communities/$communityId/events/$eventId/bills/$billId/qr.jpg');
+      final task =
+          await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      return task.ref.getDownloadURL();
+    } catch (e, st) {
+      await FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'SmartBillService.uploadQrImage failed',
+        information: [
+          'communityId=$communityId',
+          'eventId=$eventId',
+          'billId=$billId',
+          'bytes=${bytes.length}',
+        ],
+      );
+      rethrow;
+    }
   }
 
   Future<String> uploadSlip(String communityId, String eventId, String billId,
       String userId, Uint8List bytes) async {
-    final ref = _storage.ref(
-        'communities/$communityId/events/$eventId/bills/$billId/slips/$userId.jpg');
-    final task =
-        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-    return task.ref.getDownloadURL();
+    try {
+      final ref = _storage.ref(
+          'communities/$communityId/events/$eventId/bills/$billId/slips/$userId.jpg');
+      final task =
+          await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      return task.ref.getDownloadURL();
+    } catch (e, st) {
+      await FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'SmartBillService.uploadSlip failed',
+        information: [
+          'communityId=$communityId',
+          'eventId=$eventId',
+          'billId=$billId',
+          'userId=$userId',
+          'bytes=${bytes.length}',
+        ],
+      );
+      rethrow;
+    }
   }
 
   // ── AI Verification stub ──────────────────────────────────────────────────
 
   Future<AiVerificationResult> verifySlip(
-          Uint8List slipBytes, double expectedAmount) =>
-      GeminiService.verifyPaymentSlip(slipBytes, expectedAmount);
+      Uint8List slipBytes, double expectedAmount) async {
+    try {
+      return await GeminiService.verifyPaymentSlip(slipBytes, expectedAmount);
+    } catch (e, st) {
+      await FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'SmartBillService.verifySlip (AI) failed',
+        information: [
+          'expectedAmount=$expectedAmount',
+          'slipBytes=${slipBytes.length}',
+        ],
+      );
+      rethrow;
+    }
+  }
 }
