@@ -130,7 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Header / search / tabs — keep 24px horizontal padding
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -166,15 +167,21 @@ class _HomeScreenState extends State<HomeScreen> {
             // Tab content — no outer horizontal padding; each tab owns its own
             Expanded(
               child: _selectedTab != 3 && cp.isLoading && cp.communities.isEmpty
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: AppColors.primary))
                   : _TabContent(
                       selectedTab: _selectedTab,
-                      communities: _filtered(_selectedTab == 1 ? cp.myCommunities : cp.communities),
+                      communities: _filtered(_selectedTab == 1
+                          ? cp.myCommunities
+                          : cp.communities),
                       myCommunities: _filtered(cp.myCommunities),
                       trendingCommunities: _filtered(cp.trendingCommunities),
                       isTrendingLoading: cp.isTrendingLoading,
                       trendingError: cp.trendingError,
-                      onRetryTrending: () => context.read<CommunityProvider>().loadTrendingCommunities(),
+                      onRetryTrending: () => context
+                          .read<CommunityProvider>()
+                          .loadTrendingCommunities(),
                       onJoinTap: _showJoinFlow,
                       onDirectTap: _goToChat,
                       userInterests: userInterests,
@@ -195,11 +202,14 @@ class _HomeScreenState extends State<HomeScreen> {
 class _WelcomeHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final firestoreName = context.watch<ProfileProvider>().profile?.displayName ?? '';
+    final firestoreName =
+        context.watch<ProfileProvider>().profile?.displayName ?? '';
     final authName = context.watch<AppAuthProvider>().user?.displayName ?? '';
-    final name = firestoreName.isNotEmpty ? firestoreName
-        : authName.isNotEmpty ? authName
-        : 'there';
+    final name = firestoreName.isNotEmpty
+        ? firestoreName
+        : authName.isNotEmpty
+            ? authName
+            : 'there';
     return Text(
       '${AppStrings.homeWelcome}$name',
       style: AppTextStyles.title(color: AppColors.textDark),
@@ -271,8 +281,6 @@ class _SearchRow extends StatelessWidget {
     );
   }
 }
-
-
 
 class _TabContent extends StatelessWidget {
   final int selectedTab;
@@ -374,7 +382,11 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
     final pp = context.read<ProfileProvider>();
     for (final e in ep.publishedEvents) {
       final id = e.communityId;
-      if (id.isEmpty || _communityNames.containsKey(id) || _fetchingIds.contains(id)) continue;
+      if (id.isEmpty ||
+          _communityNames.containsKey(id) ||
+          _fetchingIds.contains(id)) {
+        continue;
+      }
       _fetchingIds.add(id);
       pp.fetchCommunityName(id).then((name) {
         if (mounted) {
@@ -410,11 +422,16 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
     var result = events;
     final q = widget.searchQuery.trim().toLowerCase();
     if (q.isNotEmpty) {
-      result = result.where((e) =>
-        e.title.toLowerCase().contains(q) ||
-        e.description.toLowerCase().contains(q) ||
-        (_communityNames[e.communityId] ?? '').toLowerCase().contains(q),
-      ).toList();
+      result = result
+          .where(
+            (e) =>
+                e.title.toLowerCase().contains(q) ||
+                e.description.toLowerCase().contains(q) ||
+                (_communityNames[e.communityId] ?? '')
+                    .toLowerCase()
+                    .contains(q),
+          )
+          .toList();
     }
     if (_filterDate != null) {
       final d = _filterDate!;
@@ -449,7 +466,8 @@ class _GlobalEventsTabState extends State<_GlobalEventsTab> {
 
     final currentUid = context.watch<AppAuthProvider>().user?.uid ?? '';
 
-    final publicEvents = ep.publishedEvents.where((e) => e.isPublished).toList();
+    final publicEvents =
+        ep.publishedEvents.where((e) => e.isPublished).toList();
 
     final byFilter = switch (_filter) {
       _EventFilter.all => publicEvents,
@@ -641,9 +659,9 @@ class _DiscoverSortDropdown extends StatelessWidget {
   const _DiscoverSortDropdown({required this.value, required this.onChanged});
 
   String _label(_DiscoverSort s) => switch (s) {
-        _DiscoverSort.newestFirst  => 'Newest first',
-        _DiscoverSort.oldestFirst  => 'Oldest first',
-        _DiscoverSort.mostMembers  => 'Most members',
+        _DiscoverSort.newestFirst => 'Newest first',
+        _DiscoverSort.oldestFirst => 'Oldest first',
+        _DiscoverSort.mostMembers => 'Most members',
         _DiscoverSort.leastMembers => 'Least members',
       };
 
@@ -757,14 +775,17 @@ class _UnreadAwareClubCardState extends State<_UnreadAwareClubCard> {
   @override
   void initState() {
     super.initState();
-    _unreadStream = context.read<CommunityProvider>().hasUnreadStream(widget.community.id);
+    _unreadStream =
+        context.read<CommunityProvider>().hasUnreadStream(widget.community.id);
   }
 
   @override
   void didUpdateWidget(_UnreadAwareClubCard old) {
     super.didUpdateWidget(old);
     if (old.community.id != widget.community.id) {
-      _unreadStream = context.read<CommunityProvider>().hasUnreadStream(widget.community.id);
+      _unreadStream = context
+          .read<CommunityProvider>()
+          .hasUnreadStream(widget.community.id);
     }
   }
 
@@ -842,9 +863,9 @@ class _DiscoverTabState extends State<_DiscoverTab> {
   _DiscoverSort _sort = _DiscoverSort.newestFirst;
 
   static (String, bool) _sortParams(_DiscoverSort sort) => switch (sort) {
-        _DiscoverSort.newestFirst  => ('createdAt',   true),
-        _DiscoverSort.oldestFirst  => ('createdAt',   false),
-        _DiscoverSort.mostMembers  => ('memberCount', true),
+        _DiscoverSort.newestFirst => ('createdAt', true),
+        _DiscoverSort.oldestFirst => ('createdAt', false),
+        _DiscoverSort.mostMembers => ('memberCount', true),
         _DiscoverSort.leastMembers => ('memberCount', false),
       };
 
@@ -852,9 +873,9 @@ class _DiscoverTabState extends State<_DiscoverTab> {
     setState(() => _sort = sort);
     final (field, desc) = _sortParams(sort);
     context.read<CommunityProvider>().loadDiscoverFirstPage(
-      orderField: field,
-      descending: desc,
-    );
+          orderField: field,
+          descending: desc,
+        );
   }
 
   @override
@@ -862,7 +883,8 @@ class _DiscoverTabState extends State<_DiscoverTab> {
     final cp = context.watch<CommunityProvider>();
 
     // Use server-side pagination only when no search or category filter is active.
-    final isPaginated = widget.searchQuery.isEmpty && widget.selectedCategory == null;
+    final isPaginated =
+        widget.searchQuery.isEmpty && widget.selectedCategory == null;
     final displayList = isPaginated ? cp.discoverPage : widget.communities;
 
     const categoryColors = [
@@ -897,7 +919,8 @@ class _DiscoverTabState extends State<_DiscoverTab> {
           ..._buildCommunityCards(displayList, widget.onTap),
           if (showPagination)
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, AppSizes.paddingM, 0, AppSizes.paddingM),
+              padding: const EdgeInsets.fromLTRB(
+                  0, AppSizes.paddingM, 0, AppSizes.paddingM),
               child: Center(
                 child: _PaginationBar(
                   currentPage: cp.discoverCurrentPage,
@@ -928,8 +951,10 @@ class _DiscoverTabState extends State<_DiscoverTab> {
                   _SelectableCategory(
                     label: widget.userInterests[i],
                     color: categoryColors[i % categoryColors.length],
-                    isSelected: widget.selectedCategory == widget.userInterests[i],
-                    onTap: () => widget.onCategoryChanged(widget.userInterests[i]),
+                    isSelected:
+                        widget.selectedCategory == widget.userInterests[i],
+                    onTap: () =>
+                        widget.onCategoryChanged(widget.userInterests[i]),
                   ),
                 ],
               ],
@@ -963,63 +988,23 @@ class _DiscoverTabState extends State<_DiscoverTab> {
   }
 }
 
-class _CommunityList extends StatelessWidget {
-  final List<CommunityModel> communities;
-  final void Function(CommunityModel) onTap;
-
-  const _CommunityList({required this.communities, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    if (communities.isEmpty) {
-      return Center(
-        child: Text(
-          'No communities yet',
-          style: AppTextStyles.body(color: AppColors.textGray),
-        ),
-      );
-    }
-    return ListView(children: _buildCommunityCards(communities, onTap));
-  }
-}
-
-Future<void> _confirmDeleteCommunity(BuildContext context, String communityId) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Delete Community'),
-      content: const Text(
-        'Are you sure? This will permanently delete the community and all its messages. This cannot be undone.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Delete', style: TextStyle(color: Colors.red)),
-        ),
-      ],
-    ),
-  );
-  if (confirmed != true || !context.mounted) return;
-  await context.read<CommunityProvider>().deleteCommunity(communityId);
-}
-
-
 List<Widget> _buildCommunityCards(
   List<CommunityModel> communities,
   void Function(CommunityModel) onTap,
 ) {
-  return communities.map((c) => ClubCard(
-    name: c.communityName,
-    description: c.description.isEmpty ? c.tags.map((t) => t.name).join(', ') : c.description,
-    category: c.tags.isNotEmpty ? c.tags.first.name : '',
-    memberCount: '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
-    coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
-    onTap: () => onTap(c),
-  )).toList();
+  return communities
+      .map((c) => ClubCard(
+            name: c.communityName,
+            description: c.description.isEmpty
+                ? c.tags.map((t) => t.name).join(', ')
+                : c.description,
+            category: c.tags.isNotEmpty ? c.tags.first.name : '',
+            memberCount:
+                '${c.memberCount} member${c.memberCount == 1 ? '' : 's'}',
+            coverImageUrl: c.coverImageURL.isEmpty ? null : c.coverImageURL,
+            onTap: () => onTap(c),
+          ))
+      .toList();
 }
 
 // ── Trending tab ───────────────────────────────────────────────────────────────
@@ -1059,7 +1044,8 @@ class _TrendingTab extends StatelessWidget {
             const SizedBox(height: AppSizes.paddingM),
             TextButton(
               onPressed: onRetry,
-              child: const Text('Retry', style: TextStyle(color: AppColors.primary)),
+              child: const Text('Retry',
+                  style: TextStyle(color: AppColors.primary)),
             ),
           ],
         ),
@@ -1183,7 +1169,9 @@ class _PaginationBar extends StatelessWidget {
     final start = (currentPage - 1).clamp(1, totalPages - 2);
     final end = (currentPage + 1).clamp(1, totalPages - 2);
     if (start > 1) items.add('...');
-    for (int i = start; i <= end; i++) { items.add(i); }
+    for (int i = start; i <= end; i++) {
+      items.add(i);
+    }
     if (end < totalPages - 2) items.add('...');
     items.add(totalPages - 1);
     return items;
@@ -1193,7 +1181,8 @@ class _PaginationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = _items();
     final canPrev = currentPage > 0;
-    final canNext = currentPage < totalPages - 1 && (currentPage + 1) < knownPages;
+    final canNext =
+        currentPage < totalPages - 1 && (currentPage + 1) < knownPages;
 
     return Row(
       mainAxisSize: MainAxisSize.min,

@@ -108,7 +108,9 @@ class AppAuthProvider extends ChangeNotifier {
       final bannedInDb = (data['isBanned'] as bool?) ?? false;
       final expiresTs = data['banExpiresAt'] as Timestamp?;
 
-      if (bannedInDb && expiresTs != null && expiresTs.toDate().isBefore(DateTime.now())) {
+      if (bannedInDb &&
+          expiresTs != null &&
+          expiresTs.toDate().isBefore(DateTime.now())) {
         // Ban expired — auto-unban
         await FirebaseFirestore.instance.collection('users').doc(uid).update({
           'isBanned': false,
@@ -132,7 +134,9 @@ class AppAuthProvider extends ChangeNotifier {
       }
       final mutedInDb = (data['isMuted'] as bool?) ?? false;
       final muteExpiresTs = data['muteExpiresAt'] as Timestamp?;
-      if (mutedInDb && muteExpiresTs != null && muteExpiresTs.toDate().isBefore(DateTime.now())) {
+      if (mutedInDb &&
+          muteExpiresTs != null &&
+          muteExpiresTs.toDate().isBefore(DateTime.now())) {
         await FirebaseFirestore.instance.collection('users').doc(uid).update({
           'isMuted': false,
           'muteExpiresAt': FieldValue.delete(),
@@ -174,7 +178,8 @@ class AppAuthProvider extends ChangeNotifier {
     return phone; // +6680000000
   }
 
-  void setExtraInfo(String photoURL, String displayName, String bio, {Uint8List? imageBytes}) {
+  void setExtraInfo(String photoURL, String displayName, String bio,
+      {Uint8List? imageBytes}) {
     debugPrint('[AuthProvider] imageBytes received: ${imageBytes?.length}');
     _photoURL = photoURL;
     _imageBytes = imageBytes;
@@ -223,7 +228,8 @@ class AppAuthProvider extends ChangeNotifier {
         verificationId: _verificationId!,
         smsCode: smsCode,
       );
-      await _authService.signOut(); // clear phone-auth session; account created later at CategoryScreen
+      await _authService
+          .signOut(); // clear phone-auth session; account created later at CategoryScreen
       _otpState = OtpState.verified;
       notifyListeners();
     } catch (e) {
@@ -263,7 +269,8 @@ class AppAuthProvider extends ChangeNotifier {
         if (_email == null || _password == null || _displayName == null) {
           throw Exception('Missing required signup data');
         }
-        debugPrint('[SignUp] _imageBytes before upload: ${_imageBytes?.length}');
+        debugPrint(
+            '[SignUp] _imageBytes before upload: ${_imageBytes?.length}');
         final newUser = await _authService.signUp(
           email: _email!,
           password: _password!,
@@ -275,11 +282,12 @@ class AppAuthProvider extends ChangeNotifier {
         );
         debugPrint('[SignUp] newUser uid: ${newUser.uid}');
         if (_imageBytes != null) {
-        final url = await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
-        await _authService.updatePhotoURL(newUser.uid, url);
+          final url =
+              await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
+          await _authService.updatePhotoURL(newUser.uid, url);
+        }
       }
-      }
-      
+
       _clearSignupData();
     } catch (e) {
       debugPrint('SignUp error: $e');
@@ -289,6 +297,7 @@ class AppAuthProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
   Future<void> signIn({
     required String email,
     required String password,

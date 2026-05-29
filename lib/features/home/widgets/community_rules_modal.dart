@@ -38,7 +38,8 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
     final maxHeight = MediaQuery.of(context).size.height * 0.85;
     return Dialog(
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
+        borderRadius:
+            BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
       ),
       clipBehavior: Clip.hardEdge,
       insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
@@ -83,111 +84,112 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
             // ── White scrollable rules + accept checkbox ───────────────────
             Flexible(
               child: Container(
-              color: AppColors.cardWhite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: SingleChildScrollView(
+                color: AppColors.cardWhite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          AppSizes.rulesContentPadH,
+                          AppSizes.rulesContentPadV,
+                          AppSizes.rulesContentPadH,
+                          0,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Rules list
+                            ...widget.community.rules.asMap().entries.map(
+                                  (e) => _RuleItem(
+                                      index: e.key + 1, rule: e.value),
+                                ),
+                            SizedBox(height: AppSizes.rulesPreCheckboxGap),
+
+                            // Accept rules checkbox + label
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _accepted = !_accepted),
+                                  child: Container(
+                                    width: AppSizes.rulesCheckboxSize,
+                                    height: AppSizes.rulesCheckboxSize,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(
+                                        AppSizes.rulesCheckboxRadius,
+                                      ),
+                                      border: Border.all(
+                                          color: AppColors.commentBody),
+                                      color: _accepted
+                                          ? AppColors.primary
+                                          : AppColors.cardWhite,
+                                    ),
+                                    child: _accepted
+                                        ? const Icon(
+                                            Icons.check,
+                                            size: 12,
+                                            color: AppColors.cardWhite,
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSizes.paddingS),
+                                Expanded(
+                                  child: Text(
+                                    AppStrings.rulesAcceptLabel,
+                                    style: AppTextStyles.poppins(
+                                      fontSize: AppSizes.fontXS,
+                                      color: AppColors.commentBody,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ── Join button ────────────────────────────────────────
+                    Padding(
                       padding: EdgeInsets.fromLTRB(
                         AppSizes.rulesContentPadH,
-                        AppSizes.rulesContentPadV,
-                        AppSizes.rulesContentPadH,
                         0,
+                        AppSizes.rulesContentPadH,
+                        AppSizes.paddingL,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Rules list
-                          ...widget.community.rules.asMap().entries.map(
-                            (e) => _RuleItem(index: e.key + 1, rule: e.value),
-                          ),
-                          SizedBox(height: AppSizes.rulesPreCheckboxGap),
-
-                          // Accept rules checkbox + label
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              GestureDetector(
-                                onTap: () =>
-                                    setState(() => _accepted = !_accepted),
-                                child: Container(
-                                  width: AppSizes.rulesCheckboxSize,
-                                  height: AppSizes.rulesCheckboxSize,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(
-                                      AppSizes.rulesCheckboxRadius,
-                                    ),
-                                    border: Border.all(
-                                        color: AppColors.commentBody),
-                                    color: _accepted
-                                        ? AppColors.primary
-                                        : AppColors.cardWhite,
-                                  ),
-                                  child: _accepted
-                                      ? const Icon(
-                                          Icons.check,
-                                          size: 12,
-                                          color: AppColors.cardWhite,
-                                        )
-                                      : null,
-                                ),
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: _accepted ? _onJoin : null,
+                          child: Container(
+                            width: AppSizes.modalActionButtonWidth,
+                            height: AppSizes.modalActionButtonHeight,
+                            decoration: BoxDecoration(
+                              color: _accepted
+                                  ? AppColors.primary
+                                  : AppColors.rateCardBorder,
+                              borderRadius:
+                                  BorderRadius.circular(AppSizes.radiusPill),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              AppStrings.rulesJoinButton,
+                              style: AppTextStyles.poppins(
+                                fontSize: AppSizes.fontTitle,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.cardWhite,
                               ),
-                              const SizedBox(width: AppSizes.paddingS),
-                              Expanded(
-                                child: Text(
-                                  AppStrings.rulesAcceptLabel,
-                                  style: AppTextStyles.poppins(
-                                    fontSize: AppSizes.fontXS,
-                                    color: AppColors.commentBody,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // ── Join button ────────────────────────────────────────
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSizes.rulesContentPadH,
-                      0,
-                      AppSizes.rulesContentPadH,
-                      AppSizes.paddingL,
-                    ),
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: _accepted ? _onJoin : null,
-                        child: Container(
-                          width: AppSizes.modalActionButtonWidth,
-                          height: AppSizes.modalActionButtonHeight,
-                          decoration: BoxDecoration(
-                            color: _accepted
-                                ? AppColors.primary
-                                : AppColors.rateCardBorder,
-                            borderRadius:
-                                BorderRadius.circular(AppSizes.radiusPill),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            AppStrings.rulesJoinButton,
-                            style: AppTextStyles.poppins(
-                              fontSize: AppSizes.fontTitle,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.cardWhite,
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
           ],
         ),
@@ -219,7 +221,6 @@ class _RuleItem extends StatelessWidget {
               color: AppColors.textDark,
             ),
           ),
-          
         ],
       ),
     );

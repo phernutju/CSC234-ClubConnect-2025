@@ -43,7 +43,8 @@ class _MembersModalState extends State<_MembersModal> {
 
     return Dialog(
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
+        borderRadius:
+            BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 80),
       child: Container(
@@ -152,7 +153,8 @@ class _MemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = displayName.isNotEmpty ? displayName : '…';
-    final initial = (displayName.isNotEmpty) ? displayName[0].toUpperCase() : '?';
+    final initial =
+        (displayName.isNotEmpty) ? displayName[0].toUpperCase() : '?';
     final isAdmin = member.role == 'admin';
 
     return Padding(

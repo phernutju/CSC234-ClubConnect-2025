@@ -89,7 +89,8 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
     final pp = context.watch<ProfileProvider>();
     final profile = pp.viewedProfile;
     final ratings = pp.viewedReviewsResult?.reviews ?? [];
-    final avgRating = pp.viewedReviewsResult?.averageScore ?? AppSizes.defaultRating;
+    final avgRating =
+        pp.viewedReviewsResult?.averageScore ?? AppSizes.defaultRating;
 
     if (pp.isLoading && profile == null) {
       return const Scaffold(
@@ -113,10 +114,9 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
                   photoURL: profile?.photoURL,
                   coverBannerUrl: profile?.coverBannerUrl,
                 ),
-
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.paddingL),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -126,7 +126,6 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
                         onRateTap: () => _showRateModal(context),
                       ),
                       const SizedBox(height: AppSizes.paddingL),
-
                       const _SectionLabel(AppStrings.profileAbout),
                       const SizedBox(height: AppSizes.paddingXS),
                       Text(
@@ -138,13 +137,10 @@ class _OtherProfileScreenState extends State<OtherProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: AppSizes.paddingL),
-
                       const _SectionLabel(AppStrings.profileInterests),
                       const SizedBox(height: AppSizes.paddingS),
-                      _InterestsView(
-                          interests: profile?.interests ?? []),
+                      _InterestsView(interests: profile?.interests ?? []),
                       const SizedBox(height: AppSizes.paddingL),
-
                       _CommentsSection(
                         ratings: ratings,
                         onViewAll: () => _showViewAllModal(context, ratings),
@@ -263,7 +259,7 @@ class _ProfileHeader extends StatelessWidget {
             top: AppSizes.paddingM,
             right: AppSizes.paddingM,
             child: PopupMenuButton<String>(
-              offset: const Offset(0, 40), 
+              offset: const Offset(0, 40),
               color: AppColors.cardWhite,
               elevation: 3,
               shape: RoundedRectangleBorder(
@@ -292,7 +288,7 @@ class _ProfileHeader extends StatelessWidget {
                   height: 29,
                   padding: EdgeInsets.zero,
                   child: SizedBox(
-                    width: 79, 
+                    width: 79,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -305,9 +301,9 @@ class _ProfileHeader extends StatelessWidget {
                         Text(
                           'Report',
                           style: AppTextStyles.body(
-                            fontSize: 12, 
-                            fontWeight: FontWeight.w500, 
-                            color: AppColors.alertRed, 
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.alertRed,
                           ),
                         ),
                       ],

@@ -103,12 +103,13 @@ class _MembersSheetState extends State<_MembersSheet> {
   void _openProfile(MemberModel member, String displayName) {
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    router.push('/other-profile', extra: ProfileArgs(
-      userId: member.userId,
-      username: displayName.isNotEmpty ? displayName : 'User',
-      communityName: widget.communityName,
-      communityId: widget.communityId,
-    ));
+    router.push('/other-profile',
+        extra: ProfileArgs(
+          userId: member.userId,
+          username: displayName.isNotEmpty ? displayName : 'User',
+          communityName: widget.communityName,
+          communityId: widget.communityId,
+        ));
   }
 
   @override
@@ -220,14 +221,13 @@ class _MembersSheetState extends State<_MembersSheet> {
                   )
                 : ListView.builder(
                     shrinkWrap: true,
-                    padding:
-                        const EdgeInsets.only(bottom: AppSizes.paddingL),
+                    padding: const EdgeInsets.only(bottom: AppSizes.paddingL),
                     itemCount: members.length,
                     itemBuilder: (ctx, i) {
                       final member = members[i];
                       final name = cp.displayNameOf(member.userId);
-                      final isAdmin = member.role == 'admin' ||
-                          member.role == 'creator';
+                      final isAdmin =
+                          member.role == 'admin' || member.role == 'creator';
                       // Kick button shown only on non-admin members
                       // (admin rows have no kick button per spec)
                       final showKick = canKick &&
@@ -293,8 +293,7 @@ class _MemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = displayName.isNotEmpty ? displayName : '…';
-    final initial =
-        displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
 
     // The row is split into two siblings so their tap areas never conflict:
     //   • Expanded GestureDetector — avatar + name + role → navigate to profile
@@ -319,9 +318,7 @@ class _MemberTile extends StatelessWidget {
                   left: AppSizes.paddingM,
                   top: AppSizes.paddingS + 2,
                   bottom: AppSizes.paddingS + 2,
-                  right: showKickButton
-                      ? AppSizes.paddingS
-                      : AppSizes.paddingM,
+                  right: showKickButton ? AppSizes.paddingS : AppSizes.paddingM,
                 ),
                 child: Row(
                   children: [
@@ -465,7 +462,6 @@ class _MemberTile extends StatelessWidget {
                 ),
               ),
             ),
-
         ],
       ),
     );
@@ -557,8 +553,7 @@ class _KickConfirmDialog extends StatelessWidget {
             ),
 
             // ── Horizontal divider ──────────────────────────────────────────
-            const Divider(
-                height: 1, thickness: 0.5, color: AppColors.divider),
+            const Divider(height: 1, thickness: 0.5, color: AppColors.divider),
 
             // ── Button row ──────────────────────────────────────────────────
             IntrinsicHeight(

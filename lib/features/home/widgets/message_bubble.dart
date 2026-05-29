@@ -74,7 +74,10 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (message.isSystemMessage) {
-      return _SystemPill(type: message.type, senderName: message.senderName, fallbackText: message.text);
+      return _SystemPill(
+          type: message.type,
+          senderName: message.senderName,
+          fallbackText: message.text);
     }
     return GestureDetector(
       onLongPressStart: onLongPress == null
@@ -95,10 +98,14 @@ class MessageBubble extends StatelessWidget {
 
 String _systemText(String type, String senderName) {
   switch (type) {
-    case 'joined': return '$senderName joined the group';
-    case 'left':   return '$senderName left the group';
-    case 'kicked': return '$senderName was removed from the group';
-    default:       return '';
+    case 'joined':
+      return '$senderName joined the group';
+    case 'left':
+      return '$senderName left the group';
+    case 'kicked':
+      return '$senderName was removed from the group';
+    default:
+      return '';
   }
 }
 
@@ -121,7 +128,8 @@ class _SystemPill extends StatelessWidget {
     if (label.isEmpty) return const SizedBox.shrink();
     return Center(
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: AppSizes.systemPillMarginV),
+        margin:
+            const EdgeInsets.symmetric(vertical: AppSizes.systemPillMarginV),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSizes.systemPillPadH,
           vertical: AppSizes.systemPillPadV,
@@ -151,9 +159,9 @@ class _SentBubble extends StatelessWidget {
 
   // All corners 18, bottom-right 4 → tail pointing toward the sender
   static final _shape = BorderRadius.only(
-    topLeft:     Radius.circular(AppSizes.radiusBubble),
-    topRight:    Radius.circular(AppSizes.radiusBubble),
-    bottomLeft:  Radius.circular(AppSizes.radiusBubble),
+    topLeft: Radius.circular(AppSizes.radiusBubble),
+    topRight: Radius.circular(AppSizes.radiusBubble),
+    bottomLeft: Radius.circular(AppSizes.radiusBubble),
     bottomRight: Radius.circular(AppSizes.radiusBubbleTail),
   );
 
@@ -236,9 +244,9 @@ class _ReceivedBubble extends StatelessWidget {
 
   // All corners 18, bottom-left 4 → tail pointing toward the receiver
   static final _shape = BorderRadius.only(
-    topLeft:     Radius.circular(AppSizes.radiusBubbleTail),
-    topRight:    Radius.circular(AppSizes.radiusBubble),
-    bottomLeft:  Radius.circular(AppSizes.radiusBubble),
+    topLeft: Radius.circular(AppSizes.radiusBubbleTail),
+    topRight: Radius.circular(AppSizes.radiusBubble),
+    bottomLeft: Radius.circular(AppSizes.radiusBubble),
     bottomRight: Radius.circular(AppSizes.radiusBubble),
   );
 
@@ -373,7 +381,9 @@ class _BubbleBody extends StatelessWidget {
   /// known @names highlighted in blue with a tap recognizer.
   Widget _buildText(String text, Color baseColor) {
     if (message.mentionMap.isEmpty) {
-      return Text(text, style: AppTextStyles.body(fontSize: AppSizes.fontM, color: baseColor));
+      return Text(text,
+          style:
+              AppTextStyles.body(fontSize: AppSizes.fontM, color: baseColor));
     }
 
     final spans = <TextSpan>[];
@@ -387,10 +397,12 @@ class _BubbleBody extends StatelessWidget {
       final name = match.group(1)!;
       final uid = message.mentionMap[name];
       if (uid != null && onMentionTap != null) {
-        final recognizer = TapGestureRecognizer()..onTap = () => onMentionTap!(uid);
+        final recognizer = TapGestureRecognizer()
+          ..onTap = () => onMentionTap!(uid);
         spans.add(TextSpan(
           text: '@$name',
-          style: const TextStyle(color: Color(0xFF2196F3), fontWeight: FontWeight.bold),
+          style: const TextStyle(
+              color: Color(0xFF2196F3), fontWeight: FontWeight.bold),
           recognizer: recognizer,
         ));
       } else {

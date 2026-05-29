@@ -30,7 +30,8 @@
       "Bash(flutter test *)",
       "Bash(git checkout *)",
       "Bash(findstr /S /N \"onPressed.*async\\\\|onTap.*async\" lib\\\\features\\\\community\\\\screens\\\\*.dart)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(dart format *)"
     ]
   }
 }

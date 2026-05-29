@@ -38,7 +38,8 @@ class BannedScreen extends StatelessWidget {
                   color: const Color(0xFFFFE5E5),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.block, color: Color(0xFFFF4444), size: 48),
+                child:
+                    const Icon(Icons.block, color: Color(0xFFFF4444), size: 48),
               ),
               const SizedBox(height: 24),
               Text(

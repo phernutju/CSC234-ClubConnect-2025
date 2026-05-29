@@ -57,15 +57,12 @@ class NotificationService {
   }
 
   Future<void> markAsRead(String userId, String notificationId) async {
-    await _notifications(userId)
-        .doc(notificationId)
-        .update({'isRead': true});
+    await _notifications(userId).doc(notificationId).update({'isRead': true});
   }
 
   Future<void> markAllAsRead(String userId) async {
-    final snapshot = await _notifications(userId)
-        .where('isRead', isEqualTo: false)
-        .get();
+    final snapshot =
+        await _notifications(userId).where('isRead', isEqualTo: false).get();
 
     if (snapshot.docs.isEmpty) return;
 
@@ -76,8 +73,7 @@ class NotificationService {
     await batch.commit();
   }
 
-  Future<void> deleteNotification(
-      String userId, String notificationId) async {
+  Future<void> deleteNotification(String userId, String notificationId) async {
     await _notifications(userId).doc(notificationId).delete();
   }
 }

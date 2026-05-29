@@ -24,8 +24,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final userId =
-        context.read<AppAuthProvider>().user?.uid;
+    final userId = context.read<AppAuthProvider>().user?.uid;
     if (userId != null && userId != _watchedUserId) {
       _watchedUserId = userId;
       context.read<NotificationProvider>().watchNotifications(userId);
@@ -84,8 +83,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   ),
                   if (notifProvider.unreadCount > 0)
                     TextButton(
-                      onPressed: () =>
-                          notifProvider.markAllAsRead(userId),
+                      onPressed: () => notifProvider.markAllAsRead(userId),
                       child: Text(
                         'Mark all read',
                         style: AppTextStyles.body(
@@ -97,13 +95,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: AppSizes.paddingM),
             Container(
               height: AppSizes.inboxDividerWidth,
               color: AppColors.rateCardBorder,
             ),
-
             Expanded(
               child: notifProvider.isLoading && visible.isEmpty
                   ? const Center(child: CircularProgressIndicator())
@@ -169,7 +165,11 @@ class _NotificationListState extends State<_NotificationList> {
     final allNotifs = widget.grouped.values.expand((l) => l);
     for (final n in allNotifs) {
       final uid = n.mentionedBy;
-      if (uid.isEmpty || _photoCache.containsKey(uid) || _fetching.contains(uid)) continue;
+      if (uid.isEmpty ||
+          _photoCache.containsKey(uid) ||
+          _fetching.contains(uid)) {
+        continue;
+      }
       _fetching.add(uid);
       pp.fetchUserById(uid).then((user) {
         if (mounted) {
@@ -178,7 +178,9 @@ class _NotificationListState extends State<_NotificationList> {
             _fetching.remove(uid);
           });
         }
-      }).catchError((_) { _fetching.remove(uid); });
+      }).catchError((_) {
+        _fetching.remove(uid);
+      });
     }
   }
 
@@ -189,9 +191,8 @@ class _NotificationListState extends State<_NotificationList> {
       // Preserve existing behavior for other notification types
       // (rating, join, restriction, etc.): tap marks as read only.
       if (n.isRead) return null;
-      return () => context
-          .read<NotificationProvider>()
-          .markAsRead(widget.userId, n.id);
+      return () =>
+          context.read<NotificationProvider>().markAsRead(widget.userId, n.id);
     }
 
     return () async {

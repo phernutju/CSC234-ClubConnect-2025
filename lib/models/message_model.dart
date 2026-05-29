@@ -61,7 +61,8 @@ class MessageModel {
         senderName: json['senderName'] as String? ?? '',
         text: (json['text'] as String? ?? '').trim(),
         imageURL: (json['imageURL'] as String? ?? '').trim(),
-        timestamp: (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        timestamp:
+            (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         seenBy: List<String>.from(json['seenBy'] ?? []),
         flagged: json['flagged'] ?? false,
         replyToId: json['replyToId'] as String?,

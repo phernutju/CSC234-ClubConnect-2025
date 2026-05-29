@@ -23,7 +23,9 @@ class GoogleRegistrationData {
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(clientId: '939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com');
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+      clientId:
+          '939992324681-7g8c9pafc4jf99a6cak4cpu4nmf9citr.apps.googleusercontent.com');
 
   Future<User> signUp({
     required String email,
@@ -51,7 +53,8 @@ class AuthService {
         'role': 'user',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'mutedCommunities': [], // Initialize with empty list for muted communities
+        'mutedCommunities':
+            [], // Initialize with empty list for muted communities
       });
       return credential.user!;
     } catch (e) {
@@ -146,7 +149,8 @@ class AuthService {
           displayName: result.user?.displayName,
           photoURL: result.user?.photoURL,
         );
-        await _auth.signOut(); // clear session — account finalised at onboarding end
+        await _auth
+            .signOut(); // clear session — account finalised at onboarding end
         return data;
       } on FirebaseAuthException catch (e) {
         if (e.code == 'popup-closed-by-user' ||
@@ -207,7 +211,6 @@ class AuthService {
   Future<void> signOut() async => _auth.signOut();
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
-
 
   Future<void> verifyPhone({
     required String phoneNumber,

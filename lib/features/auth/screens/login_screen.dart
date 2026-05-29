@@ -18,10 +18,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController    = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _submitting    = false;
+  bool _submitting = false;
   bool _googleLoading = false;
 
   // Post-submit auth error — null when no error is present.
@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   static const _emailRules = [
     FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
-    FieldRule(label: 'No spaces',          validate: hasNoSpaces),
+    FieldRule(label: 'No spaces', validate: hasNoSpaces),
   ];
 
   static const _passwordRules = [
@@ -62,9 +62,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<AuthResult> _doSignIn() async {
     try {
       await context.read<AppAuthProvider>().signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
       return const Success();
     } on AuthException catch (e) {
       // These codes all mean "wrong credentials" — never reveal which.
@@ -91,7 +91,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() { _submitting = true; _authError = null; });
+    setState(() {
+      _submitting = true;
+      _authError = null;
+    });
     try {
       final result = await _doSignIn();
       if (!mounted) return;
@@ -126,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final statusBarH   = MediaQuery.of(context).padding.top;
+    final statusBarH = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAF0EC),
@@ -154,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.only(
-                          topLeft:  Radius.circular(30),
+                          topLeft: Radius.circular(30),
                           topRight: Radius.circular(30),
                         ),
                       ),
@@ -180,9 +183,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 message: switch (_authError!) {
                                   InvalidCredentials() =>
                                     'Email or password is incorrect.',
-                                  _ => 'Something went wrong. Please try again.',
+                                  _ =>
+                                    'Something went wrong. Please try again.',
                                 },
-                                onClose: () => setState(() => _authError = null),
+                                onClose: () =>
+                                    setState(() => _authError = null),
                               ),
                               const SizedBox(height: 16),
                             ],
@@ -211,12 +216,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFFF6B4A),
                                   disabledBackgroundColor:
-                                      const Color(0xFFFF6B4A).withValues(alpha: 0.4),
+                                      const Color(0xFFFF6B4A)
+                                          .withValues(alpha: 0.4),
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(30),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                 ),
                                 child: _submitting
                                     ? const SizedBox(
@@ -252,7 +259,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-
           Positioned(
             top: statusBarH + 8,
             left: 4,

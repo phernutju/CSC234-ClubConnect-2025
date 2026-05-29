@@ -63,7 +63,6 @@ class _TabItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               height: 2,

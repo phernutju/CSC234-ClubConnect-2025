@@ -27,7 +27,6 @@ class GeminiService {
     String text, {
     String rules = '',
   }) async {
-    print(rules);
     if (text.trim().isEmpty) {
       return const ModerationResult(
           isViolating: false, violatedRules: [], reason: '');
@@ -74,7 +73,6 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
         {'role': 'user', 'content': prompt},
       ],
     });
-    print('[AI] prompt="$prompt"');
     for (var attempt = 0; attempt < _maxRetries; attempt++) {
       final response = await http.post(
         Uri.parse(_endpoint),
@@ -429,7 +427,8 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
           expectedAmount: expectedAmount,
           recipientMatch: false,
           result: 'mismatch',
-          reason: 'Verification incomplete (response truncated). Please try again.',
+          reason:
+              'Verification incomplete (response truncated). Please try again.',
         );
       }
 

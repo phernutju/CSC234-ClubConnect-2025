@@ -44,8 +44,7 @@ class EventModel {
 
   // ─── Derived Getters ───────────────────────────
 
-  bool get isFull =>
-      maxAttendees != null && attendees.length >= maxAttendees!;
+  bool get isFull => maxAttendees != null && attendees.length >= maxAttendees!;
 
   bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
 

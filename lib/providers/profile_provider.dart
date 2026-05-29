@@ -40,12 +40,20 @@ class ProfileProvider extends ChangeNotifier {
   String? get coverBannerUrl => _coverBannerUrl;
   Set<String> get selectedInterests => Set.unmodifiable(_selectedInterests);
 
-  void saveProfile({required String username, required String bio, Set<String>? interests}) {
+  void saveProfile(
+      {required String username, required String bio, Set<String>? interests}) {
     _username = username.isEmpty ? 'Username' : username;
     _bio = bio.isEmpty ? _bio : bio;
-    if (interests != null) { _selectedInterests..clear()..addAll(interests); }
+    if (interests != null) {
+      _selectedInterests
+        ..clear()
+        ..addAll(interests);
+    }
     // Stub for other profile fields (username, bio) — replace when backend is ready.
-    UserService.updateProfile(username: _username, bio: _bio, interests: Set.unmodifiable(_selectedInterests));
+    UserService.updateProfile(
+        username: _username,
+        bio: _bio,
+        interests: Set.unmodifiable(_selectedInterests));
     // Persist interests to Firestore immediately (fire-and-forget; UI is already updated).
     if (interests != null) {
       _service.saveCurrentUserInterests(_selectedInterests.toList());
@@ -57,7 +65,10 @@ class ProfileProvider extends ChangeNotifier {
   Future<void> loadCategories() async {
     if (_categoriesLoaded) return;
     try {
-      categories = await _categoryService.getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
+      categories = await _categoryService
+          .getApprovedCategories()
+          .map((list) => list.map((c) => c.name).toList())
+          .first;
       _categoriesLoaded = true;
       notifyListeners();
     } catch (_) {
@@ -66,8 +77,13 @@ class ProfileProvider extends ChangeNotifier {
   }
 
   void saveInterests(Set<String> interests) {
-    _selectedInterests..clear()..addAll(interests);
-    UserService.updateProfile(username: _username, bio: _bio, interests: Set.unmodifiable(_selectedInterests));
+    _selectedInterests
+      ..clear()
+      ..addAll(interests);
+    UserService.updateProfile(
+        username: _username,
+        bio: _bio,
+        interests: Set.unmodifiable(_selectedInterests));
     notifyListeners();
   }
 
@@ -136,7 +152,8 @@ class ProfileProvider extends ChangeNotifier {
     Uint8List? avatarBytes,
   }) =>
       _run(() async {
-        await _service.updateUserProfile(userId, data, avatarBytes: avatarBytes);
+        await _service.updateUserProfile(userId, data,
+            avatarBytes: avatarBytes);
         profile = await _service.getUserProfile(userId);
       });
 
@@ -212,16 +229,16 @@ class ProfileProvider extends ChangeNotifier {
   // ── Helper ────────────────────────────────────────────────────────────────
 
   Future<void> _run(Future<void> Function() fn) async {
-  isLoading = true;
-  notifyListeners();
-
-  try {
-    await fn();
-  } catch (e, _) {
-    rethrow;
-  } finally {
-    isLoading = false;
+    isLoading = true;
     notifyListeners();
+
+    try {
+      await fn();
+    } catch (e, _) {
+      rethrow;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
-}
 }

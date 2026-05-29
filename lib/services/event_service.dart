@@ -46,7 +46,6 @@ class EventService {
             .toList());
   }
 
-
   Future<void> createEvent({
     required String communityId,
     required String title,
@@ -58,7 +57,7 @@ class EventService {
     required String roomId,
     String? imageUrl,
     int? maxAttendees,
-    required bool isPublished,  
+    required bool isPublished,
   }) async {
     try {
       final user = _requireAuth();
@@ -189,26 +188,28 @@ class EventService {
   }
 
   Stream<List<EventModel>> getPublishedEvents() {
-    debugPrint('[EventService] querying collectionGroup events where isPublished == true');
+    debugPrint(
+        '[EventService] querying collectionGroup events where isPublished == true');
     return _db
         .collectionGroup('events')
         .where('isPublished', isEqualTo: true)
         .snapshots()
         .map((snap) {
-          debugPrint('[EventService] snapshot received: ${snap.docs.length} docs');
-          for (final doc in snap.docs) {
-            debugPrint('[EventService] doc ${doc.id} isPublished=${doc.data()['isPublished']} communityId=${doc.reference.parent.parent?.id}');
-          }
-          final events = snap.docs
-              .map((doc) => EventModel.fromJson({
-                    ...doc.data(),
-                    'id': doc.id,
-                    'communityId': doc.reference.parent.parent?.id ?? '',
-                  }))
-              .toList();
-          events.sort((a, b) => a.startDate.compareTo(b.startDate));
-          return events;
-        });
+      debugPrint('[EventService] snapshot received: ${snap.docs.length} docs');
+      for (final doc in snap.docs) {
+        debugPrint(
+            '[EventService] doc ${doc.id} isPublished=${doc.data()['isPublished']} communityId=${doc.reference.parent.parent?.id}');
+      }
+      final events = snap.docs
+          .map((doc) => EventModel.fromJson({
+                ...doc.data(),
+                'id': doc.id,
+                'communityId': doc.reference.parent.parent?.id ?? '',
+              }))
+          .toList();
+      events.sort((a, b) => a.startDate.compareTo(b.startDate));
+      return events;
+    });
   }
 
   Future<void> sendEventMessage(
@@ -250,8 +251,7 @@ class EventService {
   Future<void> deleteEventMessage(
       String communityId, String eventId, String messageId) async {
     final user = _requireAuth();
-    final doc =
-        await _eventMessages(communityId, eventId).doc(messageId).get();
+    final doc = await _eventMessages(communityId, eventId).doc(messageId).get();
     if (!doc.exists) throw Exception('Message not found');
     if (doc.data()?['senderId'] != user.uid) {
       throw Exception('Can only delete your own messages');

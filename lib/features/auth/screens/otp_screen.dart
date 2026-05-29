@@ -19,13 +19,16 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> {
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes =
-      List.generate(6, (_) => FocusNode());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   @override
   void dispose() {
-    for (final c in _controllers) { c.dispose(); }
-    for (final f in _focusNodes) { f.dispose(); }
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -51,7 +54,8 @@ class _OtpScreenState extends State<OtpScreen> {
     final provider = context.watch<AppAuthProvider>();
     final isLoading = provider.otpState == OtpState.verifying ||
         provider.otpState == OtpState.sendingOtp;
-    final errorMsg = provider.otpState == OtpState.error ? provider.otpError : null;
+    final errorMsg =
+        provider.otpState == OtpState.error ? provider.otpError : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -96,8 +100,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              if (isLoading)
-                const Center(child: CircularProgressIndicator()),
+              if (isLoading) const Center(child: CircularProgressIndicator()),
               const SizedBox(height: AppSizes.paddingS),
               _ResendRow(
                 canResend: provider.canResend,

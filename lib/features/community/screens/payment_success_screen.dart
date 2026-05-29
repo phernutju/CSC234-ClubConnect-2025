@@ -95,12 +95,9 @@ class PaymentSuccessScreen extends StatelessWidget {
                         ),
                         child: Column(
                           children: [
-                            _StatusRow(
-                                label: 'Event', value: args.eventName),
+                            _StatusRow(label: 'Event', value: args.eventName),
                             const Divider(
-                                height: 0,
-                                thickness: 0.5,
-                                color: _kCardBorder),
+                                height: 0, thickness: 0.5, color: _kCardBorder),
                             _StatusRow(
                               label: 'Amount',
                               value: '฿${args.amount.toInt()}',
@@ -108,15 +105,10 @@ class PaymentSuccessScreen extends StatelessWidget {
                               valueBold: true,
                             ),
                             const Divider(
-                                height: 0,
-                                thickness: 0.5,
-                                color: _kCardBorder),
-                            _StatusRow(
-                                label: 'Submitted', value: submittedAt),
+                                height: 0, thickness: 0.5, color: _kCardBorder),
+                            _StatusRow(label: 'Submitted', value: submittedAt),
                             const Divider(
-                                height: 0,
-                                thickness: 0.5,
-                                color: _kCardBorder),
+                                height: 0, thickness: 0.5, color: _kCardBorder),
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 14),
@@ -135,8 +127,8 @@ class PaymentSuccessScreen extends StatelessWidget {
                                         horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFFFF8E1),
-                                      borderRadius:
-                                          BorderRadius.circular(AppSizes.radiusPill),
+                                      borderRadius: BorderRadius.circular(
+                                          AppSizes.radiusPill),
                                       border: Border.all(
                                           color: const Color(0xFFFFC107),
                                           width: 0.5),

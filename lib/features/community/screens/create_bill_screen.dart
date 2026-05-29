@@ -12,19 +12,24 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/attendee_provider.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const _kPrimary  = Color(0xFFFF6B4A);
-const _kBg       = Color(0xFFFDF5F0);
-const _kCream    = Color(0xFFFAECE7);
-const _kBorder   = Color(0xFFF0C4B0);
-const _kDark     = Color(0xFF4A1B0C);
-const _kMuted    = Color(0xFF9A7A6A);
-const _kSuccess  = Color(0xFF2E9E5B);
-const _kDanger   = Color(0xFFE24B4A);
+const _kPrimary = Color(0xFFFF6B4A);
+const _kBg = Color(0xFFFDF5F0);
+const _kCream = Color(0xFFFAECE7);
+const _kBorder = Color(0xFFF0C4B0);
+const _kDark = Color(0xFF4A1B0C);
+const _kMuted = Color(0xFF9A7A6A);
+const _kSuccess = Color(0xFF2E9E5B);
+const _kDanger = Color(0xFFE24B4A);
 
 const _kAvatarColors = [
-  Color(0xFFFFB347), Color(0xFF77DD77), Color(0xFF89CFF0),
-  Color(0xFFCDA4DE), Color(0xFFFF9F80), Color(0xFFAEC6CF),
-  Color(0xFFFFD1DC), Color(0xFFB5EAD7),
+  Color(0xFFFFB347),
+  Color(0xFF77DD77),
+  Color(0xFF89CFF0),
+  Color(0xFFCDA4DE),
+  Color(0xFFFF9F80),
+  Color(0xFFAEC6CF),
+  Color(0xFFFFD1DC),
+  Color(0xFFB5EAD7),
 ];
 
 String _genId() => UniqueKey().hashCode.toRadixString(16);
@@ -49,8 +54,7 @@ class _LocalItem {
         payerIds = List<String>.from(model.payerIds);
 
   double get price => double.tryParse(priceCtrl.text) ?? 0;
-  double get pricePerPayer =>
-      payerIds.isEmpty ? 0 : price / payerIds.length;
+  double get pricePerPayer => payerIds.isEmpty ? 0 : price / payerIds.length;
 
   void dispose() {
     nameCtrl.dispose();
@@ -170,8 +174,8 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: GoogleFonts.poppins(color: _kMuted))),
+              child:
+                  Text('Cancel', style: GoogleFonts.poppins(color: _kMuted))),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -232,9 +236,8 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _PayerSheet(
-        itemName: item.nameCtrl.text.isNotEmpty
-            ? item.nameCtrl.text
-            : 'this item',
+        itemName:
+            item.nameCtrl.text.isNotEmpty ? item.nameCtrl.text : 'this item',
         members: _members,
         selected: List<String>.from(item.payerIds),
       ),
@@ -420,8 +423,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
               return Chip(
                 avatar: CircleAvatar(
                   radius: 10,
-                  backgroundColor:
-                      _kAvatarColors[idx % _kAvatarColors.length],
+                  backgroundColor: _kAvatarColors[idx % _kAvatarColors.length],
                   child: Text(
                     m.initials.substring(0, 1),
                     style: const TextStyle(
@@ -431,18 +433,15 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
                   ),
                 ),
                 label: Text(m.name,
-                    style:
-                        GoogleFonts.poppins(fontSize: 12, color: _kDark)),
+                    style: GoogleFonts.poppins(fontSize: 12, color: _kDark)),
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                     side: const BorderSide(color: _kBorder)),
-                deleteIcon:
-                    const Icon(Icons.close, size: 14, color: _kPrimary),
+                deleteIcon: const Icon(Icons.close, size: 14, color: _kPrimary),
                 onDeleted: () => _removeMember(m.uid),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
               );
             }).toList(),
           ),
@@ -463,11 +462,10 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
             GestureDetector(
               onTap: _addItem,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                    color: _kPrimary,
-                    borderRadius: BorderRadius.circular(20)),
+                    color: _kPrimary, borderRadius: BorderRadius.circular(20)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -484,9 +482,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
         ),
         const SizedBox(height: 10),
         if (_items.isEmpty)
-          _EmptyCard(
-              text:
-                  'No items yet\nTap "Add item" to get started'),
+          _EmptyCard(text: 'No items yet\nTap "Add item" to get started'),
         ..._items.asMap().entries.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _buildItemCard(e.value, e.key),
@@ -513,10 +509,8 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
                   flex: 3,
                   child: TextField(
                     controller: item.nameCtrl,
-                    decoration:
-                        _fieldDecor('Item name', fillColor: _kCream),
-                    style: GoogleFonts.poppins(
-                        fontSize: 13, color: _kDark),
+                    decoration: _fieldDecor('Item name', fillColor: _kCream),
+                    style: GoogleFonts.poppins(fontSize: 13, color: _kDark),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
@@ -525,17 +519,15 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
                   flex: 2,
                   child: TextField(
                     controller: item.priceCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                          RegExp(r'[\d.]'))
+                      FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))
                     ],
                     textAlign: TextAlign.right,
                     decoration:
                         _fieldDecor('0.00', fillColor: _kCream, prefix: '฿ '),
-                    style: GoogleFonts.poppins(
-                        fontSize: 13, color: _kDark),
+                    style: GoogleFonts.poppins(fontSize: 13, color: _kDark),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
@@ -561,33 +553,28 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
           GestureDetector(
             onTap: () => _showPayerSheet(item),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
                   // Avatar chips
                   if (item.payerIds.isEmpty)
                     Text('Select payers',
-                        style: GoogleFonts.poppins(
-                            fontSize: 12, color: _kMuted))
+                        style:
+                            GoogleFonts.poppins(fontSize: 12, color: _kMuted))
                   else ...[
                     ...item.payerIds.take(4).map((uid) {
-                      final idx =
-                          _members.indexWhere((m) => m.uid == uid);
-                      final member =
-                          idx >= 0 ? _members[idx] : null;
+                      final idx = _members.indexWhere((m) => m.uid == uid);
+                      final member = idx >= 0 ? _members[idx] : null;
                       return Container(
                         width: 26,
                         height: 26,
                         margin: const EdgeInsets.only(right: 3),
                         decoration: BoxDecoration(
                           color: idx >= 0
-                              ? _kAvatarColors[
-                                  idx % _kAvatarColors.length]
+                              ? _kAvatarColors[idx % _kAvatarColors.length]
                               : _kBorder,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                              color: Colors.white, width: 1.5),
+                          border: Border.all(color: Colors.white, width: 1.5),
                         ),
                         alignment: Alignment.center,
                         child: Text(
@@ -616,8 +603,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
                     const SizedBox(width: 6),
                     Text(
                       '${item.payerIds.length} people',
-                      style: GoogleFonts.poppins(
-                          fontSize: 11, color: _kMuted),
+                      style: GoogleFonts.poppins(fontSize: 11, color: _kMuted),
                     ),
                     const SizedBox(width: 8),
                     Container(
@@ -636,8 +622,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
                     ),
                   ],
                   const Spacer(),
-                  const Icon(Icons.chevron_right,
-                      color: _kMuted, size: 18),
+                  const Icon(Icons.chevron_right, color: _kMuted, size: 18),
                 ],
               ),
             ),
@@ -712,7 +697,9 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
             const Icon(Icons.check_circle, color: _kSuccess, size: 14),
             const SizedBox(width: 4),
             Text(
-              hasNewFile ? 'Uploaded · tap to change' : 'Existing QR · tap to replace',
+              hasNewFile
+                  ? 'Uploaded · tap to change'
+                  : 'Existing QR · tap to replace',
               style: GoogleFonts.poppins(fontSize: 11, color: _kSuccess),
             ),
           ]),
@@ -724,19 +711,18 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
   // ── Bottom bar ────────────────────────────────────────────────────────────
   Widget _buildBottomBar(bool isLoading, double bottomPad) {
     return Container(
-      decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: _kBorder))),
+      decoration:
+          const BoxDecoration(border: Border(top: BorderSide(color: _kBorder))),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             color: _kPrimary,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(children: [
               Text('Total',
-                  style: GoogleFonts.poppins(
-                      color: Colors.white, fontSize: 14)),
+                  style:
+                      GoogleFonts.poppins(color: Colors.white, fontSize: 14)),
               const Spacer(),
               Text('฿${_total.toStringAsFixed(2)}',
                   style: GoogleFonts.poppins(
@@ -746,8 +732,8 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
             ]),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(
-                16, 12, 16, bottomPad > 0 ? bottomPad : 20),
+            padding:
+                EdgeInsets.fromLTRB(16, 12, 16, bottomPad > 0 ? bottomPad : 20),
             child: SizedBox(
               width: double.infinity,
               height: 52,
@@ -771,8 +757,7 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
                             ? 'Update bill'
                             : 'Publish bill to members',
                         style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600)),
+                            fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ),
           ),
@@ -790,14 +775,11 @@ class _CreateBillScreenState extends State<CreateBillScreen> {
       prefixStyle: GoogleFonts.poppins(color: _kDark, fontSize: 13),
       filled: true,
       fillColor: fillColor,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none),
+          borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none),
+          borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: _kPrimary, width: 1.5)),
@@ -830,8 +812,7 @@ class _PayerSheetState extends State<_PayerSheet> {
     _sel = List<String>.from(widget.selected);
   }
 
-  bool get _allSel =>
-      widget.members.every((m) => _sel.contains(m.uid));
+  bool get _allSel => widget.members.every((m) => _sel.contains(m.uid));
 
   @override
   Widget build(BuildContext context) {
@@ -839,8 +820,7 @@ class _PayerSheetState extends State<_PayerSheet> {
     return Container(
       decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       padding: EdgeInsets.fromLTRB(16, 16, 16, pad + 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -849,8 +829,7 @@ class _PayerSheetState extends State<_PayerSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: _kBorder,
-                  borderRadius: BorderRadius.circular(2))),
+                  color: _kBorder, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 14),
           Row(children: [
             Expanded(
@@ -863,8 +842,7 @@ class _PayerSheetState extends State<_PayerSheet> {
                           fontWeight: FontWeight.w700,
                           color: _kDark)),
                   Text(widget.itemName,
-                      style: GoogleFonts.poppins(
-                          fontSize: 12, color: _kMuted)),
+                      style: GoogleFonts.poppins(fontSize: 12, color: _kMuted)),
                 ],
               ),
             ),
@@ -873,14 +851,12 @@ class _PayerSheetState extends State<_PayerSheet> {
                 if (_allSel) {
                   _sel.clear();
                 } else {
-                  _sel =
-                      widget.members.map((m) => m.uid).toList();
+                  _sel = widget.members.map((m) => m.uid).toList();
                 }
               }),
               child: Text(
                 _allSel ? 'Deselect all' : 'Select all',
-                style: GoogleFonts.poppins(
-                    fontSize: 12, color: _kPrimary),
+                style: GoogleFonts.poppins(fontSize: 12, color: _kPrimary),
               ),
             ),
           ]),
@@ -903,12 +879,10 @@ class _PayerSheetState extends State<_PayerSheet> {
                     }
                   }),
                   title: Text(m.name,
-                      style: GoogleFonts.poppins(
-                          fontSize: 14, color: _kDark)),
+                      style: GoogleFonts.poppins(fontSize: 14, color: _kDark)),
                   secondary: CircleAvatar(
                     radius: 16,
-                    backgroundColor:
-                        _kAvatarColors[i % _kAvatarColors.length],
+                    backgroundColor: _kAvatarColors[i % _kAvatarColors.length],
                     child: Text(m.initials.substring(0, 1),
                         style: const TextStyle(
                             fontSize: 12,
@@ -967,8 +941,7 @@ class _BillAppBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             IconButton(
-              icon:
-                  const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
               onPressed: () => context.pop(),
             ),
             Expanded(
@@ -1008,8 +981,7 @@ class _StatCell extends StatelessWidget {
           Text(value,
               style: GoogleFonts.poppins(
                   fontSize: 15,
-                  fontWeight:
-                      bold ? FontWeight.w700 : FontWeight.w600,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
                   color: valueColor),
               textAlign: TextAlign.center),
           const SizedBox(height: 1),
@@ -1049,8 +1021,7 @@ class _EmptyCard extends StatelessWidget {
         child: Center(
             child: Text(text,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                    fontSize: 13, color: _kMuted))),
+                style: GoogleFonts.poppins(fontSize: 13, color: _kMuted))),
       );
 }
 
@@ -1074,14 +1045,12 @@ class _DashBorderPainter extends CustomPainter {
     for (final m in path.computeMetrics()) {
       double d = 0;
       while (d < m.length) {
-        canvas.drawPath(
-            m.extractPath(d, math.min(d + dash, m.length)), paint);
+        canvas.drawPath(m.extractPath(d, math.min(d + dash, m.length)), paint);
         d += dash + gap;
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DashBorderPainter old) =>
-      old.color != color;
+  bool shouldRepaint(covariant _DashBorderPainter old) => old.color != color;
 }

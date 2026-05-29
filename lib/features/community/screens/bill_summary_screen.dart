@@ -9,17 +9,22 @@ import '../../../providers/auth_provider.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _kPrimary = Color(0xFFFF6B4A);
-const _kBg      = Color(0xFFFDF5F0);
-const _kCream   = Color(0xFFFAECE7);
-const _kBorder  = Color(0xFFF0C4B0);
-const _kDark    = Color(0xFF4A1B0C);
-const _kMuted   = Color(0xFF9A7A6A);
+const _kBg = Color(0xFFFDF5F0);
+const _kCream = Color(0xFFFAECE7);
+const _kBorder = Color(0xFFF0C4B0);
+const _kDark = Color(0xFF4A1B0C);
+const _kMuted = Color(0xFF9A7A6A);
 const _kSuccess = Color(0xFF2E9E5B);
 
 const _kAvatarColors = [
-  Color(0xFFFFB347), Color(0xFF77DD77), Color(0xFF89CFF0),
-  Color(0xFFCDA4DE), Color(0xFFFF9F80), Color(0xFFAEC6CF),
-  Color(0xFFFFD1DC), Color(0xFFB5EAD7),
+  Color(0xFFFFB347),
+  Color(0xFF77DD77),
+  Color(0xFF89CFF0),
+  Color(0xFFCDA4DE),
+  Color(0xFFFF9F80),
+  Color(0xFFAEC6CF),
+  Color(0xFFFFD1DC),
+  Color(0xFFB5EAD7),
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -115,7 +120,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     }
 
     final uid = context.read<AppAuthProvider>().user?.uid ?? '';
-    final canView = widget.isCurrentUserHost || bill.members.any((m) => m.uid == uid);
+    final canView =
+        widget.isCurrentUserHost || bill.members.any((m) => m.uid == uid);
     if (!canView) {
       return Scaffold(
         backgroundColor: _kBg,
@@ -136,7 +142,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => context.pop(),
-                child: const Text('Go Back', style: TextStyle(color: _kPrimary)),
+                child:
+                    const Text('Go Back', style: TextStyle(color: _kPrimary)),
               ),
             ],
           ),
@@ -155,8 +162,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               _buildAppBar(bill),
               Expanded(
                 child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -208,8 +214,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back,
-                  color: Colors.white, size: 22),
+              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
               onPressed: () => context.pop(),
             ),
             Expanded(
@@ -254,8 +259,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               ? const Padding(
                   padding: EdgeInsets.all(16),
                   child: Center(
-                      child: Text('No items',
-                          style: TextStyle(color: _kMuted))))
+                      child:
+                          Text('No items', style: TextStyle(color: _kMuted))))
               : Column(
                   children: items.asMap().entries.map((e) {
                     final isLast = e.key == items.length - 1;
@@ -264,14 +269,11 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                       children: [
                         _ItemRow(
                           item: item,
-                          members: context
-                              .read<SmartBillProvider>()
-                              .bill
-                              ?.members ??
-                              [],
+                          members:
+                              context.read<SmartBillProvider>().bill?.members ??
+                                  [],
                         ),
-                        if (!isLast)
-                          const Divider(height: 1, color: _kBorder),
+                        if (!isLast) const Divider(height: 1, color: _kBorder),
                       ],
                     );
                   }).toList(),
@@ -286,12 +288,10 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               bottomRight: Radius.circular(12),
             ),
           ),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(children: [
             Text('Total',
-                style: GoogleFonts.poppins(
-                    color: Colors.white, fontSize: 14)),
+                style: GoogleFonts.poppins(color: Colors.white, fontSize: 14)),
             const Spacer(),
             Text(
               '฿${items.fold(0.0, (s, i) => s + i.price).toStringAsFixed(2)}',
@@ -307,12 +307,10 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
   }
 
   // ── Member totals ─────────────────────────────────────────────────────────
-  Widget _buildMemberTotals(
-      SmartBillModel bill, Map<String, double> totals) {
+  Widget _buildMemberTotals(SmartBillModel bill, Map<String, double> totals) {
     final currentUid = context.read<AppAuthProvider>().user?.uid;
     final paymentStatus = context.read<SmartBillProvider>().myPayment?.status;
-    final hasPaid =
-        paymentStatus == 'verifying' || paymentStatus == 'verified';
+    final hasPaid = paymentStatus == 'verifying' || paymentStatus == 'verified';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,21 +326,17 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                   color: isPaid ? const Color(0xFFE8F9F0) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: isPaid
-                          ? const Color(0xFF86EFAC)
-                          : _kBorder,
+                      color: isPaid ? const Color(0xFF86EFAC) : _kBorder,
                       width: 0.5)),
               child: Row(children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor:
-                      _kAvatarColors[idx % _kAvatarColors.length],
+                  backgroundColor: _kAvatarColors[idx % _kAvatarColors.length],
                   child: Text(
                     member.initials,
                     style: const TextStyle(
@@ -360,9 +354,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                           style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: isPaid
-                                  ? _kSuccess
-                                  : _kDark)),
+                              color: isPaid ? _kSuccess : _kDark)),
                       if (member.uid == bill.hostId)
                         Container(
                           margin: const EdgeInsets.only(top: 2),
@@ -370,8 +362,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                               horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
                               color: _kCream,
-                              borderRadius:
-                                  BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4)),
                           child: Text('Host',
                               style: GoogleFonts.poppins(
                                   fontSize: 9,
@@ -413,12 +404,11 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
           child: bill.hostPromptPayQrUrl.isEmpty
               ? Column(
                   children: [
-                    const Icon(Icons.qr_code_2,
-                        size: 48, color: _kBorder),
+                    const Icon(Icons.qr_code_2, size: 48, color: _kBorder),
                     const SizedBox(height: 8),
                     Text('No QR code yet',
-                        style: GoogleFonts.poppins(
-                            fontSize: 13, color: _kMuted)),
+                        style:
+                            GoogleFonts.poppins(fontSize: 13, color: _kMuted)),
                   ],
                 )
               : Column(
@@ -435,9 +425,10 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                         bill.hostPromptPayQrUrl,
                         height: 200,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.broken_image,
-                                size: 80, color: _kBorder),
+                        errorBuilder: (_, __, ___) => const Icon(
+                            Icons.broken_image,
+                            size: 80,
+                            color: _kBorder),
                       ),
                     ),
                   ],
@@ -464,8 +455,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
         ),
         Container(
           color: _kBg,
-          padding: EdgeInsets.fromLTRB(
-              16, 0, 16, bottomPad > 0 ? bottomPad : 24),
+          padding:
+              EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad : 24),
           child: SizedBox(
             width: double.infinity,
             height: 52,
@@ -479,9 +470,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                 elevation: 0,
               ),
               child: Text(
-                hasPaid
-                    ? 'Slip sent — awaiting confirmation'
-                    : 'Pay my share',
+                hasPaid ? 'Slip sent — awaiting confirmation' : 'Pay my share',
                 style: GoogleFonts.poppins(
                     fontSize: 15, fontWeight: FontWeight.w600),
               ),
@@ -499,8 +488,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
       body: Column(children: [
         _AppBarPlaceholder(),
         const Expanded(
-            child: Center(
-                child: CircularProgressIndicator(color: _kPrimary))),
+            child: Center(child: CircularProgressIndicator(color: _kPrimary))),
       ]),
     );
   }
@@ -519,8 +507,7 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                     size: 64, color: _kBorder),
                 const SizedBox(height: 12),
                 Text('Bill not found',
-                    style: GoogleFonts.poppins(
-                        fontSize: 16, color: _kMuted)),
+                    style: GoogleFonts.poppins(fontSize: 16, color: _kMuted)),
               ],
             ),
           ),
@@ -613,7 +600,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
                     if (payment?.receiptUrl != null && status == 'verified')
                       _buildSlipPreview(payment!),
                     if (_expandedMemberId == member.uid)
-                      _buildInlineActions(member.uid, member.name, status, provider),
+                      _buildInlineActions(
+                          member.uid, member.name, status, provider),
                   ],
                 ),
               ),
@@ -624,8 +612,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
     );
   }
 
-  Widget _buildInlineActions(
-      String userId, String memberName, String status, SmartBillProvider provider) {
+  Widget _buildInlineActions(String userId, String memberName, String status,
+      SmartBillProvider provider) {
     final isVerified = status == 'verified';
     final subtitle = isVerified
         ? '$memberName is marked as paid. Tap Unverify to cancel.'
@@ -655,11 +643,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               child: OutlinedButton(
                 onPressed: () async {
                   setState(() => _expandedMemberId = null);
-                  await provider.unverifyMemberPayment(
-                      widget.communityId,
-                      widget.eventId,
-                      widget.billId,
-                      userId);
+                  await provider.unverifyMemberPayment(widget.communityId,
+                      widget.eventId, widget.billId, userId);
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFDC2626),
@@ -678,11 +663,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               child: ElevatedButton(
                 onPressed: () async {
                   setState(() => _expandedMemberId = null);
-                  await provider.verifyMemberPayment(
-                      widget.communityId,
-                      widget.eventId,
-                      widget.billId,
-                      userId);
+                  await provider.verifyMemberPayment(widget.communityId,
+                      widget.eventId, widget.billId, userId);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _kSuccess,
@@ -827,8 +809,8 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
         ),
         Container(
           color: _kBg,
-          padding: EdgeInsets.fromLTRB(
-              16, 0, 16, bottomPad > 0 ? bottomPad : 24),
+          padding:
+              EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad : 24),
           child: SizedBox(
             width: double.infinity,
             height: 52,
@@ -836,16 +818,20 @@ class _BillSummaryScreenState extends State<BillSummaryScreen> {
               onPressed: settled || !canSettle
                   ? null
                   : () async {
-                      final ok = await provider.settleBill(widget.communityId,
-                          widget.eventId, widget.billId);
+                      final ok = await provider.settleBill(
+                          widget.communityId, widget.eventId, widget.billId);
                       if (!ok && mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('Could not settle bill.')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Could not settle bill.')));
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    settled ? _kSuccess : canSettle ? _kPrimary : null,
+                backgroundColor: settled
+                    ? _kSuccess
+                    : canSettle
+                        ? _kPrimary
+                        : null,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30)),
@@ -877,12 +863,10 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final payerNames = item.payerIds
-        .map((uid) {
-          final m = members.where((m) => m.uid == uid).firstOrNull;
-          return m?.name ?? uid;
-        })
-        .join(', ');
+    final payerNames = item.payerIds.map((uid) {
+      final m = members.where((m) => m.uid == uid).firstOrNull;
+      return m?.name ?? uid;
+    }).join(', ');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -901,16 +885,15 @@ class _ItemRow extends StatelessWidget {
                 if (payerNames.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(payerNames,
-                      style: GoogleFonts.poppins(
-                          fontSize: 11, color: _kMuted),
+                      style: GoogleFonts.poppins(fontSize: 11, color: _kMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],
                 const SizedBox(height: 4),
                 Row(children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                         color: _kCream,
                         borderRadius: BorderRadius.circular(20)),
@@ -930,9 +913,7 @@ class _ItemRow extends StatelessWidget {
           Text(
             '฿${item.price.toStringAsFixed(2)}',
             style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: _kDark),
+                fontSize: 14, fontWeight: FontWeight.w700, color: _kDark),
           ),
         ],
       ),
@@ -944,8 +925,7 @@ class _ItemRow extends StatelessWidget {
 class _PaidBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: const Color(0xFFE8F9F0),
           borderRadius: BorderRadius.circular(12),
@@ -988,8 +968,7 @@ class _AppBarPlaceholder extends StatelessWidget {
         height: 56,
         child: Row(children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back,
-                color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => context.pop(),
           ),
           Text('Bill Summary',
@@ -1007,16 +986,14 @@ class _AppBarPlaceholder extends StatelessWidget {
 class _SettledBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: const Color(0xFFE8F9F0),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFF86EFAC), width: 0.5),
         ),
         child: Row(children: [
-          const Icon(Icons.check_circle,
-              color: Color(0xFF15803D), size: 18),
+          const Icon(Icons.check_circle, color: Color(0xFF15803D), size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text('Bill settled — all payments confirmed',
@@ -1071,9 +1048,7 @@ class _PaymentStatusChip extends StatelessWidget {
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(label,
           style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: fg)),
+              fontSize: 10, fontWeight: FontWeight.w600, color: fg)),
     );
   }
 }

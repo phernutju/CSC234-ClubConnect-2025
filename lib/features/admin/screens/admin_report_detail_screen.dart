@@ -66,7 +66,8 @@ class _DarkHeader extends StatelessWidget {
             children: [
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                child:
+                    const Icon(Icons.arrow_back, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 8),
               Text(
@@ -197,7 +198,8 @@ class _ReportCard extends StatelessWidget {
                   label: 'USER',
                   value: '@${report.username}',
                   onTap: report.targetUserId.isNotEmpty
-                      ? () => _goToProfile(context, report.targetUserId, report.username)
+                      ? () => _goToProfile(
+                          context, report.targetUserId, report.username)
                       : null,
                 ),
               ),
@@ -207,9 +209,14 @@ class _ReportCard extends StatelessWidget {
             const SizedBox(height: 12),
             _InfoRow(
               label: 'REPORTED BY',
-              value: '@${report.reporterName.isNotEmpty ? report.reporterName : report.reporterId}',
-              onTap: () => _goToProfile(context, report.reporterId,
-                  report.reporterName.isNotEmpty ? report.reporterName : report.reporterId),
+              value:
+                  '@${report.reporterName.isNotEmpty ? report.reporterName : report.reporterId}',
+              onTap: () => _goToProfile(
+                  context,
+                  report.reporterId,
+                  report.reporterName.isNotEmpty
+                      ? report.reporterName
+                      : report.reporterId),
             ),
           ],
           const SizedBox(height: 12),
@@ -280,7 +287,8 @@ class _InfoRow extends StatelessWidget {
       style: GoogleFonts.inter(
         fontSize: 15,
         fontWeight: FontWeight.w600,
-        color: onTap != null ? const Color(0xFFFF6B4A) : const Color(0xFF000000),
+        color:
+            onTap != null ? const Color(0xFFFF6B4A) : const Color(0xFF000000),
         decoration: onTap != null ? TextDecoration.underline : null,
         decorationColor: const Color(0xFFFF6B4A),
       ),
@@ -326,7 +334,8 @@ class _ActionButtonsState extends State<_ActionButtons> {
         ),
         content: Text(
           'This will restrict the user from sending messages. You can unban them from the Banned Users tab.',
-          style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF797979)),
+          style:
+              GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF797979)),
         ),
         actions: [
           TextButton(
@@ -353,8 +362,8 @@ class _ActionButtonsState extends State<_ActionButtons> {
 
     setState(() => _isBanning = true);
     try {
-      await UserService.banUser(
-          widget.report.targetUserId, 'Violation of community guidelines', 'Permanently');
+      await UserService.banUser(widget.report.targetUserId,
+          'Violation of community guidelines', 'Permanently');
       final adminUid = FirebaseAuth.instance.currentUser?.uid ?? '';
       await ReportService().updateReportStatus(
           widget.report.id, fs.ReportStatus.banned, adminUid);

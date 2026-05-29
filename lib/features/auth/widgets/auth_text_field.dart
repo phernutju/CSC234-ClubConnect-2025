@@ -63,7 +63,6 @@ class AuthTextField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSizes.paddingS),
-
         SizedBox(
           height: AppSizes.inputHeight,
           child: TextFormField(
@@ -109,7 +108,6 @@ class AuthTextField extends StatelessWidget {
             ),
           ),
         ),
-
         if (errorText != null) ...[
           const SizedBox(height: 4),
           Text(

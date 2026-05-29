@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
 import '../widgets/step_progress_bar.dart';
 import '../widgets/primary_button.dart';
-import '../../../providers/auth_provider.dart'; 
+import '../../../providers/auth_provider.dart';
+
 class VerifyPhoneScreen extends StatefulWidget {
   const VerifyPhoneScreen({super.key});
 
@@ -44,13 +45,12 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
               const SizedBox(height: 48),
               const StepProgressBar(currentStep: 2),
               const SizedBox(height: AppSizes.paddingL),
-
               GestureDetector(
                 onTap: () => context.pop(),
-                child: const Icon(Icons.arrow_back, color: AppColors.textDark, size: AppSizes.iconSize),
+                child: const Icon(Icons.arrow_back,
+                    color: AppColors.textDark, size: AppSizes.iconSize),
               ),
               const SizedBox(height: AppSizes.paddingM),
-
               RichText(
                 text: TextSpan(
                   children: [
@@ -74,7 +74,6 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingXL),
-
               Text(
                 AppStrings.verifyPhoneLabel,
                 style: AppTextStyles.body(
@@ -84,7 +83,6 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingS),
-
               SizedBox(
                 height: AppSizes.inputHeight,
                 child: TextFormField(
@@ -99,11 +97,13 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                   decoration: const InputDecoration(
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(30)),
-                      borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                      borderSide:
+                          BorderSide(color: AppColors.primary, width: 1.5),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(30)),
-                      borderSide: BorderSide(color: AppColors.primary, width: 2),
+                      borderSide:
+                          BorderSide(color: AppColors.primary, width: 2),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(30)),
@@ -122,7 +122,6 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                   ),
                 ),
               ),
-
               if (_phoneError != null) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -133,9 +132,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                   ),
                 ),
               ],
-
               const SizedBox(height: AppSizes.paddingS),
-
               Text(
                 AppStrings.verifyHint,
                 style: AppTextStyles.body(
@@ -145,9 +142,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                   height: 1.5,
                 ),
               ),
-
               const SizedBox(height: AppSizes.paddingXL),
-
               PrimaryButton(label: AppStrings.verifyNext, onPressed: _onNext),
             ],
           ),

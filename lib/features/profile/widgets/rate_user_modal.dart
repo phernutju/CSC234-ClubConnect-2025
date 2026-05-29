@@ -40,11 +40,11 @@ class _RateUserModalState extends State<RateUserModal> {
   void _onPost() {
     if (_stars == 0) return;
     context.read<RatingProvider>().addRating(RatingModel(
-      ratedUsername: widget.username,
-      communityName: widget.communityName,
-      stars: _stars,
-      comment: _commentController.text.trim(),
-    ));
+          ratedUsername: widget.username,
+          communityName: widget.communityName,
+          stars: _stars,
+          comment: _commentController.text.trim(),
+        ));
     Navigator.of(context).pop();
   }
 

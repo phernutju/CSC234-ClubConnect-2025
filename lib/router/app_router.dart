@@ -38,8 +38,6 @@ import '../models/chat_args.dart';
 import '../models/community_model.dart';
 import '../models/profile_args.dart';
 import '../providers/auth_provider.dart';
-import '../providers/community_provider.dart';
-import 'package:provider/provider.dart';
 import '../constants/app_constants.dart';
 import '../features/admin/models/report_model.dart';
 import 'package:flutter/material.dart';
@@ -251,10 +249,10 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         builder: (context, state) {
           final args = state.extra as Map<String, dynamic>? ?? {};
           return BillSummaryScreen(
-            communityId:       args['communityId']       as String? ?? '',
-            eventId:           args['eventId']           as String? ?? '',
-            billId:            args['billId']            as String? ?? '',
-            isCurrentUserHost: args['isCurrentUserHost'] as bool?   ?? false,
+            communityId: args['communityId'] as String? ?? '',
+            eventId: args['eventId'] as String? ?? '',
+            billId: args['billId'] as String? ?? '',
+            isCurrentUserHost: args['isCurrentUserHost'] as bool? ?? false,
           );
         },
       ),
@@ -262,14 +260,17 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         path: '/bill-payment',
         pageBuilder: (context, state) {
           final args = state.extra as SmartPayBillArgs?;
-          if (args == null) return const NoTransitionPage(child: SizedBox.shrink());
+          if (args == null) {
+            return const NoTransitionPage(child: SizedBox.shrink());
+          }
           return CustomTransitionPage(
             child: BillPaymentScreen(args: args),
             transitionsBuilder: (_, animation, __, child) => SlideTransition(
               position: Tween<Offset>(
                 begin: const Offset(1, 0),
                 end: Offset.zero,
-              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut)),
               child: child,
             ),
           );
@@ -279,14 +280,17 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
         path: '/payment-success',
         pageBuilder: (context, state) {
           final args = state.extra as BillPaymentArgs?;
-          if (args == null) return const NoTransitionPage(child: SizedBox.shrink());
+          if (args == null) {
+            return const NoTransitionPage(child: SizedBox.shrink());
+          }
           return CustomTransitionPage(
             child: PaymentSuccessScreen(args: args),
             transitionsBuilder: (_, animation, __, child) => SlideTransition(
               position: Tween<Offset>(
                 begin: const Offset(1, 0),
                 end: Offset.zero,
-              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut)),
               child: child,
             ),
           );

@@ -59,7 +59,6 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
                     const SizedBox(height: 48),
                     const StepProgressBar(currentStep: 5),
                     const SizedBox(height: AppSizes.paddingL),
-
                     GestureDetector(
                       onTap: () => context.pop(),
                       child: const Icon(
@@ -68,7 +67,6 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSizes.paddingM),
-
                     Text(
                       AppStrings.communityStandardsTitle,
                       style: AppTextStyles.title(
@@ -78,7 +76,6 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSizes.paddingXS),
-
                     Text(
                       AppStrings.communityStandardsSubtitle,
                       style: AppTextStyles.poppins(
@@ -87,14 +84,11 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSizes.paddingL),
-
                     const PolicyRulesList(),
                     const SizedBox(height: AppSizes.paddingL),
-
                     AgreementCheckbox(
                       value: hasAgreedToPolicy,
-                      onChanged: (v) =>
-                          setState(() => hasAgreedToPolicy = v),
+                      onChanged: (v) => setState(() => hasAgreedToPolicy = v),
                     ),
                     const SizedBox(height: AppSizes.paddingXL),
                   ],
@@ -141,7 +135,8 @@ class _CommunityStandardsScreenState extends State<CommunityStandardsScreen> {
                             )
                           : Text(
                               AppStrings.communityStandardsAccept,
-                              style: AppTextStyles.button(color: AppColors.cardWhite),
+                              style: AppTextStyles.button(
+                                  color: AppColors.cardWhite),
                             ),
                     ),
                   ),
@@ -297,8 +292,7 @@ class _AgreementCheckboxState extends State<AgreementCheckbox> {
 
   @override
   Widget build(BuildContext context) {
-    final bodyColor =
-        widget.value ? AppColors.primary : AppColors.commentBody;
+    final bodyColor = widget.value ? AppColors.primary : AppColors.commentBody;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,11 +304,9 @@ class _AgreementCheckboxState extends State<AgreementCheckbox> {
             width: AppSizes.rulesCheckboxSize,
             height: AppSizes.rulesCheckboxSize,
             decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(AppSizes.rulesCheckboxRadius),
+              borderRadius: BorderRadius.circular(AppSizes.rulesCheckboxRadius),
               border: Border.all(color: bodyColor),
-              color:
-                  widget.value ? Colors.transparent : AppColors.cardWhite,
+              color: widget.value ? Colors.transparent : AppColors.cardWhite,
             ),
             child: widget.value
                 ? const Icon(

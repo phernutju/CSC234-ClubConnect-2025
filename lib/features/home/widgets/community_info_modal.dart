@@ -31,7 +31,8 @@ class CommunityInfoModal extends StatelessWidget {
     final maxHeight = MediaQuery.of(context).size.height * 0.85;
     return Dialog(
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
+        borderRadius:
+            BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
       ),
       clipBehavior: Clip.hardEdge,
       insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
@@ -47,9 +48,10 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageUrl: community.coverImageURL.isNotEmpty
-                    ? community.coverImageURL
-                    : null),
+                _CoverArea(
+                    imageUrl: community.coverImageURL.isNotEmpty
+                        ? community.coverImageURL
+                        : null),
                 Positioned(
                   top: AppSizes.paddingS,
                   right: AppSizes.paddingS,
@@ -123,7 +125,8 @@ class CommunityInfoModal extends StatelessWidget {
 
                       // Rules section — only in view-only mode (menu bar info), not join flow
                       if (community.rules.isNotEmpty && onNext == null) ...[
-                        const SizedBox(height: AppSizes.communityInfoSectionGap),
+                        const SizedBox(
+                            height: AppSizes.communityInfoSectionGap),
                         Text(
                           AppStrings.createRulesLabel,
                           style: AppTextStyles.poppins(
@@ -134,8 +137,8 @@ class CommunityInfoModal extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         ...community.rules.asMap().entries.map(
-                          (e) => _RuleItem(index: e.key + 1, rule: e.value),
-                        ),
+                              (e) => _RuleItem(index: e.key + 1, rule: e.value),
+                            ),
                       ],
 
                       const SizedBox(height: AppSizes.communityInfoSectionGap),
@@ -153,7 +156,8 @@ class CommunityInfoModal extends StatelessWidget {
                               height: AppSizes.modalActionButtonHeight,
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                borderRadius:
+                                    BorderRadius.circular(AppSizes.radiusPill),
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -217,7 +221,8 @@ class _CoverArea extends StatelessWidget {
           ? Image.network(
               imageUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill),
+              errorBuilder: (_, __, ___) =>
+                  Container(color: AppColors.inputFill),
             )
           : Container(color: AppColors.inputFill),
     );
@@ -244,7 +249,8 @@ class _HostCardState extends State<_HostCard> {
     _hostFuture = Future.wait([
       pp.fetchUserById(widget.community.createdBy),
       pp.fetchReviewsForUser(widget.community.createdBy),
-    ]).then((results) => (results[0] as UserModel, results[1] as ReviewsResult));
+    ]).then(
+        (results) => (results[0] as UserModel, results[1] as ReviewsResult));
   }
 
   @override

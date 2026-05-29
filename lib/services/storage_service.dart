@@ -14,18 +14,16 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
-  Future<String> uploadCommunityImage(Uint8List bytes, String communityId) async {
-    try{
-      
-    
-    final name = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final ref = _storage.ref().child('community_covers/$communityId/$name');
-    
-    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-    
-    return ref.getDownloadURL();
-    }
-    catch(e){
+  Future<String> uploadCommunityImage(
+      Uint8List bytes, String communityId) async {
+    try {
+      final name = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = _storage.ref().child('community_covers/$communityId/$name');
+
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+
+      return ref.getDownloadURL();
+    } catch (e) {
       debugPrint('Error uploading community image: $e');
       rethrow;
     }

@@ -19,11 +19,11 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _emailController    = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmController  = TextEditingController();
+  final _confirmController = TextEditingController();
 
-  bool _submitting    = false;
+  bool _submitting = false;
   bool _googleLoading = false;
 
   // Post-submit auth error — null when no error is present.
@@ -31,23 +31,23 @@ class _SignupScreenState extends State<SignupScreen> {
 
   static const _emailRules = [
     FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
-    FieldRule(label: 'No spaces',          validate: hasNoSpaces),
+    FieldRule(label: 'No spaces', validate: hasNoSpaces),
   ];
 
   static const _passwordRules = [
-    FieldRule(label: 'At least one letter',    validate: hasLetter),
+    FieldRule(label: 'At least one letter', validate: hasLetter),
     FieldRule(label: 'At least one uppercase', validate: hasUppercase),
-    FieldRule(label: 'At least one number',    validate: hasNumber),
-    FieldRule(label: 'At least 8 characters',  validate: hasMinLength8),
+    FieldRule(label: 'At least one number', validate: hasNumber),
+    FieldRule(label: 'At least 8 characters', validate: hasMinLength8),
   ];
 
   // Recomputed each build so the closure always captures the current password.
   List<FieldRule> get _confirmRules => [
-    FieldRule(
-      label: 'Passwords match',
-      validate: (v) => v.isNotEmpty && v == _passwordController.text,
-    ),
-  ];
+        FieldRule(
+          label: 'Passwords match',
+          validate: (v) => v.isNotEmpty && v == _passwordController.text,
+        ),
+      ];
 
   bool get _canSubmit =>
       !_submitting &&
@@ -74,7 +74,10 @@ class _SignupScreenState extends State<SignupScreen> {
   void _onFieldChanged() => setState(() => _authError = null);
 
   Future<void> _onNext() async {
-    setState(() { _submitting = true; _authError = null; });
+    setState(() {
+      _submitting = true;
+      _authError = null;
+    });
     try {
       final result = await AuthService.preCheckSignUp(
         _emailController.text.trim(),
@@ -83,9 +86,9 @@ class _SignupScreenState extends State<SignupScreen> {
       switch (result) {
         case Success():
           context.read<AppAuthProvider>().setEmailPassword(
-            _emailController.text.trim(),
-            _passwordController.text,
-          );
+                _emailController.text.trim(),
+                _passwordController.text,
+              );
           context.push('/verify-phone');
         case EmailAlreadyRegistered():
           setState(() => _authError = result);
@@ -149,7 +152,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.only(
-                          topLeft:  Radius.circular(30),
+                          topLeft: Radius.circular(30),
                           topRight: Radius.circular(30),
                         ),
                       ),
@@ -190,10 +193,12 @@ class _SignupScreenState extends State<SignupScreen> {
                                 message: switch (_authError!) {
                                   EmailAlreadyRegistered() =>
                                     'This email is already registered. '
-                                    'Try logging in instead.',
-                                  _ => 'Something went wrong. Please try again.',
+                                        'Try logging in instead.',
+                                  _ =>
+                                    'Something went wrong. Please try again.',
                                 },
-                                onClose: () => setState(() => _authError = null),
+                                onClose: () =>
+                                    setState(() => _authError = null),
                                 action: _authError is EmailAlreadyRegistered
                                     ? GestureDetector(
                                         onTap: () => context.go('/login'),
@@ -205,8 +210,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                             fontWeight: FontWeight.w700,
                                             decoration:
                                                 TextDecoration.underline,
-                                            decorationColor:
-                                                Color(0xFFC62828),
+                                            decorationColor: Color(0xFFC62828),
                                           ),
                                         ),
                                       )
@@ -246,12 +250,14 @@ class _SignupScreenState extends State<SignupScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFFF6B4A),
                                   disabledBackgroundColor:
-                                      const Color(0xFFFF6B4A).withValues(alpha: 0.4),
+                                      const Color(0xFFFF6B4A)
+                                          .withValues(alpha: 0.4),
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(30),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                 ),
                                 child: _submitting
                                     ? const SizedBox(
@@ -287,7 +293,6 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
           ),
-
           Positioned(
             top: statusBarH + 8,
             left: 4,

@@ -19,10 +19,10 @@ class AdminReportModel {
   final String aiDetectedLabel;
   final String category;
   final String reportedText;
-  final String username;           // display name of target user
+  final String username; // display name of target user
   final String userDescription;
-  final String groupName;          // community display name
-  final String communityId;        // raw Firestore community ID
+  final String groupName; // community display name
+  final String communityId; // raw Firestore community ID
   final String timeAgo;
   final double hateSpeechScore;
   final double harassmentScore;
@@ -33,7 +33,7 @@ class AdminReportModel {
   final String targetUserId;
   final String targetUserPhotoURL;
   final String reporterId;
-  final String reporterName;       // display name of reporter
+  final String reporterName; // display name of reporter
   final String reporterPhotoURL;
   final String description;
   final String status;
@@ -66,7 +66,12 @@ class AdminReportModel {
   });
 
   String get severityLabel {
-    final scores = [hateSpeechScore, harassmentScore, profanityScore, threatScore];
+    final scores = [
+      hateSpeechScore,
+      harassmentScore,
+      profanityScore,
+      threatScore
+    ];
     final max = scores.reduce((a, b) => a > b ? a : b);
     if (max >= 0.7) return 'HIGH';
     if (max >= 0.4) return 'MEDIUM';
@@ -116,19 +121,27 @@ class AdminReportModel {
 
     String categoryLabel(fs.ReportReason reason) {
       switch (reason) {
-        case fs.ReportReason.hateSpeech: return 'Hate Speech';
-        case fs.ReportReason.harassment: return 'Harassment';
-        case fs.ReportReason.scam: return 'Scam';
-        case fs.ReportReason.threat: return 'Threat';
-        case fs.ReportReason.other: return 'Other';
+        case fs.ReportReason.hateSpeech:
+          return 'Hate Speech';
+        case fs.ReportReason.harassment:
+          return 'Harassment';
+        case fs.ReportReason.scam:
+          return 'Scam';
+        case fs.ReportReason.threat:
+          return 'Threat';
+        case fs.ReportReason.other:
+          return 'Other';
       }
     }
 
     String sourceLabel(fs.ReportSource src) {
       switch (src) {
-        case fs.ReportSource.aiDetected: return 'AI Detect';
-        case fs.ReportSource.userAiDetected: return 'AI Detect + User';
-        case fs.ReportSource.user: return 'User Report';
+        case fs.ReportSource.aiDetected:
+          return 'AI Detect';
+        case fs.ReportSource.userAiDetected:
+          return 'AI Detect + User';
+        case fs.ReportSource.user:
+          return 'User Report';
       }
     }
 
@@ -136,7 +149,8 @@ class AdminReportModel {
     final isUser = r.source == fs.ReportSource.user;
     return AdminReportModel(
       id: r.reportId.isNotEmpty ? r.reportId : 'R-???',
-      aiDetectedLabel: r.source != fs.ReportSource.user ? 'AI detected' : 'User report',
+      aiDetectedLabel:
+          r.source != fs.ReportSource.user ? 'AI detected' : 'User report',
       category: categoryLabel(reason),
       reportedText: '"${r.messageText}"',
       username: r.targetUserId,
@@ -179,10 +193,23 @@ final List<AdminReportModel> mockReports = const [
     threatScore: 0.0,
     source: 'AI Detect + 1 User',
     contextMessages: [
-      ContextMessage(name: 'Name1', message: 'consectetuer adipiscing', time: '10:34', isReported: false),
-      ContextMessage(name: 'username1', message: 'shitty ass gamepaly go to hell ggez', time: '10:34', isReported: true),
-      ContextMessage(name: 'Name2', message: 'What?', time: '10:35', isReported: false),
-      ContextMessage(name: 'username1', message: 'shitty ass gamepaly go to hell ggez', time: '10:36', isReported: true),
+      ContextMessage(
+          name: 'Name1',
+          message: 'consectetuer adipiscing',
+          time: '10:34',
+          isReported: false),
+      ContextMessage(
+          name: 'username1',
+          message: 'shitty ass gamepaly go to hell ggez',
+          time: '10:34',
+          isReported: true),
+      ContextMessage(
+          name: 'Name2', message: 'What?', time: '10:35', isReported: false),
+      ContextMessage(
+          name: 'username1',
+          message: 'shitty ass gamepaly go to hell ggez',
+          time: '10:36',
+          isReported: true),
     ],
     description: '',
     status: 'pending',
@@ -203,9 +230,21 @@ final List<AdminReportModel> mockReports = const [
     threatScore: 0.1,
     source: 'AI Detect',
     contextMessages: [
-      ContextMessage(name: 'Player1', message: 'Can I join the next match?', time: '14:20', isReported: false),
-      ContextMessage(name: 'troll_user', message: 'Stop joining our sessions you worthless noob', time: '14:21', isReported: true),
-      ContextMessage(name: 'Player1', message: 'That is really rude...', time: '14:22', isReported: false),
+      ContextMessage(
+          name: 'Player1',
+          message: 'Can I join the next match?',
+          time: '14:20',
+          isReported: false),
+      ContextMessage(
+          name: 'troll_user',
+          message: 'Stop joining our sessions you worthless noob',
+          time: '14:21',
+          isReported: true),
+      ContextMessage(
+          name: 'Player1',
+          message: 'That is really rude...',
+          time: '14:22',
+          isReported: false),
     ],
     description: '',
     status: 'pending',
@@ -226,9 +265,21 @@ final List<AdminReportModel> mockReports = const [
     threatScore: 0.0,
     source: '2 Users',
     contextMessages: [
-      ContextMessage(name: 'spammer99', message: 'BUY COINS NOW!!!', time: '09:10', isReported: true),
-      ContextMessage(name: 'spammer99', message: 'BEST PRICE CLICK HERE', time: '09:10', isReported: true),
-      ContextMessage(name: 'Moderator1', message: 'Please stop spamming', time: '09:11', isReported: false),
+      ContextMessage(
+          name: 'spammer99',
+          message: 'BUY COINS NOW!!!',
+          time: '09:10',
+          isReported: true),
+      ContextMessage(
+          name: 'spammer99',
+          message: 'BEST PRICE CLICK HERE',
+          time: '09:10',
+          isReported: true),
+      ContextMessage(
+          name: 'Moderator1',
+          message: 'Please stop spamming',
+          time: '09:11',
+          isReported: false),
     ],
     description: '',
     status: 'pending',
@@ -249,10 +300,26 @@ final List<AdminReportModel> mockReports = const [
     threatScore: 0.9,
     source: 'AI Detect + 1 User',
     contextMessages: [
-      ContextMessage(name: 'CodeFan', message: 'Anyone else submitted the assignment?', time: '11:00', isReported: false),
-      ContextMessage(name: 'darkuser42', message: 'I know where you live, watch your back', time: '11:01', isReported: true),
-      ContextMessage(name: 'CodeFan', message: 'What the hell...', time: '11:02', isReported: false),
-      ContextMessage(name: 'Admin', message: 'This will be reported', time: '11:03', isReported: false),
+      ContextMessage(
+          name: 'CodeFan',
+          message: 'Anyone else submitted the assignment?',
+          time: '11:00',
+          isReported: false),
+      ContextMessage(
+          name: 'darkuser42',
+          message: 'I know where you live, watch your back',
+          time: '11:01',
+          isReported: true),
+      ContextMessage(
+          name: 'CodeFan',
+          message: 'What the hell...',
+          time: '11:02',
+          isReported: false),
+      ContextMessage(
+          name: 'Admin',
+          message: 'This will be reported',
+          time: '11:03',
+          isReported: false),
     ],
     description: '',
     status: 'pending',
@@ -273,10 +340,26 @@ final List<AdminReportModel> mockReports = const [
     threatScore: 0.0,
     source: 'AI Detect',
     contextMessages: [
-      ContextMessage(name: 'NewDev', message: 'Just started learning Flutter!', time: '08:30', isReported: false),
-      ContextMessage(name: 'gatekeep3r', message: 'People like you don\'t belong in tech', time: '08:31', isReported: true),
-      ContextMessage(name: 'NewDev', message: 'That is very hurtful', time: '08:32', isReported: false),
-      ContextMessage(name: 'Mentor', message: 'Ignore them, you\'re doing great!', time: '08:33', isReported: false),
+      ContextMessage(
+          name: 'NewDev',
+          message: 'Just started learning Flutter!',
+          time: '08:30',
+          isReported: false),
+      ContextMessage(
+          name: 'gatekeep3r',
+          message: 'People like you don\'t belong in tech',
+          time: '08:31',
+          isReported: true),
+      ContextMessage(
+          name: 'NewDev',
+          message: 'That is very hurtful',
+          time: '08:32',
+          isReported: false),
+      ContextMessage(
+          name: 'Mentor',
+          message: 'Ignore them, you\'re doing great!',
+          time: '08:33',
+          isReported: false),
     ],
     description: '',
     status: 'pending',

@@ -11,8 +11,8 @@ class RoomModel {
   final List<CategoryModel> tags;
   final List<RuleModel> rules;
   final RoomType type;
-  final String? eventId;       // null if type is community
-  final Timestamp? expiresAt;  // null if type is community
+  final String? eventId; // null if type is community
+  final Timestamp? expiresAt; // null if type is community
   final Timestamp createdAt;
 
   RoomModel({
@@ -43,8 +43,14 @@ class RoomModel {
       id: doc.id,
       name: data['name'] ?? '',
       createdBy: data['createdBy'] ?? '',
-      tags: (data['tags'] as List<dynamic>?)?.map((t) => CategoryModel.fromMap(t)).toList() ?? [],
-      rules: (data['rules'] as List<dynamic>?)?.map((r) => RuleModel.fromMap(r)).toList() ?? [],
+      tags: (data['tags'] as List<dynamic>?)
+              ?.map((t) => CategoryModel.fromMap(t))
+              .toList() ??
+          [],
+      rules: (data['rules'] as List<dynamic>?)
+              ?.map((r) => RuleModel.fromMap(r))
+              .toList() ??
+          [],
       type: data['type'] == 'event' ? RoomType.event : RoomType.community,
       eventId: data['eventId'] as String?,
       expiresAt: data['expiresAt'] as Timestamp?,
@@ -59,8 +65,8 @@ class RoomModel {
       'tags': tags,
       'rules': rules.map((r) => r.toMap()).toList(),
       'type': type == RoomType.event ? 'event' : 'community',
-      'eventId': eventId,       // stored as null if community
-      'expiresAt': expiresAt,   // stored as null if community
+      'eventId': eventId, // stored as null if community
+      'expiresAt': expiresAt, // stored as null if community
       'createdAt': createdAt,
     };
   }
@@ -100,7 +106,12 @@ class RoomModel {
       name: name,
       createdBy: createdBy,
       tags: tags,
-      rules: [RuleModel(id: "rule_1", text: 'This room is tied to an event. Please stay on topic.', severity: "high")],
+      rules: [
+        RuleModel(
+            id: "rule_1",
+            text: 'This room is tied to an event. Please stay on topic.',
+            severity: "high")
+      ],
       type: RoomType.event,
       createdAt: Timestamp.now(),
       eventId: eventId,
@@ -186,9 +197,15 @@ class CommunityModel {
       id: doc.id,
       communityName: data['communityName'] ?? '',
       description: data['description'] ?? '',
-      tags: (data['tags'] as List<dynamic>?)?.map((t) => CategoryModel.fromMap(t)).toList() ?? [],
+      tags: (data['tags'] as List<dynamic>?)
+              ?.map((t) => CategoryModel.fromMap(t))
+              .toList() ??
+          [],
       coverImageURL: data['coverImageURL'] ?? '',
-      rules: (data['rules'] as List<dynamic>?)?.map((r) => RuleModel.fromMap(r)).toList() ?? [],
+      rules: (data['rules'] as List<dynamic>?)
+              ?.map((r) => RuleModel.fromMap(r))
+              .toList() ??
+          [],
       memberCount: data['memberCount'] ?? 0,
       createdBy: data['createdBy'] ?? data['createdById'] ?? '',
       createdAt: data['createdAt'] ?? Timestamp.now(),

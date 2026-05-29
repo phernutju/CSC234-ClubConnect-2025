@@ -4,7 +4,7 @@ class CategoryModel {
   final String id;
   final String name;
   final String slug;
-  final String? createdBy;  // null = system/default
+  final String? createdBy; // null = system/default
   final bool isDefault;
   final bool isApproved;
   final int usageCount;
@@ -44,15 +44,15 @@ class CategoryModel {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'slug': slug,
-    'createdBy': createdBy,
-    'isDefault': isDefault,
-    'isApproved': isApproved,
-    'usageCount': usageCount,
-    'createdAt': createdAt,
-  };
+        'id': id,
+        'name': name,
+        'slug': slug,
+        'createdBy': createdBy,
+        'isDefault': isDefault,
+        'isApproved': isApproved,
+        'usageCount': usageCount,
+        'createdAt': createdAt,
+      };
 
   Map<String, dynamic> toFirestore() {
     final map = toJson();

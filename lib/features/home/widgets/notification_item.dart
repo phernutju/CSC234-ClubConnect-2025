@@ -50,7 +50,8 @@ class NotificationItem extends StatelessWidget {
                     CircleAvatar(
                       radius: AppSizes.avatarSmall / 2,
                       backgroundColor: AppColors.avatarSalmon,
-                      backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                      backgroundImage:
+                          photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
                       child: photoUrl.isEmpty
                           ? Text(
                               title.isNotEmpty ? title[0].toUpperCase() : '?',

@@ -71,8 +71,7 @@ class OtherProfileScreen extends StatelessWidget {
 
     final avgRating = ratings.isEmpty
         ? AppSizes.defaultRating
-        : ratings.map((r) => r.stars).reduce((a, b) => a + b) /
-            ratings.length;
+        : ratings.map((r) => r.stars).reduce((a, b) => a + b) / ratings.length;
 
     return Scaffold(
       backgroundColor: AppColors.cardWhite,
@@ -93,8 +92,8 @@ class OtherProfileScreen extends StatelessWidget {
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.paddingL),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -126,8 +125,7 @@ class OtherProfileScreen extends StatelessWidget {
                       // Comments from RatingProvider — empty until someone rates
                       _CommentsSection(
                         ratings: ratings,
-                        onViewAll: () =>
-                            _showViewAllModal(context, ratings),
+                        onViewAll: () => _showViewAllModal(context, ratings),
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
                     ],
@@ -229,7 +227,7 @@ class _ProfileHeader extends StatelessWidget {
             top: AppSizes.paddingM,
             right: AppSizes.paddingM,
             child: PopupMenuButton<String>(
-              offset: const Offset(0, 40), 
+              offset: const Offset(0, 40),
               color: AppColors.cardWhite,
               elevation: 3,
               shape: RoundedRectangleBorder(
@@ -243,9 +241,9 @@ class _ProfileHeader extends StatelessWidget {
                 if (value == 'report') {
                   showDialog(
                     context: context,
-                    barrierColor: Colors.black45, 
+                    barrierColor: Colors.black45,
                     builder: (_) => ReportUserModal(
-                      username: username, 
+                      username: username,
                       communityName: communityName,
                     ),
                   );
@@ -257,7 +255,7 @@ class _ProfileHeader extends StatelessWidget {
                   height: 29,
                   padding: EdgeInsets.zero,
                   child: SizedBox(
-                    width: 79, 
+                    width: 79,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -270,9 +268,9 @@ class _ProfileHeader extends StatelessWidget {
                         Text(
                           'Report',
                           style: AppTextStyles.body(
-                            fontSize: 12, 
-                            fontWeight: FontWeight.w500, 
-                            color: AppColors.alertRed, 
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.alertRed,
                           ),
                         ),
                       ],

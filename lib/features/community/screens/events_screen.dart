@@ -42,7 +42,9 @@ class _EventsScreenState extends State<EventsScreen> {
 
   String get _title {
     final count = widget.memberCount;
-    return count.isEmpty ? widget.communityName : '${widget.communityName} ($count)';
+    return count.isEmpty
+        ? widget.communityName
+        : '${widget.communityName} ($count)';
   }
 
   Future<void> _pickDate() async {
@@ -99,14 +101,18 @@ class _EventsScreenState extends State<EventsScreen> {
                   )
                 : filtered.isEmpty
                     ? const _EmptyState()
-                    : _EventList(events: filtered, communityId: widget.communityId, communityName: widget.communityName),
+                    : _EventList(
+                        events: filtered,
+                        communityId: widget.communityId,
+                        communityName: widget.communityName),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         shape: const CircleBorder(),
-        onPressed: () => context.push('/create-event', extra: widget.communityId),
+        onPressed: () =>
+            context.push('/create-event', extra: widget.communityId),
         child: const Icon(Icons.add, color: AppColors.cardWhite),
       ),
     );
@@ -147,10 +153,14 @@ class _DateFilterBar extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: hasFilter ? AppColors.primary : AppColors.textGray.withValues(alpha: 0.3),
+                    color: hasFilter
+                        ? AppColors.primary
+                        : AppColors.textGray.withValues(alpha: 0.3),
                   ),
                   borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  color: hasFilter ? AppColors.primary.withValues(alpha: 0.08) : AppColors.background,
+                  color: hasFilter
+                      ? AppColors.primary.withValues(alpha: 0.08)
+                      : AppColors.background,
                 ),
                 child: Row(
                   children: [
@@ -166,8 +176,10 @@ class _DateFilterBar extends StatelessWidget {
                           : 'Filter by date',
                       style: AppTextStyles.poppins(
                         fontSize: AppSizes.fontS,
-                        color: hasFilter ? AppColors.primary : AppColors.textGray,
-                        fontWeight: hasFilter ? FontWeight.w600 : FontWeight.normal,
+                        color:
+                            hasFilter ? AppColors.primary : AppColors.textGray,
+                        fontWeight:
+                            hasFilter ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -185,7 +197,8 @@ class _DateFilterBar extends StatelessWidget {
                   color: AppColors.textGray.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close, size: 16, color: AppColors.textGray),
+                child: const Icon(Icons.close,
+                    size: 16, color: AppColors.textGray),
               ),
             ),
           ],
@@ -295,4 +308,3 @@ class _EventList extends StatelessWidget {
     );
   }
 }
-

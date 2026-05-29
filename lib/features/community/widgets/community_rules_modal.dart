@@ -37,7 +37,8 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
   Widget build(BuildContext context) {
     return Dialog(
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
+        borderRadius:
+            BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
       ),
       clipBehavior: Clip.hardEdge,
       insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
@@ -95,8 +96,9 @@ class _CommunityRulesModalState extends State<CommunityRulesModal> {
                         children: [
                           // Rules list
                           ...widget.community.rules.asMap().entries.map(
-                            (e) => _RuleItem(index: e.key + 1, rule: e.value),
-                          ),
+                                (e) =>
+                                    _RuleItem(index: e.key + 1, rule: e.value),
+                              ),
                           SizedBox(height: AppSizes.rulesPreCheckboxGap),
 
                           // Accept rules checkbox + label

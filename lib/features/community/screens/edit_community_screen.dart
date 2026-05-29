@@ -122,7 +122,9 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await context.read<CommunityProvider>().deleteCommunity(widget.community.id);
+      await context
+          .read<CommunityProvider>()
+          .deleteCommunity(widget.community.id);
       if (!mounted) return;
       // Community no longer exists — return to home.
       context.go('/home');
@@ -177,7 +179,9 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                           label: AppStrings.createCategoryLabel),
                       const SizedBox(height: AppSizes.paddingS),
                       _ReadOnlyCategoryChips(
-                          categories: widget.community.tags.map((t) => t.name).toList()),
+                          categories: widget.community.tags
+                              .map((t) => t.name)
+                              .toList()),
                       const SizedBox(height: AppSizes.paddingM),
                       _RulesSection(
                         controllers: _rulesControllers,
@@ -186,8 +190,9 @@ class _EditCommunityScreenState extends State<EditCommunityScreen> {
                       const SizedBox(height: AppSizes.paddingXL),
                       Consumer<CommunityProvider>(
                         builder: (context, cp, _) {
-                          final isHost = context.watch<AppAuthProvider>().user?.uid ==
-                              widget.community.createdBy;
+                          final isHost =
+                              context.watch<AppAuthProvider>().user?.uid ==
+                                  widget.community.createdBy;
                           return Row(
                             children: [
                               if (isHost) ...[
@@ -242,8 +247,7 @@ class _EditAppBar extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: GestureDetector(
                 onTap: () => context.pop(),
-                child:
-                    const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+                child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
               ),
             ),
             Text(
@@ -375,14 +379,14 @@ class _FormField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       maxLength: maxLength,
-      buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
-          Text(
-            '$currentLength/${maxLength ?? this.maxLength}',
-            style: AppTextStyles.poppins(
-              fontSize: AppSizes.fontXS,
-              color: AppColors.textGray,
-            ),
-          ),
+      buildCounter:
+          (_, {required currentLength, required isFocused, maxLength}) => Text(
+        '$currentLength/${maxLength ?? this.maxLength}',
+        style: AppTextStyles.poppins(
+          fontSize: AppSizes.fontXS,
+          color: AppColors.textGray,
+        ),
+      ),
       style: AppTextStyles.poppins(
         fontSize: AppSizes.fontM,
         color: AppColors.textDark,
@@ -498,8 +502,7 @@ class _RulesSectionState extends State<_RulesSection> {
           ),
           Positioned(
             left: pos.dx + box.size.width + 6,
-            top: pos.dy -
-                (AppSizes.tooltipCardHeight - box.size.height) / 2,
+            top: pos.dy - (AppSizes.tooltipCardHeight - box.size.height) / 2,
             child: Material(
               color: Colors.transparent,
               child: Container(
@@ -780,32 +783,32 @@ class _SaveButton extends StatelessWidget {
       height: AppSizes.createButtonHeight,
       width: double.infinity,
       child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.reportAccent,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSizes.radiusXL),
-            ),
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.reportAccent,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSizes.radiusXL),
           ),
-          child: isLoading
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: AppColors.cardWhite,
-                  ),
-                )
-              : Text(
-                  AppStrings.editSaveButton,
-                  style: AppTextStyles.poppins(
-                    fontSize: AppSizes.fontTitle,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.cardWhite,
-                  ),
-                ),
         ),
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.cardWhite,
+                ),
+              )
+            : Text(
+                AppStrings.editSaveButton,
+                style: AppTextStyles.poppins(
+                  fontSize: AppSizes.fontTitle,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.cardWhite,
+                ),
+              ),
+      ),
     );
   }
 }

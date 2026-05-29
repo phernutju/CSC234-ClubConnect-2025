@@ -31,8 +31,22 @@ class _BanPopupState extends State<BanPopup> {
   final _descController = TextEditingController();
   bool _isBanning = false;
 
-  static const _reasons = ['Hate Speech', 'Harassment', 'Scam', 'Threat', 'Others'];
-  static const _durations = ['Permanently', '1 Month', '7 Days', '24 hours', '12 hours', '6 hours', '1 hours'];
+  static const _reasons = [
+    'Hate Speech',
+    'Harassment',
+    'Scam',
+    'Threat',
+    'Others'
+  ];
+  static const _durations = [
+    'Permanently',
+    '1 Month',
+    '7 Days',
+    '24 hours',
+    '12 hours',
+    '6 hours',
+    '1 hours'
+  ];
 
   @override
   void dispose() {
@@ -43,7 +57,8 @@ class _BanPopupState extends State<BanPopup> {
   Future<void> _onConfirm() async {
     if (widget.report.targetUserId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot ban: no target user ID available.')),
+        const SnackBar(
+            content: Text('Cannot ban: no target user ID available.')),
       );
       Navigator.pop(context);
       return;
@@ -52,11 +67,14 @@ class _BanPopupState extends State<BanPopup> {
     final reasonText = _selectedReasons.isNotEmpty
         ? _selectedReasons.join(', ')
         : _descController.text.trim();
-    final description = reasonText.isNotEmpty ? reasonText : 'Violation of community guidelines';
+    final description = reasonText.isNotEmpty
+        ? reasonText
+        : 'Violation of community guidelines';
 
     setState(() => _isBanning = true);
     try {
-      await UserService.banUser(widget.report.targetUserId, description, _selectedDuration ?? 'Permanently');
+      await UserService.banUser(widget.report.targetUserId, description,
+          _selectedDuration ?? 'Permanently');
       // Update report status
       try {
         final adminUid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -110,7 +128,8 @@ class _BanPopupState extends State<BanPopup> {
                   child: Image.asset(
                     '.claude/traffic.png',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.block, color: Colors.red, size: 36),
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.block, color: Colors.red, size: 36),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -147,7 +166,9 @@ class _BanPopupState extends State<BanPopup> {
                   label: r,
                   selected: selected,
                   onTap: () => setState(() {
-                    selected ? _selectedReasons.remove(r) : _selectedReasons.add(r);
+                    selected
+                        ? _selectedReasons.remove(r)
+                        : _selectedReasons.add(r);
                   }),
                 );
               }).toList(),
@@ -155,11 +176,14 @@ class _BanPopupState extends State<BanPopup> {
             const SizedBox(height: 12),
             TextField(
               controller: _descController,
-              style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF000000)),
+              style: GoogleFonts.poppins(
+                  fontSize: 14, color: const Color(0xFF000000)),
               decoration: InputDecoration(
                 hintText: 'Ban Description...',
-                hintStyle: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF797979)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                hintStyle: GoogleFonts.poppins(
+                    fontSize: 14, color: const Color(0xFF797979)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
@@ -319,7 +343,8 @@ class _Chip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _Chip({required this.label, required this.selected, required this.onTap});
+  const _Chip(
+      {required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

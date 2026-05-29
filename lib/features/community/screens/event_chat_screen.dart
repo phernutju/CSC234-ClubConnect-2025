@@ -191,8 +191,9 @@ class _EventChatScreenState extends State<EventChatScreen> {
       _menuOpen = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(
-          _muted ? AppStrings.chatMutedSnackbar : AppStrings.chatUnmutedSnackbar),
+      content: Text(_muted
+          ? AppStrings.chatMutedSnackbar
+          : AppStrings.chatUnmutedSnackbar),
     ));
   }
 
@@ -291,7 +292,6 @@ class _EventChatScreenState extends State<EventChatScreen> {
                 ),
             ],
           ),
-
           if (_menuOpen)
             Positioned(
               top: statusBarHeight + AppSizes.appBarHeight,
@@ -304,7 +304,6 @@ class _EventChatScreenState extends State<EventChatScreen> {
                 child: const SizedBox.expand(),
               ),
             ),
-
           if (_menuOpen)
             Positioned(
               top: statusBarHeight + AppSizes.appBarHeight,
@@ -415,9 +414,23 @@ bool _isSameDay(DateTime a, DateTime b) =>
 String _dateLabel(DateTime date) {
   final now = DateTime.now();
   if (_isSameDay(date, now)) return 'Today';
-  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) {
+    return 'Yesterday';
+  }
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
   if (date.year == now.year) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
@@ -551,7 +564,8 @@ class _MenuItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.cardWhite, size: AppSizes.chatMenuIconSize),
+          Icon(icon,
+              color: AppColors.cardWhite, size: AppSizes.chatMenuIconSize),
           const SizedBox(height: 4),
           Text(
             label,
@@ -566,4 +580,3 @@ class _MenuItem extends StatelessWidget {
     );
   }
 }
-

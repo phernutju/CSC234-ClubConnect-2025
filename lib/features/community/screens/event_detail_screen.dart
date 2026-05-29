@@ -9,7 +9,6 @@ import '../../../models/community_model.dart';
 import '../../../providers/attendee_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
-import '../../../providers/event_provider.dart';
 import '../../../providers/smart_bill_provider.dart';
 
 class EventDetailScreen extends StatefulWidget {
@@ -49,8 +48,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       await _attendeeProvider!
           .checkIsAttending(widget.communityId, widget.event.id);
       if (!mounted) return;
-      context.read<SmartBillProvider>().loadBillByEvent(widget.communityId, widget.event.id);
-      _communityFuture = context.read<CommunityProvider>().fetchCommunity(widget.communityId);
+      context
+          .read<SmartBillProvider>()
+          .loadBillByEvent(widget.communityId, widget.event.id);
+      _communityFuture =
+          context.read<CommunityProvider>().fetchCommunity(widget.communityId);
       setState(() {});
     });
   }
@@ -138,30 +140,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     context.push('/edit-event', extra: widget.event);
   }
 
-  Future<void> _onDeleteTap() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Event'),
-        content: const Text('Are you sure? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
-    await context.read<EventProvider>().deleteEvent(widget.communityId, widget.event.id);
-    if (!mounted) return;
-    context.pop();
-  }
-
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
@@ -206,7 +184,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ? widget.event.imageUrl!
                         : '',
                   ),
-
                   Padding(
                     padding: const EdgeInsets.all(AppSizes.paddingM),
                     child: Column(
@@ -277,10 +254,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         // Bills card
                         const SizedBox(height: AppSizes.paddingM),
                         _BillsCard(
-                          communityId:  widget.communityId,
-                          eventId:      widget.event.id,
-                          isHost:       isHost,
-                          isAttending:  ap.isAttending,
+                          communityId: widget.communityId,
+                          eventId: widget.event.id,
+                          isHost: isHost,
+                          isAttending: ap.isAttending,
                           onCreateBill: _onCreateBillTap,
                         ),
 
@@ -304,18 +281,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ),
                                 const SizedBox(height: AppSizes.paddingXS),
                                 ...rules.asMap().entries.map(
-                                  (e) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: Text(
-                                      '${e.key + 1}. ${e.value.text}',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: AppSizes.fontSM,
-                                        fontWeight: FontWeight.w300,
-                                        color: AppColors.textDark,
+                                      (e) => Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 4),
+                                        child: Text(
+                                          '${e.key + 1}. ${e.value.text}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: AppSizes.fontSM,
+                                            fontWeight: FontWeight.w300,
+                                            color: AppColors.textDark,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
                               ],
                             );
                           },
@@ -431,8 +409,7 @@ class _DetailAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayTitle =
-        memberCount.isEmpty ? title : '$title ($memberCount)';
+    final displayTitle = memberCount.isEmpty ? title : '$title ($memberCount)';
     return Container(
       color: AppColors.primary,
       padding: EdgeInsets.only(
@@ -447,8 +424,7 @@ class _DetailAppBar extends StatelessWidget {
           children: [
             GestureDetector(
               onTap: () => context.pop(),
-              child:
-                  const Icon(Icons.arrow_back, color: AppColors.cardWhite),
+              child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
             ),
             const SizedBox(width: AppSizes.paddingM),
             Expanded(
@@ -465,7 +441,8 @@ class _DetailAppBar extends StatelessWidget {
             if (isHost)
               IconButton(
                 onPressed: onEditTap,
-                icon: const Icon(Icons.edit_outlined, color: AppColors.cardWhite),
+                icon:
+                    const Icon(Icons.edit_outlined, color: AppColors.cardWhite),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -577,9 +554,8 @@ class _MemberAvatarRow extends StatelessWidget {
             Positioned(
               left: i * (_size - _overlap),
               child: _AvatarCircle(
-                label: visible[i].isNotEmpty
-                    ? visible[i][0].toUpperCase()
-                    : '?',
+                label:
+                    visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
                 color: colors[i % colors.length],
               ),
             ),
@@ -638,10 +614,10 @@ class _AvatarCircle extends StatelessWidget {
 // ── Event's bills card ────────────────────────────────────────────────────────
 
 class _BillsCard extends StatelessWidget {
-  final String       communityId;
-  final String       eventId;
-  final bool         isHost;
-  final bool         isAttending;
+  final String communityId;
+  final String eventId;
+  final bool isHost;
+  final bool isAttending;
   final VoidCallback onCreateBill;
 
   const _BillsCard({
@@ -656,15 +632,13 @@ class _BillsCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Delete Bill?',
             style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark)),
+                fontWeight: FontWeight.w600, color: AppColors.textDark)),
         content: Text('This cannot be undone.',
-            style: GoogleFonts.poppins(
-                fontSize: 13, color: AppColors.textGray)),
+            style:
+                GoogleFonts.poppins(fontSize: 13, color: AppColors.textGray)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -681,8 +655,7 @@ class _BillsCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8)),
             ),
             child: Text('Delete',
-                style:
-                    GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -757,16 +730,16 @@ class _BillsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SmartBillProvider>();
-    final bill     = provider.bill;
-    final hasBill  = bill != null;
+    final bill = provider.bill;
+    final hasBill = bill != null;
 
     // isHost + no bill: show Create Bill
     if (isHost && !hasBill) {
       return _card(
-        context:  context,
-        title:    'Create Bill',
+        context: context,
+        title: 'Create Bill',
         subtitle: 'Create & manage the bill for this event',
-        onTap:    onCreateBill,
+        onTap: onCreateBill,
       );
     }
 
@@ -774,9 +747,9 @@ class _BillsCard extends StatelessWidget {
     if (isHost && hasBill) {
       return GestureDetector(
         onTap: () => context.push('/bill-summary', extra: {
-          'communityId':       communityId,
-          'eventId':           eventId,
-          'billId':            bill.id,
+          'communityId': communityId,
+          'eventId': eventId,
+          'billId': bill.id,
           'isCurrentUserHost': true,
         }),
         child: Container(
@@ -893,13 +866,13 @@ class _BillsCard extends StatelessWidget {
 
     // member + has bill: show View Bill → BillSummaryScreen (member view)
     return _card(
-      context:  context,
-      title:    'View Bill',
+      context: context,
+      title: 'View Bill',
       subtitle: 'View the bill and pay your share',
       onTap: () => context.push('/bill-summary', extra: {
-        'communityId':       communityId,
-        'eventId':           eventId,
-        'billId':            bill.id,
+        'communityId': communityId,
+        'eventId': eventId,
+        'billId': bill.id,
         'isCurrentUserHost': false,
       }),
     );

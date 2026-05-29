@@ -160,15 +160,15 @@ class _ChatScreenState extends State<ChatScreen> {
     // Look up the community the chat belongs to
     final matches = communityProvider.communities
         .where((c) => c.communityName == widget.communityName);
-    final CommunityModel? community =
-        matches.isEmpty ? null : matches.first;
+    final CommunityModel? community = matches.isEmpty ? null : matches.first;
 
     if (community == null) {
       // Community not found (e.g., fresh session state) — no action
       return;
     }
 
-    final isHost = community.createdBy == context.read<AppAuthProvider>().user?.uid;
+    final isHost =
+        community.createdBy == context.read<AppAuthProvider>().user?.uid;
 
     if (isHost) {
       // Host → open Edit Community page
@@ -208,7 +208,9 @@ class _ChatScreenState extends State<ChatScreen> {
         onNo: () => Navigator.of(ctx).pop(),
         onYes: () {
           Navigator.of(ctx).pop();
-          context.read<CommunityProvider>().leaveCommunity(widget.communityName);
+          context
+              .read<CommunityProvider>()
+              .leaveCommunity(widget.communityName);
           context.go('/home');
         },
       ),
@@ -218,8 +220,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void _onShowMembers() {
     setState(() => _menuOpen = false);
     final cp = context.read<CommunityProvider>();
-    final matches = cp.communities
-        .where((c) => c.communityName == widget.communityName);
+    final matches =
+        cp.communities.where((c) => c.communityName == widget.communityName);
     final community = matches.isEmpty ? null : matches.first;
     final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     showMembersBottomSheet(
@@ -236,7 +238,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final statusBarHeight = MediaQuery.of(context).padding.top;
-    final muted = context.watch<CommunityProvider>().isMuted(widget.communityName);
+    final muted =
+        context.watch<CommunityProvider>().isMuted(widget.communityName);
 
     return Scaffold(
       backgroundColor: AppColors.chatBackground,
@@ -282,8 +285,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
 
               // ── Ban banner ─────────────────────────────────────────────
-              if (_testIsBanned)
-                _BanBanner(banUntil: _testBanUntil),
+              if (_testIsBanned) _BanBanner(banUntil: _testBanUntil),
 
               // ── Input bar ──────────────────────────────────────────────
               MessageInputBar(
@@ -369,7 +371,6 @@ class _ChatAppBar extends StatelessWidget {
               child: const Icon(Icons.arrow_back, color: AppColors.cardWhite),
             ),
             const SizedBox(width: AppSizes.paddingM),
-
             Expanded(
               child: Text(
                 _title,
@@ -381,7 +382,6 @@ class _ChatAppBar extends StatelessWidget {
                 ),
               ),
             ),
-
             GestureDetector(
               onTap: onMenuTap,
               child: const Icon(Icons.menu, color: AppColors.cardWhite),
@@ -425,7 +425,10 @@ class _ChatMenuBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _MenuItem(icon: Icons.notifications_off, label: 'Mute', onTap: onMute),
+                _MenuItem(
+                    icon: Icons.notifications_off,
+                    label: 'Mute',
+                    onTap: onMute),
                 const SizedBox(height: 5),
                 _MenuItem(icon: Icons.subject, label: 'Info', onTap: onInfo),
               ],
@@ -435,9 +438,13 @@ class _ChatMenuBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _MenuItem(icon: Icons.group, label: 'Members', onTap: onShowMembers),
+                _MenuItem(
+                    icon: Icons.group, label: 'Members', onTap: onShowMembers),
                 const SizedBox(height: 5),
-                _MenuItem(icon: Icons.local_activity, label: 'Events', onTap: onEvents),
+                _MenuItem(
+                    icon: Icons.local_activity,
+                    label: 'Events',
+                    onTap: onEvents),
               ],
             ),
           ),
@@ -445,7 +452,8 @@ class _ChatMenuBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _MenuItem(icon: Icons.exit_to_app, label: 'leave', onTap: onLeave),
+                _MenuItem(
+                    icon: Icons.exit_to_app, label: 'leave', onTap: onLeave),
                 const SizedBox(height: 5),
                 const SizedBox(),
               ],
@@ -585,8 +593,18 @@ class _BanBanner extends StatelessWidget {
   String get _formattedDate {
     final d = banUntil;
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
     final ampm = d.hour < 12 ? 'AM' : 'PM';

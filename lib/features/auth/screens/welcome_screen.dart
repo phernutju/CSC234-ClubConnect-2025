@@ -116,7 +116,8 @@ class _SignUpLink extends StatelessWidget {
                 color: const Color(0xFF1A1A1A),
                 decoration: TextDecoration.underline,
               ),
-              recognizer: TapGestureRecognizer()..onTap = () => context.push('/signup'),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () => context.push('/signup'),
             ),
           ],
         ),

@@ -55,7 +55,6 @@ class CommunityProvider extends ChangeNotifier {
     });
   }
 
-
   Set<String> get mutedCommunityNames => Set.unmodifiable(_mutedCommunities);
 
   bool isMuted(String communityId) => _mutedCommunities.contains(communityId);
@@ -287,14 +286,12 @@ class CommunityProvider extends ChangeNotifier {
   Future<void> joinCommunity(String communityId) =>
       _run(() => _service.joinCommunity(communityId));
 
-  Future<void> leaveCommunity(String communityId) =>
-      _run(() async {
+  Future<void> leaveCommunity(String communityId) => _run(() async {
         await _service.leaveCommunity(communityId);
         if (activeCommunity?.id == communityId) clearActiveCommunity();
       });
 
-  Future<void> deleteCommunity(String communityId) =>
-      _run(() async {
+  Future<void> deleteCommunity(String communityId) => _run(() async {
         await _service.deleteCommunity(communityId);
         // Clear active community state so the UI doesn't reference a deleted doc.
         if (activeCommunity?.id == communityId) clearActiveCommunity();
@@ -347,7 +344,6 @@ class CommunityProvider extends ChangeNotifier {
     error = null;
     _safeNotify();
     try {
-      final rules = activeCommunity?.rules.map((r) => r.text).join('\n') ?? '';
       await _service.sendMessage(
         communityId,
         text: text,
@@ -361,7 +357,8 @@ class CommunityProvider extends ChangeNotifier {
     } on ContentViolationException catch (e) {
       if (!e.isMuteBlock && e.violationCount >= 3 && e.violationCount < 5) {
         final remaining = 5 - e.violationCount;
-        violationWarning = 'Warning: $remaining more violation${remaining == 1 ? '' : 's'} will result in a temporary mute.';
+        violationWarning =
+            'Warning: $remaining more violation${remaining == 1 ? '' : 's'} will result in a temporary mute.';
       } else {
         violationWarning = null;
       }
@@ -478,8 +475,8 @@ class CommunityProvider extends ChangeNotifier {
       final snap = results[1] as QuerySnapshot<Map<String, dynamic>>;
       discoverPage = snap.docs.map((d) => CommunityModel.fromJson(d)).toList();
       if (snap.docs.length == 10 && _discoverCursors.length < 2) {
-        _discoverCursors.add(
-            snap.docs.last as DocumentSnapshot<Map<String, dynamic>>);
+        _discoverCursors
+            .add(snap.docs.last as DocumentSnapshot<Map<String, dynamic>>);
       }
     } catch (e) {
       error = e.toString();
@@ -507,8 +504,8 @@ class CommunityProvider extends ChangeNotifier {
       discoverCurrentPage = page;
       final nextPage = page + 1;
       if (snap.docs.length == 10 && nextPage >= _discoverCursors.length) {
-        _discoverCursors.add(
-            snap.docs.last as DocumentSnapshot<Map<String, dynamic>>);
+        _discoverCursors
+            .add(snap.docs.last as DocumentSnapshot<Map<String, dynamic>>);
       }
     } catch (e) {
       error = e.toString();

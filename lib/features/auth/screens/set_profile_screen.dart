@@ -18,7 +18,7 @@ class SetProfileScreen extends StatefulWidget {
 
 class _SetProfileScreenState extends State<SetProfileScreen> {
   final _displayNameController = TextEditingController();
-  final _aboutMeController     = TextEditingController();
+  final _aboutMeController = TextEditingController();
   final _picker = ImagePicker();
   Uint8List? _pickedBytes;
   String? _displayNameError;
@@ -99,7 +99,9 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
     final displayName = _displayNameController.text.trim();
     final bio = _aboutMeController.text.trim();
     debugPrint('[SetProfile] _pickedBytes in _onNext: ${_pickedBytes?.length}');
-    context.read<AppAuthProvider>().setExtraInfo('', displayName, bio, imageBytes: _pickedBytes);
+    context
+        .read<AppAuthProvider>()
+        .setExtraInfo('', displayName, bio, imageBytes: _pickedBytes);
     context.push('/category', extra: {'displayName': displayName});
   }
 
@@ -117,13 +119,11 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
               const SizedBox(height: 48),
               const StepProgressBar(currentStep: 3),
               const SizedBox(height: AppSizes.paddingL),
-
               GestureDetector(
                 onTap: () => context.pop(),
                 child: const Icon(Icons.arrow_back, color: AppColors.textDark),
               ),
               const SizedBox(height: AppSizes.paddingM),
-
               RichText(
                 text: TextSpan(
                   children: [
@@ -148,7 +148,6 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingXL),
-
               Center(
                 child: _AvatarPicker(
                   imageBytes: _pickedBytes,
@@ -156,7 +155,6 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingXL),
-
               Text(
                 AppStrings.setProfileDisplayName,
                 style: AppTextStyles.body(
@@ -189,7 +187,6 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
                 ),
               ],
               const SizedBox(height: AppSizes.paddingM),
-
               Text(
                 AppStrings.setProfileAboutMe,
                 style: AppTextStyles.body(
@@ -211,7 +208,6 @@ class _SetProfileScreenState extends State<SetProfileScreen> {
                 decoration: _fieldDecoration,
               ),
               SizedBox(height: MediaQuery.of(context).size.height * 0.10),
-
               SizedBox(
                 height: AppSizes.buttonHeight,
                 width: double.infinity,
@@ -267,7 +263,6 @@ class _AvatarPicker extends StatelessWidget {
                     : Container(color: AppColors.avatarSalmon),
               ),
             ),
-
             Positioned(
               bottom: 2,
               right: 2,
