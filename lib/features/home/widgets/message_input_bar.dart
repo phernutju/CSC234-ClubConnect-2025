@@ -110,7 +110,9 @@ class _MessageInputBarState extends State<MessageInputBar> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: widget.enabled ? AppColors.cardWhite : AppColors.inputFill,
+                    color: widget.enabled
+                        ? AppColors.cardWhite
+                        : AppColors.inputFill,
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
                   ),
                   child: TextField(

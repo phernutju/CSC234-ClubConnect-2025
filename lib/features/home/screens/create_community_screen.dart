@@ -21,9 +21,11 @@ class CreateCommunityScreen extends StatefulWidget {
 }
 
 class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
-  final _nameController  = TextEditingController();
+  final _nameController = TextEditingController();
   final _aboutController = TextEditingController();
-  final List<TextEditingController> _rulesControllers = [TextEditingController()];
+  final List<TextEditingController> _rulesControllers = [
+    TextEditingController()
+  ];
 
   Uint8List? _coverImageBytes;
   CategoryModel? _selectedCategory;
@@ -91,19 +93,25 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   }
 
   Future<void> _onCreate() async {
-    final name  = _nameController.text.trim();
+    final name = _nameController.text.trim();
     final about = _aboutController.text.trim();
     final hasRule = _rulesControllers.any((c) => c.text.trim().isNotEmpty);
 
     setState(() {
-      _nameError     = name.isEmpty     ? 'Please enter a community name'          : null;
-      _aboutError    = about.isEmpty    ? 'Please tell us about your community'    : null;
-      _categoryError = _selectedCategory == null ? 'Please select a category'     : null;
-      _rulesError    = !hasRule         ? 'Please add at least one community rule' : null;
+      _nameError = name.isEmpty ? 'Please enter a community name' : null;
+      _aboutError =
+          about.isEmpty ? 'Please tell us about your community' : null;
+      _categoryError =
+          _selectedCategory == null ? 'Please select a category' : null;
+      _rulesError = !hasRule ? 'Please add at least one community rule' : null;
     });
 
-    if (_nameError != null || _aboutError != null ||
-        _categoryError != null || _rulesError != null) { return; }
+    if (_nameError != null ||
+        _aboutError != null ||
+        _categoryError != null ||
+        _rulesError != null) {
+      return;
+    }
 
     final rules = _rulesControllers
         .asMap()
@@ -135,7 +143,6 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
       body: Column(
         children: [
           _CreateAppBar(),
-
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
@@ -144,7 +151,6 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                   imageBytes: _coverImageBytes,
                   onTap: _pickCoverImage,
                 ),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSizes.paddingL,
@@ -153,7 +159,6 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: AppSizes.paddingM),
-
                       const _SectionLabel(label: AppStrings.createNameLabel),
                       _FormField(
                         controller: _nameController,
@@ -162,7 +167,6 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                         errorText: _nameError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
-
                       const _SectionLabel(label: AppStrings.createAboutLabel),
                       _FormField(
                         controller: _aboutController,
@@ -172,24 +176,29 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                         errorText: _aboutError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
-
-                      const _SectionLabel(label: AppStrings.createCategoryLabel),
+                      const _SectionLabel(
+                          label: AppStrings.createCategoryLabel),
                       const SizedBox(height: AppSizes.paddingS),
                       _CategoryEditRow(
                         selected: _selectedCategory?.name,
                         onToggle: (cat) {
-                          final cats = context.read<CategoryProvider>().approvedCategories;
+                          final cats = context
+                              .read<CategoryProvider>()
+                              .approvedCategories;
                           final matches = cats.where((c) => c.name == cat);
-                          final model = matches.isNotEmpty ? matches.first : null;
+                          final model =
+                              matches.isNotEmpty ? matches.first : null;
                           setState(() {
-                            _selectedCategory = _selectedCategory?.name == cat ? null : model;
-                            if (_selectedCategory != null) _categoryError = null;
+                            _selectedCategory =
+                                _selectedCategory?.name == cat ? null : model;
+                            if (_selectedCategory != null) {
+                              _categoryError = null;
+                            }
                           });
                         },
                         errorText: _categoryError,
                       ),
                       const SizedBox(height: AppSizes.paddingM),
-
                       _RulesSection(
                         controllers: _rulesControllers,
                         onAddRule: _addRule,
@@ -197,7 +206,6 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                         errorText: _rulesError,
                       ),
                       const SizedBox(height: AppSizes.paddingXL),
-
                       Consumer<CommunityProvider>(
                         builder: (context, cp, child) => _CreateButton(
                           onPressed: cp.isLoading ? null : _onCreate,
@@ -359,14 +367,14 @@ class _FormField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       maxLength: maxLength,
-      buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
-          Text(
-            '$currentLength/${maxLength ?? this.maxLength}',
-            style: AppTextStyles.poppins(
-              fontSize: AppSizes.fontXS,
-              color: AppColors.textGray,
-            ),
-          ),
+      buildCounter:
+          (_, {required currentLength, required isFocused, maxLength}) => Text(
+        '$currentLength/${maxLength ?? this.maxLength}',
+        style: AppTextStyles.poppins(
+          fontSize: AppSizes.fontXS,
+          color: AppColors.textGray,
+        ),
+      ),
       style: AppTextStyles.poppins(
         fontSize: AppSizes.fontM,
         color: AppColors.textDark,
@@ -482,7 +490,8 @@ class _CategoryEditRowState extends State<_CategoryEditRow> {
                           BorderRadius.circular(AppSizes.interestChipRadius),
                       border: Border.all(color: AppColors.chipBorder),
                     ),
-                    child: const Icon(Icons.add, size: 14, color: AppColors.textDark),
+                    child: const Icon(Icons.add,
+                        size: 14, color: AppColors.textDark),
                   ),
                 ),
               ],
@@ -616,9 +625,8 @@ class _RulesSectionState extends State<_RulesSection> {
           ],
         ),
         const SizedBox(height: AppSizes.paddingS),
-
         ...widget.controllers.asMap().entries.map((entry) {
-          final i    = entry.key;
+          final i = entry.key;
           final ctrl = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.paddingS),
@@ -675,7 +683,6 @@ class _RulesSectionState extends State<_RulesSection> {
             ),
           );
         }),
-
         GestureDetector(
           onTap: widget.onAddRule,
           child: Text(

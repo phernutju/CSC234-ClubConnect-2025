@@ -20,7 +20,8 @@ Widget _buildSmallStars(int starCount) {
     children: List.generate(5, (index) {
       return Icon(
         index < starCount ? Icons.star : Icons.star_border,
-        color: index < starCount ? AppColors.starColor : AppColors.reviewStarEmpty,
+        color:
+            index < starCount ? AppColors.starColor : AppColors.reviewStarEmpty,
         size: AppSizes.reviewMiniStarSize,
       );
     }),
@@ -68,10 +69,8 @@ class ViewAllReviewsModal extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSizes.paddingL),
-
                   _RatingSummaryCard(reviews: reviews),
                   const SizedBox(height: AppSizes.paddingL),
-
                   Expanded(
                     child: reviews.isEmpty
                         ? Center(
@@ -87,7 +86,8 @@ class ViewAllReviewsModal extends StatelessWidget {
                             padding: EdgeInsets.zero,
                             itemCount: reviews.length,
                             separatorBuilder: (context, index) =>
-                                const SizedBox(height: AppSizes.reviewItemSpacing),
+                                const SizedBox(
+                                    height: AppSizes.reviewItemSpacing),
                             itemBuilder: (context, index) {
                               return _ReviewItem(review: reviews[index]);
                             },
@@ -96,7 +96,6 @@ class ViewAllReviewsModal extends StatelessWidget {
                 ],
               ),
             ),
-
             Positioned(
               top: AppSizes.paddingM,
               right: AppSizes.paddingM,
@@ -136,8 +135,7 @@ class _RatingSummaryCard extends StatelessWidget {
     final total = reviews.length;
     final avgRating = total == 0
         ? 0.0
-        : reviews.map((r) => r.score).reduce((a, b) => a + b) /
-            total;
+        : reviews.map((r) => r.score).reduce((a, b) => a + b) / total;
 
     return Container(
       width: AppSizes.rateUserCardWidth,
@@ -183,16 +181,13 @@ class _RatingSummaryCard extends StatelessWidget {
               ],
             ),
           ),
-
           Expanded(
             flex: 3,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
                 final starLevel = 5 - index;
-                final count = reviews
-                    .where((r) => r.score == starLevel)
-                    .length;
+                final count = reviews.where((r) => r.score == starLevel).length;
                 final fraction = total == 0 ? 0.0 : count / total;
 
                 return Padding(

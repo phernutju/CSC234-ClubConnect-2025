@@ -16,10 +16,8 @@ class CategoryService {
   }
 
   Future<List<CategoryModel>> getDefaultCategories() async {
-    final snap = await _db
-        .collection(_col)
-        .where('isDefault', isEqualTo: true)
-        .get();
+    final snap =
+        await _db.collection(_col).where('isDefault', isEqualTo: true).get();
     return snap.docs.map(CategoryModel.fromDoc).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }

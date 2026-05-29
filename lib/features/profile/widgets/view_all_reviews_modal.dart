@@ -22,7 +22,8 @@ Widget _buildSmallStars(int starCount) {
     children: List.generate(5, (index) {
       return Icon(
         index < starCount ? Icons.star : Icons.star_border,
-        color: index < starCount ? AppColors.starColor : AppColors.reviewStarEmpty,
+        color:
+            index < starCount ? AppColors.starColor : AppColors.reviewStarEmpty,
         size: AppSizes.reviewMiniStarSize,
       );
     }),
@@ -92,7 +93,8 @@ class ViewAllReviewsModal extends StatelessWidget {
                             padding: EdgeInsets.zero,
                             itemCount: ratings.length,
                             separatorBuilder: (context, index) =>
-                                const SizedBox(height: AppSizes.reviewItemSpacing),
+                                const SizedBox(
+                                    height: AppSizes.reviewItemSpacing),
                             itemBuilder: (context, index) {
                               return _ReviewItem(rating: ratings[index]);
                             },
@@ -150,7 +152,8 @@ class _RatingSummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSizes.paddingM),
       decoration: BoxDecoration(
         color: AppColors.rateStarFill, // #FFF6EE
-        border: Border.all(color: AppColors.rateCardBorder, width: 1), // #E8DFD8
+        border:
+            Border.all(color: AppColors.rateCardBorder, width: 1), // #E8DFD8
         borderRadius: BorderRadius.circular(AppSizes.radiusS),
       ),
       child: Row(
@@ -189,7 +192,7 @@ class _RatingSummaryCard extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Right Side: 5 Progress Bars
           Expanded(
             flex: 3,
@@ -212,7 +215,8 @@ class _RatingSummaryCard extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: fraction,
                             minHeight: AppSizes.reviewBarHeight, // 4
-                            backgroundColor: AppColors.rateCardBorder, // #E8DFD8
+                            backgroundColor:
+                                AppColors.rateCardBorder, // #E8DFD8
                             valueColor: const AlwaysStoppedAnimation<Color>(
                               AppColors.reviewBarFilled, // #8CD9A7
                             ),
@@ -290,7 +294,6 @@ class _ReviewItemState extends State<_ReviewItem> {
               ),
             ],
           ),
-
           if (widget.rating.comment.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(

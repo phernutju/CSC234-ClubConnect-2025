@@ -226,13 +226,15 @@ class _ChatScreenState extends State<ChatScreen> {
     final inserted = '@$displayName ';
     _inputController.value = TextEditingValue(
       text: '$before$inserted$after',
-      selection: TextSelection.collapsed(offset: before.length + inserted.length),
+      selection:
+          TextSelection.collapsed(offset: before.length + inserted.length),
     );
     _pendingMentions[displayName] = uid;
     setState(() => _mentionQuery = null);
   }
 
-  List<({String uid, String displayName, String photoUrl})> _buildSuggestions(CommunityProvider cp, String currentUid) {
+  List<({String uid, String displayName, String photoUrl})> _buildSuggestions(
+      CommunityProvider cp, String currentUid) {
     final q = _mentionQuery;
     if (q == null) return [];
 
@@ -242,7 +244,11 @@ class _ChatScreenState extends State<ChatScreen> {
       final name = cp.displayNameOf(m.userId);
       if (name.isEmpty) continue;
       if (q.isEmpty || name.toLowerCase().contains(q.toLowerCase())) {
-        results.add((uid: m.userId, displayName: name, photoUrl: cp.photoURLOf(m.userId)));
+        results.add((
+          uid: m.userId,
+          displayName: name,
+          photoUrl: cp.photoURLOf(m.userId)
+        ));
       }
     }
     return results;
@@ -253,7 +259,8 @@ class _ChatScreenState extends State<ChatScreen> {
   String _formatTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
-  ChatMessage _toUIMessage(MessageModel m, String currentUid, CommunityProvider cp) {
+  ChatMessage _toUIMessage(
+      MessageModel m, String currentUid, CommunityProvider cp) {
     if (m.isSystem) {
       return ChatMessage(
         id: m.id,
@@ -270,7 +277,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final isSent = m.senderId == currentUid;
     final cachedName = cp.displayNameOf(m.senderId);
     final fallback = m.senderName.isNotEmpty ? m.senderName : '…';
-    final senderName = isSent ? 'You' : (cachedName.isNotEmpty ? cachedName : fallback);
+    final senderName =
+        isSent ? 'You' : (cachedName.isNotEmpty ? cachedName : fallback);
 
     final mentionMap = <String, String>{};
     for (final uid in m.mentions) {
@@ -288,7 +296,8 @@ class _ChatScreenState extends State<ChatScreen> {
       senderPhotoUrl: isSent ? null : cp.photoURLOf(m.senderId),
       timestamp: m.timestamp,
       time: _formatTime(m.timestamp),
-      readCount: isSent && m.seenBy.isNotEmpty ? 'Read ${m.seenBy.length}' : null,
+      readCount:
+          isSent && m.seenBy.isNotEmpty ? 'Read ${m.seenBy.length}' : null,
       replyToName: m.replyToSenderName,
       replyToText: m.replyToText,
       mentionMap: mentionMap,
@@ -303,7 +312,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _isSending || _isBanned) return;
     if (_isMuted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You have been restricted from sending messages.')),
+        const SnackBar(
+            content: Text('You have been restricted from sending messages.')),
       );
       return;
     }
@@ -346,7 +356,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _doSendImage(Uint8List bytes) async {
     setState(() => _isSending = true);
     try {
-      await context.read<CommunityProvider>().sendImageMessage(widget.communityId, bytes);
+      await context
+          .read<CommunityProvider>()
+          .sendImageMessage(widget.communityId, bytes);
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
@@ -493,12 +505,13 @@ class _ChatScreenState extends State<ChatScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          nowMuted ? AppStrings.chatMutedSnackbar : AppStrings.chatUnmutedSnackbar,
+          nowMuted
+              ? AppStrings.chatMutedSnackbar
+              : AppStrings.chatUnmutedSnackbar,
         ),
       ),
     );
   }
-
 
   void _onLeave() {
     setState(() => _menuOpen = false);
@@ -508,7 +521,9 @@ class _ChatScreenState extends State<ChatScreen> {
         onNo: () => Navigator.of(ctx).pop(),
         onYes: () async {
           Navigator.of(ctx).pop();
-          await context.read<CommunityProvider>().leaveCommunity(widget.communityId);
+          await context
+              .read<CommunityProvider>()
+              .leaveCommunity(widget.communityId);
           if (mounted) context.go('/home');
         },
       ),
@@ -518,7 +533,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void _onShowMembers() {
     setState(() => _menuOpen = false);
     final cp = context.read<CommunityProvider>();
-    final community = cp.communities.where((c) => c.id == widget.communityId).firstOrNull;
+    final community =
+        cp.communities.where((c) => c.id == widget.communityId).firstOrNull;
     final currentUid = context.read<AppAuthProvider>().user?.uid ?? '';
     showMembersBottomSheet(
       context,
@@ -554,13 +570,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final cp = context.watch<CommunityProvider>();
     final currentUid = context.watch<AppAuthProvider>().user?.uid ?? '';
     final muted = cp.isMuted(widget.communityId);
-    final myRole = cp.members
-        .where((m) => m.userId == currentUid)
-        .map((m) => m.role)
-        .fold<String>('user', (_, r) => r);
     // Trigger display-name fetches for message senders
     for (final m in cp.messages) {
-      if (!m.isSystem && m.senderId != currentUid && _fetchedUids.add(m.senderId)) {
+      if (!m.isSystem &&
+          m.senderId != currentUid &&
+          _fetchedUids.add(m.senderId)) {
         cp.fetchDisplayName(m.senderId);
       }
     }
@@ -592,16 +606,16 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     } else if (_pendingScrollTargetId != null) {
       // Messages already loaded (e.g. cached) on first build — still try.
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToTargetMessage());
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToTargetMessage());
     }
 
     final uiMessages = _mergeSystemMessages(
       cp.messages.map((m) => _toUIMessage(m, currentUid, cp)).toList(),
     );
 
-    final memberDisplay = cp.members.isNotEmpty
-        ? cp.members.length.toString()
-        : '';
+    final memberDisplay =
+        cp.members.isNotEmpty ? cp.members.length.toString() : '';
     final suggestions = _buildSuggestions(cp, currentUid);
 
     return Scaffold(
@@ -612,96 +626,98 @@ class _ChatScreenState extends State<ChatScreen> {
           if (cp.error != null) context.read<CommunityProvider>().clearError();
         },
         child: Stack(
-        children: [
-          // ── Main content column ──────────────────────────────────────────
-          Column(
-            children: [
-              // ── App bar ──────────────────────────────────────────────────
-              _ChatAppBar(
-                communityName: cp.activeCommunity?.communityName ?? widget.communityName,
-                memberCount: memberDisplay,
-                onMenuTap: () => setState(() => _menuOpen = !_menuOpen),
-              ),
-
-              // ── Error banner ────────────────────────────────────────────
-              if (cp.error != null)
-                _ErrorBanner(message: cp.error!),
-
-              // ── Upload progress ─────────────────────────────────────────
-              if (cp.isUploading || _isSending)
-                const LinearProgressIndicator(
-                  color: AppColors.primary,
-                  backgroundColor: AppColors.inputFill,
+          children: [
+            // ── Main content column ──────────────────────────────────────────
+            Column(
+              children: [
+                // ── App bar ──────────────────────────────────────────────────
+                _ChatAppBar(
+                  communityName:
+                      cp.activeCommunity?.communityName ?? widget.communityName,
+                  memberCount: memberDisplay,
+                  onMenuTap: () => setState(() => _menuOpen = !_menuOpen),
                 ),
 
-              // ── Message list ────────────────────────────────────────────
-              Expanded(child: _buildMessageList(uiMessages, cp, currentUid)),
+                // ── Error banner ────────────────────────────────────────────
+                if (cp.error != null) _ErrorBanner(message: cp.error!),
 
-              // ── Mention autocomplete bar ─────────────────────────────────
-              if (suggestions.isNotEmpty)
-                _MentionSuggestionsBar(
-                  suggestions: suggestions,
-                  onSelect: _onMentionSelected,
+                // ── Upload progress ─────────────────────────────────────────
+                if (cp.isUploading || _isSending)
+                  const LinearProgressIndicator(
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.inputFill,
+                  ),
+
+                // ── Message list ────────────────────────────────────────────
+                Expanded(child: _buildMessageList(uiMessages, cp, currentUid)),
+
+                // ── Mention autocomplete bar ─────────────────────────────────
+                if (suggestions.isNotEmpty)
+                  _MentionSuggestionsBar(
+                    suggestions: suggestions,
+                    onSelect: _onMentionSelected,
+                  ),
+
+                // ── Ban banner ───────────────────────────────────────────────
+                if (_isBanned) const _BanBanner(),
+
+                // ── Mute banner ──────────────────────────────────────────────
+                if (_isMuted && !_isBanned)
+                  _MuteBanner(muteExpiresAt: _muteExpiresAt),
+
+                // ── Input bar ────────────────────────────────────────────────
+                MessageInputBar(
+                  controller: _inputController,
+                  onSend: _sendTextMessage,
+                  onImagePicked: _sendImageMessage,
+                  replyToName: _replyingTo?.senderName,
+                  replyToText: _replyingTo?.text,
+                  onCancelReply: () => setState(() => _replyingTo = null),
+                  enabled: !_isBanned,
                 ),
-
-              // ── Ban banner ───────────────────────────────────────────────
-              if (_isBanned) const _BanBanner(),
-
-              // ── Mute banner ──────────────────────────────────────────────
-              if (_isMuted && !_isBanned)
-                _MuteBanner(muteExpiresAt: _muteExpiresAt),
-
-              // ── Input bar ────────────────────────────────────────────────
-              MessageInputBar(
-                controller: _inputController,
-                onSend: _sendTextMessage,
-                onImagePicked: _sendImageMessage,
-                replyToName: _replyingTo?.senderName,
-                replyToText: _replyingTo?.text,
-                onCancelReply: () => setState(() => _replyingTo = null),
-                enabled: !_isBanned,
-              ),
-            ],
-          ),
-
-          // ── Dismissal barrier (shown when menu is open) ──────────────────
-          if (_menuOpen)
-            Positioned(
-              top: statusBarHeight + AppSizes.appBarHeight,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: GestureDetector(
-                onTap: () => setState(() => _menuOpen = false),
-                behavior: HitTestBehavior.opaque,
-                child: const SizedBox.expand(),
-              ),
+              ],
             ),
 
-          // ── Drop-down menu bar ───────────────────────────────────────────
-          if (_menuOpen)
-            Positioned(
-              top: statusBarHeight + AppSizes.appBarHeight,
-              left: 0,
-              right: 0,
-              child: _ChatMenuBar(
-                muted: muted,
-                onInfo: _onInfo,
-                onMute: _onMute,
-                onLeave: _onLeave,
-                onShowMembers: _onShowMembers,
-                onEvents: _onEvents,
+            // ── Dismissal barrier (shown when menu is open) ──────────────────
+            if (_menuOpen)
+              Positioned(
+                top: statusBarHeight + AppSizes.appBarHeight,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: () => setState(() => _menuOpen = false),
+                  behavior: HitTestBehavior.opaque,
+                  child: const SizedBox.expand(),
+                ),
               ),
-            ),
-        ],
+
+            // ── Drop-down menu bar ───────────────────────────────────────────
+            if (_menuOpen)
+              Positioned(
+                top: statusBarHeight + AppSizes.appBarHeight,
+                left: 0,
+                right: 0,
+                child: _ChatMenuBar(
+                  muted: muted,
+                  onInfo: _onInfo,
+                  onMute: _onMute,
+                  onLeave: _onLeave,
+                  onShowMembers: _onShowMembers,
+                  onEvents: _onEvents,
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildMessageList(List<ChatMessage> uiMessages, CommunityProvider cp, String currentUid) {
+  Widget _buildMessageList(
+      List<ChatMessage> uiMessages, CommunityProvider cp, String currentUid) {
     if (_isInitializing || (cp.isLoading && cp.messages.isEmpty)) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     if (cp.messages.isEmpty) {
@@ -775,7 +791,8 @@ class _MentionSuggestionsBar extends StatelessWidget {
   final List<({String uid, String displayName, String photoUrl})> suggestions;
   final void Function(String displayName, String uid) onSelect;
 
-  const _MentionSuggestionsBar({required this.suggestions, required this.onSelect});
+  const _MentionSuggestionsBar(
+      {required this.suggestions, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -785,7 +802,8 @@ class _MentionSuggestionsBar extends StatelessWidget {
         color: AppColors.cardWhite,
         border: Border(top: BorderSide(color: AppColors.rateCardBorder)),
         boxShadow: const [
-          BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, -2)),
+          BoxShadow(
+              color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, -2)),
         ],
       ),
       child: ListView.builder(
@@ -798,10 +816,13 @@ class _MentionSuggestionsBar extends StatelessWidget {
             leading: CircleAvatar(
               radius: 16,
               backgroundColor: AppColors.avatarSalmon,
-              backgroundImage: s.photoUrl.isNotEmpty ? NetworkImage(s.photoUrl) : null,
+              backgroundImage:
+                  s.photoUrl.isNotEmpty ? NetworkImage(s.photoUrl) : null,
               child: s.photoUrl.isEmpty
                   ? Text(
-                      s.displayName.isNotEmpty ? s.displayName[0].toUpperCase() : '?',
+                      s.displayName.isNotEmpty
+                          ? s.displayName[0].toUpperCase()
+                          : '?',
                       style: AppTextStyles.body(
                         fontSize: AppSizes.fontXS,
                         fontWeight: FontWeight.bold,
@@ -836,7 +857,8 @@ class _BanBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.banBannerBg,
         boxShadow: const [
-          BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, -2)),
+          BoxShadow(
+              color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, -2)),
         ],
       ),
       padding: const EdgeInsets.symmetric(
@@ -878,7 +900,8 @@ class _MuteBanner extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Color(0xFFFF9800),
         boxShadow: [
-          BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, -2)),
+          BoxShadow(
+              color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, -2)),
         ],
       ),
       child: Text(
@@ -958,9 +981,23 @@ bool _isSameDay(DateTime a, DateTime b) =>
 String _dateLabel(DateTime date) {
   final now = DateTime.now();
   if (_isSameDay(date, now)) return 'Today';
-  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Yesterday';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (_isSameDay(date, now.subtract(const Duration(days: 1)))) {
+    return 'Yesterday';
+  }
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
   if (date.year == now.year) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[date.weekday - 1]} ${date.day} ${months[date.month - 1]}';
@@ -990,7 +1027,8 @@ class _DateSeparator extends StatelessWidget {
     return Center(
       child: Text(
         label,
-        style: AppTextStyles.body(fontSize: AppSizes.fontXS, color: AppColors.textGray),
+        style: AppTextStyles.body(
+            fontSize: AppSizes.fontXS, color: AppColors.textGray),
       ),
     );
   }
@@ -1027,12 +1065,19 @@ class _ChatMenuBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _MenuItem(
-                  icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
-                  label: muted ? AppStrings.chatMenuUnmute : AppStrings.chatMenuMute,
+                  icon: muted
+                      ? Icons.notifications_off
+                      : Icons.notifications_off_outlined,
+                  label: muted
+                      ? AppStrings.chatMenuUnmute
+                      : AppStrings.chatMenuMute,
                   onTap: onMute,
                 ),
                 const SizedBox(height: 5),
-                _MenuItem(icon: Icons.description_outlined, label: AppStrings.chatMenuInfo, onTap: onInfo),
+                _MenuItem(
+                    icon: Icons.description_outlined,
+                    label: AppStrings.chatMenuInfo,
+                    onTap: onInfo),
               ],
             ),
           ),
@@ -1040,9 +1085,15 @@ class _ChatMenuBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _MenuItem(icon: Icons.group_outlined, label: AppStrings.chatMenuMembers, onTap: onShowMembers),
+                _MenuItem(
+                    icon: Icons.group_outlined,
+                    label: AppStrings.chatMenuMembers,
+                    onTap: onShowMembers),
                 const SizedBox(height: 5),
-                _MenuItem(icon: Icons.local_activity, label: AppStrings.chatMenuEvents, onTap: onEvents),
+                _MenuItem(
+                    icon: Icons.local_activity,
+                    label: AppStrings.chatMenuEvents,
+                    onTap: onEvents),
               ],
             ),
           ),
@@ -1050,7 +1101,10 @@ class _ChatMenuBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _MenuItem(icon: Icons.exit_to_app, label: AppStrings.chatMenuLeave, onTap: onLeave),
+                _MenuItem(
+                    icon: Icons.exit_to_app,
+                    label: AppStrings.chatMenuLeave,
+                    onTap: onLeave),
                 const SizedBox(height: 5),
                 const SizedBox(),
               ],
@@ -1112,7 +1166,8 @@ class _LeaveDialog extends StatelessWidget {
           color: AppColors.cardWhite,
           borderRadius: BorderRadius.circular(AppSizes.rateModalRadius),
           boxShadow: const [
-            BoxShadow(color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 8)),
+            BoxShadow(
+                color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 8)),
           ],
         ),
         padding: const EdgeInsets.fromLTRB(
@@ -1137,8 +1192,14 @@ class _LeaveDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _DialogButton(label: AppStrings.chatLeaveNo, color: AppColors.commentBody, onTap: onNo),
-                _DialogButton(label: AppStrings.chatLeaveYes, color: AppColors.primary, onTap: onYes),
+                _DialogButton(
+                    label: AppStrings.chatLeaveNo,
+                    color: AppColors.commentBody,
+                    onTap: onNo),
+                _DialogButton(
+                    label: AppStrings.chatLeaveYes,
+                    color: AppColors.primary,
+                    onTap: onYes),
               ],
             ),
           ],
@@ -1153,7 +1214,8 @@ class _DialogButton extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _DialogButton({required this.label, required this.color, required this.onTap});
+  const _DialogButton(
+      {required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1240,7 +1302,8 @@ class _ErrorBanner extends StatelessWidget {
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Open the Info menu to view community rules.'),
+                    content:
+                        Text('Open the Info menu to view community rules.'),
                   ),
                 );
               }

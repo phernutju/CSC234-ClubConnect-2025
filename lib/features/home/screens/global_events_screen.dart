@@ -149,7 +149,8 @@ class _DateFilterBar extends StatelessWidget {
                   children: [
                     Icon(Icons.calendar_today,
                         size: 18,
-                        color: hasFilter ? AppColors.primary : AppColors.textGray),
+                        color:
+                            hasFilter ? AppColors.primary : AppColors.textGray),
                     const SizedBox(width: 8),
                     Text(
                       hasFilter
@@ -157,7 +158,8 @@ class _DateFilterBar extends StatelessWidget {
                           : 'Filter by date',
                       style: AppTextStyles.poppins(
                         fontSize: AppSizes.fontS,
-                        color: hasFilter ? AppColors.primary : AppColors.textGray,
+                        color:
+                            hasFilter ? AppColors.primary : AppColors.textGray,
                         fontWeight:
                             hasFilter ? FontWeight.w600 : FontWeight.normal,
                       ),

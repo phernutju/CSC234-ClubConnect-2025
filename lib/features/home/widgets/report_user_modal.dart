@@ -43,11 +43,16 @@ class _ReportUserModalState extends State<ReportUserModal> {
 
   ReportReason _reasonToEnum(String label) {
     switch (label) {
-      case 'Hate Speech': return ReportReason.hateSpeech;
-      case 'Harassment':  return ReportReason.harassment;
-      case 'Threat':      return ReportReason.threat;
-      case 'Scam':        return ReportReason.scam;
-      default:            return ReportReason.other;
+      case 'Hate Speech':
+        return ReportReason.hateSpeech;
+      case 'Harassment':
+        return ReportReason.harassment;
+      case 'Threat':
+        return ReportReason.threat;
+      case 'Scam':
+        return ReportReason.scam;
+      default:
+        return ReportReason.other;
     }
   }
 
@@ -233,20 +238,20 @@ class _ReportUserModalState extends State<ReportUserModal> {
                           border: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.circular(AppSizes.radiusS),
-                            borderSide:
-                                const BorderSide(color: AppColors.reportFieldBg),
+                            borderSide: const BorderSide(
+                                color: AppColors.reportFieldBg),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.circular(AppSizes.radiusS),
-                            borderSide:
-                                const BorderSide(color: AppColors.reportFieldBg),
+                            borderSide: const BorderSide(
+                                color: AppColors.reportFieldBg),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.circular(AppSizes.radiusS),
-                            borderSide:
-                                const BorderSide(color: AppColors.reportFieldBg),
+                            borderSide: const BorderSide(
+                                color: AppColors.reportFieldBg),
                           ),
                         ),
                       ),

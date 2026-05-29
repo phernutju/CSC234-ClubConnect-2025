@@ -99,8 +99,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                       child: Image.asset(
                         '.claude/usericon.png',
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const Center(child: Text('🙂', style: TextStyle(fontSize: 32))),
+                        errorBuilder: (_, __, ___) => const Center(
+                            child: Text('🙂', style: TextStyle(fontSize: 32))),
                       ),
                     ),
                   ],
@@ -111,8 +111,10 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                   indicatorColor: const Color(0xFFFF6B4A),
                   labelColor: Colors.white,
                   unselectedLabelColor: const Color(0xFF797979),
-                  labelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-                  unselectedLabelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w400),
+                  labelStyle: GoogleFonts.poppins(
+                      fontSize: 14, fontWeight: FontWeight.w600),
+                  unselectedLabelStyle: GoogleFonts.poppins(
+                      fontSize: 14, fontWeight: FontWeight.w400),
                   tabs: const [
                     Tab(text: 'Reports'),
                     Tab(text: 'Muted'),
@@ -146,7 +148,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                 color: const Color(0xFFFF6B4A),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.shield_outlined, color: Colors.white, size: 26),
+              child: const Icon(Icons.shield_outlined,
+                  color: Colors.white, size: 26),
             ),
             const SizedBox(height: 4),
             Text('Reports',
@@ -188,11 +191,16 @@ class _ReportsTabState extends State<_ReportsTab> {
       final reporterInfo = await reporterInfoF;
       final communityName = await communityF;
       final enriched = base.copyWithEnrichment(
-        displayName: targetInfo.displayName.isNotEmpty ? targetInfo.displayName : base.targetUserId,
+        displayName: targetInfo.displayName.isNotEmpty
+            ? targetInfo.displayName
+            : base.targetUserId,
         photoURL: targetInfo.photoURL,
-        reporterDisplayName: reporterInfo.displayName.isNotEmpty ? reporterInfo.displayName : base.reporterId,
+        reporterDisplayName: reporterInfo.displayName.isNotEmpty
+            ? reporterInfo.displayName
+            : base.reporterId,
         reporterPhotoUrl: reporterInfo.photoURL,
-        communityName: communityName.isNotEmpty ? communityName : base.communityId,
+        communityName:
+            communityName.isNotEmpty ? communityName : base.communityId,
       );
       if (mounted) {
         setState(() {
@@ -237,9 +245,7 @@ class _ReportsTabState extends State<_ReportsTab> {
 
         _enrichAll(baseReports);
 
-        final reports = baseReports
-            .map((r) => _enriched[r.id] ?? r)
-            .toList();
+        final reports = baseReports.map((r) => _enriched[r.id] ?? r).toList();
 
         if (reports.isEmpty) {
           return Center(
@@ -269,7 +275,9 @@ class _ReportsTabState extends State<_ReportsTab> {
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: r.status == 'urgent' ? const Color(0xFFFFE5E5) : const Color(0xFFE8DFD8),
+                  color: r.status == 'urgent'
+                      ? const Color(0xFFFFE5E5)
+                      : const Color(0xFFE8DFD8),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
@@ -299,14 +307,17 @@ class _ReportsTabState extends State<_ReportsTab> {
                         if (r.status == 'urgent')
                           Container(
                             margin: const EdgeInsets.only(left: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFF4444),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text('URGENT',
                                 style: GoogleFonts.poppins(
-                                    fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white)),
                           ),
                         const Spacer(),
                         Text(r.timeAgo,
@@ -325,11 +336,13 @@ class _ReportsTabState extends State<_ReportsTab> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(width: 20, color: const Color(0xFFFF6B6B)),
+                              Container(
+                                  width: 20, color: const Color(0xFFFF6B6B)),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
                                   child: Text(r.reportedText,
                                       style: GoogleFonts.poppins(
                                           fontSize: 14,
@@ -428,14 +441,20 @@ class _MutedUsersTab extends StatelessWidget {
       stream: UserService.streamMutedUsers(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B4A)));
+          return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFF6B4A)));
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}', style: GoogleFonts.poppins(color: Colors.red)));
+          return Center(
+              child: Text('Error: ${snapshot.error}',
+                  style: GoogleFonts.poppins(color: Colors.red)));
         }
         final users = snapshot.data ?? [];
         if (users.isEmpty) {
-          return Center(child: Text('No muted users', style: GoogleFonts.poppins(fontSize: 16, color: const Color(0xFF797979))));
+          return Center(
+              child: Text('No muted users',
+                  style: GoogleFonts.poppins(
+                      fontSize: 16, color: const Color(0xFF797979))));
         }
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -443,7 +462,8 @@ class _MutedUsersTab extends StatelessWidget {
           itemBuilder: (context, index) {
             final u = users[index];
             final uid = u['uid'] as String? ?? '';
-            final username = u['username'] as String? ?? u['displayName'] as String? ?? uid;
+            final username =
+                u['username'] as String? ?? u['displayName'] as String? ?? uid;
             final muteCount = (u['muteCount'] as int?) ?? 1;
             final expiry = _formatExpiry(u['muteExpiresAt']);
             return Container(
@@ -466,11 +486,16 @@ class _MutedUsersTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('@$username',
-                            style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                            style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text('Mute #$muteCount • $expiry',
-                            style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF797979))),
+                            style: GoogleFonts.poppins(
+                                fontSize: 12, color: const Color(0xFF797979))),
                       ],
                     ),
                   ),
@@ -527,7 +552,8 @@ class _BannedUsersTab extends StatelessWidget {
           itemBuilder: (context, index) {
             final u = users[index];
             final uid = u['uid'] as String? ?? '';
-            final username = u['username'] as String? ?? u['displayName'] as String? ?? uid;
+            final username =
+                u['username'] as String? ?? u['displayName'] as String? ?? uid;
             final reason = u['banReason'] as String? ?? 'No reason given';
             final duration = u['durationLabel'] as String? ?? 'Permanently';
 
@@ -638,7 +664,8 @@ class _UnbanButtonState extends State<_UnbanButton> {
             ? const SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4CAF50)),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Color(0xFF4CAF50)),
               )
             : Text(
                 'Unban',

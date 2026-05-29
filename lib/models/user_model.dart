@@ -37,24 +37,24 @@ class UserModel {
     this.coverBannerUrl,
   });
 
- factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-  uid: (json['uid']?.toString() ?? '').trim(),
-  displayName: (json['displayName']?.toString() ?? '').trim(),
-  email: (json['email']?.toString() ?? '').trim(),
-  phoneNumber: (json['phoneNumber']?.toString() ?? '').trim(),
-  photoURL: (json['photoURL']?.toString() ?? '').trim(),
-  bio: (json['bio']?.toString() ?? '').trim(),
-  interests: List<String>.from(json['interests'] ?? []),
-  role: (json['role']?.toString() ?? 'user').trim(),
-  createdAt: json['createdAt'] as Timestamp? ?? Timestamp.now(),
-  updatedAt: json['updatedAt'] as Timestamp? ?? Timestamp.now(),
-  mutedCommunities: List<String>.from(json['mutedCommunities'] ?? []),
-  isBanned: (json['isBanned'] as bool?) ?? false,
-  banReason: json['banReason'] as String?,
-  banExpiresAt: json['banExpiresAt'] as Timestamp?,
-  durationLabel: json['durationLabel'] as String?,
-  coverBannerUrl: json['coverBannerUrl'] as String?,
-);
+  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
+        uid: (json['uid']?.toString() ?? '').trim(),
+        displayName: (json['displayName']?.toString() ?? '').trim(),
+        email: (json['email']?.toString() ?? '').trim(),
+        phoneNumber: (json['phoneNumber']?.toString() ?? '').trim(),
+        photoURL: (json['photoURL']?.toString() ?? '').trim(),
+        bio: (json['bio']?.toString() ?? '').trim(),
+        interests: List<String>.from(json['interests'] ?? []),
+        role: (json['role']?.toString() ?? 'user').trim(),
+        createdAt: json['createdAt'] as Timestamp? ?? Timestamp.now(),
+        updatedAt: json['updatedAt'] as Timestamp? ?? Timestamp.now(),
+        mutedCommunities: List<String>.from(json['mutedCommunities'] ?? []),
+        isBanned: (json['isBanned'] as bool?) ?? false,
+        banReason: json['banReason'] as String?,
+        banExpiresAt: json['banExpiresAt'] as Timestamp?,
+        durationLabel: json['durationLabel'] as String?,
+        coverBannerUrl: json['coverBannerUrl'] as String?,
+      );
 
   Map<String, dynamic> toJson() => {
         'uid': uid,

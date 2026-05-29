@@ -64,8 +64,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '939992324681',
     projectId: 'clubconnect-17ec5',
     storageBucket: 'clubconnect-17ec5.firebasestorage.app',
-    androidClientId: '939992324681-5chbqf0s074btmsbebm7jtk7kvqeh04b.apps.googleusercontent.com',
-    iosClientId: '939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com',
+    androidClientId:
+        '939992324681-5chbqf0s074btmsbebm7jtk7kvqeh04b.apps.googleusercontent.com',
+    iosClientId:
+        '939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com',
     iosBundleId: 'com.example.csc234Clubconnect',
   );
 
@@ -75,8 +77,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '939992324681',
     projectId: 'clubconnect-17ec5',
     storageBucket: 'clubconnect-17ec5.firebasestorage.app',
-    androidClientId: '939992324681-5chbqf0s074btmsbebm7jtk7kvqeh04b.apps.googleusercontent.com',
-    iosClientId: '939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com',
+    androidClientId:
+        '939992324681-5chbqf0s074btmsbebm7jtk7kvqeh04b.apps.googleusercontent.com',
+    iosClientId:
+        '939992324681-5m7ffs58tfgm4b1n38e38q19e5nutmrl.apps.googleusercontent.com',
     iosBundleId: 'com.example.csc234Clubconnect',
   );
 
@@ -89,5 +93,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'clubconnect-17ec5.firebasestorage.app',
     measurementId: 'G-J40ECNS054',
   );
-
 }

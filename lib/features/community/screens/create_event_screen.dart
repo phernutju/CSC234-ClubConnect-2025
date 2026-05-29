@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../services/storage_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,10 +20,10 @@ class CreateEventScreen extends StatefulWidget {
 }
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
-  final _nameController     = TextEditingController();
+  final _nameController = TextEditingController();
   final _locationController = TextEditingController();
-  final _detailController   = TextEditingController();
-  final _memberController   = TextEditingController(text: '0');
+  final _detailController = TextEditingController();
+  final _memberController = TextEditingController(text: '0');
 
   DateTime? _startDate;
   DateTime? _endDate;
@@ -32,6 +31,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   TimeOfDay? _endTime;
   Uint8List? _coverBytes;
   bool _isSubmitting = false;
+
   /// Controls whether the event is publicly visible to all community members.
   bool _isPublished = false;
 
@@ -42,7 +42,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String? _detailError;
   String? _membersError;
 
-  static const int _nameMax   = 50;
+  static const int _nameMax = 50;
   static const int _detailMax = 500;
 
   @override
@@ -93,9 +93,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           backgroundColor: Colors.white,
           dialBackgroundColor: const Color(0xFFF5F5F5),
           dayPeriodColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected) ? const Color(0xFFFF6B4A) : Colors.white),
+              states.contains(WidgetState.selected)
+                  ? const Color(0xFFFF6B4A)
+                  : Colors.white),
           dayPeriodTextColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected) ? Colors.white : Colors.black),
+              states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : Colors.black),
         ),
       );
 
@@ -106,7 +110,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       initialDate: _startDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _datePickerTheme(ctx), child: child!),
     );
     if (picked != null) {
       setState(() {
@@ -123,7 +128,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       initialDate: _endDate ?? _startDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _datePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _endDate = picked);
   }
@@ -133,7 +139,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       context: context,
       initialTime: _startTime ?? TimeOfDay.now(),
       initialEntryMode: TimePickerEntryMode.input,
-      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _timePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _startTime = picked);
   }
@@ -143,7 +150,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       context: context,
       initialTime: _endTime ?? _startTime ?? TimeOfDay.now(),
       initialEntryMode: TimePickerEntryMode.input,
-      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _timePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _endTime = picked);
   }
@@ -152,22 +160,25 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   /// when at least one field is invalid.
   bool _validate() {
     final nameErr = _nameController.text.trim().isEmpty
-        ? AppStrings.createEventErrName : null;
-    final dateErr = _startDate == null
-        ? AppStrings.createEventErrDate : null;
+        ? AppStrings.createEventErrName
+        : null;
+    final dateErr = _startDate == null ? AppStrings.createEventErrDate : null;
     final locationErr = _locationController.text.trim().isEmpty
-        ? AppStrings.createEventErrLocation : null;
+        ? AppStrings.createEventErrLocation
+        : null;
     final detailErr = _detailController.text.trim().isEmpty
-        ? AppStrings.createEventErrDetail : null;
+        ? AppStrings.createEventErrDetail
+        : null;
     final membersErr = (int.tryParse(_memberController.text) ?? 0) < 1
-        ? AppStrings.createEventErrMembers : null;
+        ? AppStrings.createEventErrMembers
+        : null;
 
     setState(() {
-      _nameError      = nameErr;
+      _nameError = nameErr;
       _startDateError = dateErr;
-      _locationError  = locationErr;
-      _detailError    = detailErr;
-      _membersError   = membersErr;
+      _locationError = locationErr;
+      _detailError = detailErr;
+      _membersError = membersErr;
     });
 
     return nameErr == null &&
@@ -182,9 +193,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final hostName =
-        context.read<AppAuthProvider>().user?.displayName ?? '';
-    final ep = context.read<EventProvider>();
     final messenger = ScaffoldMessenger.of(context);
 
     try {
@@ -200,30 +208,34 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       final st = _startTime ?? const TimeOfDay(hour: 0, minute: 0);
       final et = _endTime ?? st;
       final startDateTime = DateTime(
-        _startDate!.year, _startDate!.month, _startDate!.day,
-        st.hour, st.minute,
+        _startDate!.year,
+        _startDate!.month,
+        _startDate!.day,
+        st.hour,
+        st.minute,
       );
       final endBase = _endDate ?? _startDate!;
       final endDateTime = DateTime(
-        endBase.year, endBase.month, endBase.day,
-        et.hour, et.minute,
+        endBase.year,
+        endBase.month,
+        endBase.day,
+        et.hour,
+        et.minute,
       );
 
-
       await ep.createEvent(
-            communityId: widget.communityId,
-            title: _nameController.text.trim(),
-            description: _detailController.text.trim(),
-            location: _locationController.text.trim(),
-            tags: const [],
-            startDate: Timestamp.fromDate(startDateTime),
-            endDate: Timestamp.fromDate(endDateTime),
-            roomId: widget.communityId,
-            imageUrl: coverImageUrl.isEmpty ? null : coverImageUrl,
-            maxAttendees: memberLimit,
-            
-            isPublished: _isPublished,
-          );
+        communityId: widget.communityId,
+        title: _nameController.text.trim(),
+        description: _detailController.text.trim(),
+        location: _locationController.text.trim(),
+        tags: const [],
+        startDate: Timestamp.fromDate(startDateTime),
+        endDate: Timestamp.fromDate(endDateTime),
+        roomId: widget.communityId,
+        imageUrl: coverImageUrl.isEmpty ? null : coverImageUrl,
+        maxAttendees: memberLimit,
+        isPublished: _isPublished,
+      );
 
       if (ep.error != null) {
         messenger.showSnackBar(SnackBar(content: Text(ep.error!)));
@@ -236,11 +248,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  /// Snackbar is used only for backend errors and success — not for field validation.
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   /// Card placed directly above the Create button.
@@ -287,7 +294,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             value: _isPublished,
             activeThumbColor: Colors.white,
             activeTrackColor: AppColors.primary,
-            onChanged: (bool newValue) => setState(() => _isPublished = newValue),
+            onChanged: (bool newValue) =>
+                setState(() => _isPublished = newValue),
           ),
         ],
       ),
@@ -389,7 +397,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           icon: Icons.location_on_outlined,
                           hint: AppStrings.createEventLocationHint,
                           errorText: _locationError,
-                          onChanged: () => setState(() => _locationError = null),
+                          onChanged: () =>
+                              setState(() => _locationError = null),
                         ),
                         const SizedBox(height: AppSizes.paddingM),
 
@@ -423,11 +432,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           },
                           onChanged: (val) {
                             final parsed = int.tryParse(val);
-                            final normalized =
-                                (parsed == null || parsed < 0) ? '0' : parsed.toString();
+                            final normalized = (parsed == null || parsed < 0)
+                                ? '0'
+                                : parsed.toString();
                             if (normalized != val) {
                               _memberController.text = normalized;
-                              _memberController.selection = TextSelection.collapsed(
+                              _memberController.selection =
+                                  TextSelection.collapsed(
                                 offset: normalized.length,
                               );
                             }
@@ -448,12 +459,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             onPressed: _isSubmitting ? null : _onCreate,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+                              disabledBackgroundColor:
+                                  AppColors.primary.withValues(alpha: 0.6),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                borderRadius:
+                                    BorderRadius.circular(AppSizes.radiusPill),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: AppSizes.paddingM),
                             ),
                             child: _isSubmitting
                                 ? const SizedBox(
@@ -636,7 +650,9 @@ class _LimitedTextField extends StatelessWidget {
           maxLength: maxLength,
           maxLines: maxLines,
           onChanged: onChanged,
-          buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
+          buildCounter: (_,
+                  {required currentLength, required isFocused, maxLength}) =>
+              null,
           style: AppTextStyles.poppins(fontSize: AppSizes.fontSM),
           decoration: InputDecoration(
             hintText: hint,

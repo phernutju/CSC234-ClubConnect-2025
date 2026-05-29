@@ -29,10 +29,9 @@ class FirestoreService {
   Future<void> createRoom(RoomModel room) =>
       _db.collection(Collections.rooms).doc(room.roomId).set(room.toJson());
 
-  Stream<List<RoomModel>> roomsStream() => _db
-      .collection(Collections.rooms)
-      .snapshots()
-      .map((snap) => snap.docs.map((d) => RoomModel.fromJson(d.data())).toList());
+  Stream<List<RoomModel>> roomsStream() =>
+      _db.collection(Collections.rooms).snapshots().map((snap) =>
+          snap.docs.map((d) => RoomModel.fromJson(d.data())).toList());
 
   Future<RoomModel?> getRoom(String roomId) async {
     final doc = await _db.collection(Collections.rooms).doc(roomId).get();
@@ -63,10 +62,8 @@ class FirestoreService {
 
   // ── Reviews ────────────────────────────────────────────────────────────────
 
-  Future<void> createReview(ReviewModel review) => _db
-      .collection(Collections.reviews)
-      .doc(review.id)
-      .set(review.toJson());
+  Future<void> createReview(ReviewModel review) =>
+      _db.collection(Collections.reviews).doc(review.id).set(review.toJson());
 
   Stream<List<ReviewModel>> reviewsStream(String communityId) => _db
       .collection(Collections.reviews)

@@ -169,7 +169,6 @@ class SmartBillItemModel {
       );
 }
 
-
 /// Embedded inside SmartPaymentModel.aiVerification
 class AiVerificationResult {
   final double detectedAmount;
@@ -244,8 +243,7 @@ class SmartPaymentModel {
         'amountDue': amountDue,
         if (receiptUrl != null) 'receiptUrl': receiptUrl,
         'status': status,
-        if (aiVerification != null)
-          'aiVerification': aiVerification!.toMap(),
+        if (aiVerification != null) 'aiVerification': aiVerification!.toMap(),
       };
 
   SmartPaymentModel copyWith({

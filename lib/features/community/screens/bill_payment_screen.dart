@@ -12,11 +12,11 @@ import '../../../providers/auth_provider.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _kPrimary = Color(0xFFD85A30);
-const _kBg      = Color(0xFFFDF5F0);
-const _kCream   = Color(0xFFFAECE7);
-const _kBorder  = Color(0xFFF0C4B0);
-const _kDark    = Color(0xFF4A1B0C);
-const _kMuted   = Color(0xFF9A7A6A);
+const _kBg = Color(0xFFFDF5F0);
+const _kCream = Color(0xFFFAECE7);
+const _kBorder = Color(0xFFF0C4B0);
+const _kDark = Color(0xFF4A1B0C);
+const _kMuted = Color(0xFF9A7A6A);
 const _kSuccess = Color(0xFF2E9E5B);
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ class _BillPaymentScreenState extends State<BillPaymentScreen> {
         amountDue: widget.args.myShare,
         slipBytes: _slipBytes!,
       );
-      print('[SLIP] Verification completed with result: $result');
+      debugPrint('[SLIP] Verification completed with result: $result');
       if (mounted) {
         setState(() {
           _verificationResult = result;
@@ -194,8 +194,7 @@ class _Step0 extends StatelessWidget {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding:
-                EdgeInsets.fromLTRB(16, 16, 16, bottomPad + 100),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPad + 100),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -218,13 +217,11 @@ class _Step0 extends StatelessWidget {
                               padding: EdgeInsets.all(16),
                               child: Center(
                                   child: Text('No items',
-                                      style:
-                                          TextStyle(color: _kMuted))),
+                                      style: TextStyle(color: _kMuted))),
                             )
                           ]
                         : args.myItems.asMap().entries.map((e) {
-                            final isLast =
-                                e.key == args.myItems.length - 1;
+                            final isLast = e.key == args.myItems.length - 1;
                             final item = e.value;
                             return Column(
                               children: [
@@ -235,19 +232,15 @@ class _Step0 extends StatelessWidget {
                                     Expanded(
                                       child: Text(item.name,
                                           style: GoogleFonts.poppins(
-                                              fontSize: 14,
-                                              color: _kDark)),
+                                              fontSize: 14, color: _kDark)),
                                     ),
                                     Container(
-                                      padding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
                                           color: _kCream,
                                           borderRadius:
-                                              BorderRadius.circular(
-                                                  20)),
+                                              BorderRadius.circular(20)),
                                       child: Text(
                                         '฿${item.myShare.toStringAsFixed(2)}',
                                         style: GoogleFonts.poppins(
@@ -259,8 +252,7 @@ class _Step0 extends StatelessWidget {
                                   ]),
                                 ),
                                 if (!isLast)
-                                  const Divider(
-                                      height: 1, color: _kBorder),
+                                  const Divider(height: 1, color: _kBorder),
                               ],
                             );
                           }).toList(),
@@ -275,8 +267,8 @@ class _Step0 extends StatelessWidget {
                       bottomRight: Radius.circular(12),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(children: [
                     Text('My share',
                         style: GoogleFonts.poppins(
@@ -293,9 +285,7 @@ class _Step0 extends StatelessWidget {
                 // Scan to pay section
                 _SectionLabel('SCAN TO PAY'),
                 const SizedBox(height: 8),
-                _QrCard(
-                    qrImageUrl: args.qrImageUrl,
-                    hostName: args.hostName),
+                _QrCard(qrImageUrl: args.qrImageUrl, hostName: args.hostName),
                 const SizedBox(height: 20),
                 // Upload slip section
                 _SectionLabel('UPLOAD SLIP'),
@@ -354,8 +344,7 @@ class _Step1 extends StatelessWidget {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding:
-                EdgeInsets.fromLTRB(16, 16, 16, bottomPad + 100),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPad + 100),
             child: Column(
               children: [
                 // Slip preview card
@@ -409,8 +398,7 @@ class _Step2 extends StatelessWidget {
         // Green app bar
         Container(
           color: _kSuccess,
-          padding:
-              EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
           child: const SizedBox(
             height: 56,
             child: Center(
@@ -426,8 +414,7 @@ class _Step2 extends StatelessWidget {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-                16, 24, 16, bottomPad + 100),
+            padding: EdgeInsets.fromLTRB(16, 24, 16, bottomPad + 100),
             child: Column(
               children: [
                 // Green confirmed card
@@ -437,8 +424,8 @@ class _Step2 extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F9F0),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: const Color(0xFF86EFAC), width: 0.5),
+                    border:
+                        Border.all(color: const Color(0xFF86EFAC), width: 0.5),
                   ),
                   child: Column(
                     children: [
@@ -463,8 +450,7 @@ class _Step2 extends StatelessWidget {
                         'Your payment has been confirmed',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: const Color(0xFF15803D)),
+                            fontSize: 13, color: const Color(0xFF15803D)),
                       ),
                     ],
                   ),
@@ -479,23 +465,17 @@ class _Step2 extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      _SummaryRow(
-                          label: 'Bill name',
-                          value: args.billName),
+                      _SummaryRow(label: 'Bill name', value: args.billName),
                       const Divider(height: 1, color: _kBorder),
                       _SummaryRow(
                           label: 'Your share',
-                          value:
-                              '฿${args.myShare.toStringAsFixed(2)}',
+                          value: '฿${args.myShare.toStringAsFixed(2)}',
                           valueColor: _kPrimary,
                           bold: true),
                       const Divider(height: 1, color: _kBorder),
-                      _SummaryRow(
-                          label: 'Transfer to',
-                          value: args.hostName),
+                      _SummaryRow(label: 'Transfer to', value: args.hostName),
                       const Divider(height: 1, color: _kBorder),
-                      _SummaryRow(
-                          label: 'Date & time', value: timeStr),
+                      _SummaryRow(label: 'Date & time', value: timeStr),
                       const Divider(height: 1, color: _kBorder),
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -511,25 +491,21 @@ class _Step2 extends StatelessWidget {
                                   horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F9F0),
-                                borderRadius:
-                                    BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                    color: const Color(0xFF86EFAC),
-                                    width: 0.5),
+                                    color: const Color(0xFF86EFAC), width: 0.5),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(Icons.check_circle,
-                                      size: 12,
-                                      color: Color(0xFF15803D)),
+                                      size: 12, color: Color(0xFF15803D)),
                                   const SizedBox(width: 4),
                                   Text('Confirmed',
                                       style: GoogleFonts.poppins(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
-                                          color:
-                                              const Color(0xFF15803D))),
+                                          color: const Color(0xFF15803D))),
                                 ],
                               ),
                             ),
@@ -576,21 +552,17 @@ class _QrCard extends StatelessWidget {
         children: [
           Text('Scan to pay',
               style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _kDark)),
+                  fontSize: 14, fontWeight: FontWeight.w600, color: _kDark)),
           const SizedBox(height: 4),
           Text('Use your banking app to scan the QR',
-              style: GoogleFonts.poppins(
-                  fontSize: 11, color: _kMuted)),
+              style: GoogleFonts.poppins(fontSize: 11, color: _kMuted)),
           const SizedBox(height: 16),
           if (qrImageUrl.isEmpty)
             Container(
               width: 160,
               height: 160,
               decoration: BoxDecoration(
-                  color: _kCream,
-                  borderRadius: BorderRadius.circular(12)),
+                  color: _kCream, borderRadius: BorderRadius.circular(12)),
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -607,19 +579,15 @@ class _QrCard extends StatelessWidget {
                 height: 160,
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.broken_image,
-                        size: 80, color: _kBorder),
+                    const Icon(Icons.broken_image, size: 80, color: _kBorder),
               ),
             ),
           const SizedBox(height: 12),
           Text(hostName,
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: _kDark)),
+                  fontSize: 13, fontWeight: FontWeight.w600, color: _kDark)),
           Text('PromptPay / Bank transfer',
-              style: GoogleFonts.poppins(
-                  fontSize: 11, color: _kMuted)),
+              style: GoogleFonts.poppins(fontSize: 11, color: _kMuted)),
         ],
       ),
     );
@@ -656,8 +624,7 @@ class _DashedUploadBox extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       color: _kPrimary)),
               Text('JPG or PNG',
-                  style: GoogleFonts.poppins(
-                      fontSize: 11, color: _kMuted)),
+                  style: GoogleFonts.poppins(fontSize: 11, color: _kMuted)),
             ],
           ),
         ),
@@ -709,8 +676,7 @@ class _SlipPreviewTile extends StatelessWidget {
                         color: _kDark)),
                 const SizedBox(height: 2),
                 Text('Tap to change',
-                    style: GoogleFonts.poppins(
-                        fontSize: 11, color: _kSuccess)),
+                    style: GoogleFonts.poppins(fontSize: 11, color: _kSuccess)),
               ],
             ),
           ),
@@ -749,8 +715,7 @@ class _SlipDocCard extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
               color: _kCream, borderRadius: BorderRadius.circular(8)),
-          child: const Icon(Icons.image_outlined,
-              color: _kPrimary, size: 28),
+          child: const Icon(Icons.image_outlined, color: _kPrimary, size: 28),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -766,14 +731,12 @@ class _SlipDocCard extends StatelessWidget {
                       color: _kDark)),
               const SizedBox(height: 2),
               Text(_sizeLabel,
-                  style: GoogleFonts.poppins(
-                      fontSize: 11, color: _kMuted)),
+                  style: GoogleFonts.poppins(fontSize: 11, color: _kMuted)),
             ],
           ),
         ),
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
               color: const Color(0xFFFFF8E6),
               borderRadius: BorderRadius.circular(20)),
@@ -829,8 +792,7 @@ class _AiVerifyCard extends StatelessWidget {
                         color: _kDark)),
                 const SizedBox(height: 4),
                 Text('Please wait a moment',
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, color: _kMuted)),
+                    style: GoogleFonts.poppins(fontSize: 12, color: _kMuted)),
               ],
             )
           : result == null
@@ -841,8 +803,7 @@ class _AiVerifyCard extends StatelessWidget {
                       width: 56,
                       height: 56,
                       decoration: const BoxDecoration(
-                          color: Color(0xFFE8F9F0),
-                          shape: BoxShape.circle),
+                          color: Color(0xFFE8F9F0), shape: BoxShape.circle),
                       child: const Icon(Icons.verified_user_rounded,
                           color: _kSuccess, size: 32),
                     ),
@@ -854,8 +815,8 @@ class _AiVerifyCard extends StatelessWidget {
                             color: _kSuccess)),
                     const SizedBox(height: 4),
                     Text('Verified successfully',
-                        style: GoogleFonts.poppins(
-                            fontSize: 12, color: _kMuted)),
+                        style:
+                            GoogleFonts.poppins(fontSize: 12, color: _kMuted)),
                     if (result!.reason.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Container(
@@ -883,12 +844,10 @@ class _AiVerifyCard extends StatelessWidget {
                     const Divider(color: _kBorder),
                     _DetailRow(
                         label: 'Amount detected',
-                        value:
-                            '฿${result!.detectedAmount.toStringAsFixed(2)}'),
+                        value: '฿${result!.detectedAmount.toStringAsFixed(2)}'),
                     _DetailRow(
                         label: 'Expected amount',
-                        value:
-                            '฿${result!.expectedAmount.toStringAsFixed(2)}'),
+                        value: '฿${result!.expectedAmount.toStringAsFixed(2)}'),
                     _DetailRow(
                         label: 'Recipient',
                         value: hostName,
@@ -950,16 +909,13 @@ class _DetailRow extends StatelessWidget {
   final String value;
   final bool? isSuccess;
 
-  const _DetailRow(
-      {required this.label, required this.value, this.isSuccess});
+  const _DetailRow({required this.label, required this.value, this.isSuccess});
 
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(children: [
-          Text(label,
-              style: GoogleFonts.poppins(
-                  fontSize: 12, color: _kMuted)),
+          Text(label, style: GoogleFonts.poppins(fontSize: 12, color: _kMuted)),
           const Spacer(),
           if (isSuccess != null)
             Icon(
@@ -970,9 +926,7 @@ class _DetailRow extends StatelessWidget {
           if (isSuccess != null) const SizedBox(width: 4),
           Text(value,
               style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _kDark)),
+                  fontSize: 12, fontWeight: FontWeight.w600, color: _kDark)),
         ]),
       );
 }
@@ -993,21 +947,16 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(children: [
-          Text(label,
-              style: GoogleFonts.poppins(
-                  fontSize: 13, color: _kMuted)),
+          Text(label, style: GoogleFonts.poppins(fontSize: 13, color: _kMuted)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(value,
                 textAlign: TextAlign.end,
                 style: GoogleFonts.poppins(
                     fontSize: 13,
-                    fontWeight: bold
-                        ? FontWeight.w700
-                        : FontWeight.w500,
+                    fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
                     color: valueColor)),
           ),
         ]),
@@ -1025,16 +974,14 @@ class _AppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: _kPrimary,
-      padding:
-          EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
       child: SizedBox(
         height: 64,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back,
-                  color: Colors.white, size: 22),
+              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
               onPressed: () => context.pop(),
             ),
             Expanded(
@@ -1107,8 +1054,8 @@ class _Footer extends StatelessWidget {
         ),
         Container(
           color: _kBg,
-          padding: EdgeInsets.fromLTRB(
-              16, 0, 16, bottomPad > 0 ? bottomPad : 24),
+          padding:
+              EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad : 24),
           child: SizedBox(
             width: double.infinity,
             height: 52,
@@ -1116,8 +1063,7 @@ class _Footer extends StatelessWidget {
               onPressed: enabled ? onTap : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: color,
-                disabledBackgroundColor:
-                    color.withValues(alpha: 0.35),
+                disabledBackgroundColor: color.withValues(alpha: 0.35),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30)),
@@ -1154,14 +1100,12 @@ class _DashBorderPainter extends CustomPainter {
     for (final m in path.computeMetrics()) {
       double d = 0;
       while (d < m.length) {
-        canvas.drawPath(
-            m.extractPath(d, math.min(d + dash, m.length)), paint);
+        canvas.drawPath(m.extractPath(d, math.min(d + dash, m.length)), paint);
         d += dash + gap;
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DashBorderPainter old) =>
-      old.color != color;
+  bool shouldRepaint(covariant _DashBorderPainter old) => old.color != color;
 }

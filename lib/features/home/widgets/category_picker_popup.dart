@@ -34,7 +34,10 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
   void initState() {
     super.initState();
     _localSelected = Set<String>.from(widget.selectedInterests);
-    _categoriesFuture = CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
+    _categoriesFuture = CategoryService()
+        .getApprovedCategories()
+        .map((list) => list.map((c) => c.name).toList())
+        .first;
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.toLowerCase());
     });
@@ -47,7 +50,9 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
   }
 
   void _toggle(String name) {
-    if (!_localSelected.contains(name) && _localSelected.length >= 10 && !widget.singleSelect) {
+    if (!_localSelected.contains(name) &&
+        _localSelected.length >= 10 &&
+        !widget.singleSelect) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('You can select up to 10 interests')),
       );
@@ -129,7 +134,8 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
                 child: Row(
                   children: [
                     const SizedBox(width: AppSizes.paddingM),
-                    const Icon(Icons.search, color: AppColors.textGray, size: 18),
+                    const Icon(Icons.search,
+                        color: AppColors.textGray, size: 18),
                     const SizedBox(width: AppSizes.paddingS),
                     Expanded(
                       child: TextField(
@@ -152,7 +158,8 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
                         onTap: () => _searchController.clear(),
                         child: const Padding(
                           padding: EdgeInsets.only(right: AppSizes.paddingS),
-                          child: Icon(Icons.close, color: AppColors.textGray, size: 16),
+                          child: Icon(Icons.close,
+                              color: AppColors.textGray, size: 16),
                         ),
                       ),
                   ],
@@ -167,7 +174,8 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
+                      child:
+                          CircularProgressIndicator(color: AppColors.primary),
                     );
                   }
                   if (snapshot.hasError) {
@@ -193,7 +201,9 @@ class _CategoryPickerPopupState extends State<CategoryPickerPopup> {
                   }
                   final names = _searchQuery.isEmpty
                       ? allNames
-                      : allNames.where((n) => n.toLowerCase().contains(_searchQuery)).toList();
+                      : allNames
+                          .where((n) => n.toLowerCase().contains(_searchQuery))
+                          .toList();
                   if (names.isEmpty) {
                     return Center(
                       child: Text(

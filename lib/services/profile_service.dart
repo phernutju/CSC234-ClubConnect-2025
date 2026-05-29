@@ -62,7 +62,8 @@ class ProfileService {
       ..removeWhere((k, _) => !_allowedProfileFields.contains(k));
 
     if (avatarBytes != null) {
-      updates['photoURL'] = await _storage.uploadUserAvatar(avatarBytes, userId);
+      updates['photoURL'] =
+          await _storage.uploadUserAvatar(avatarBytes, userId);
     }
 
     if (updates.isEmpty) throw ArgumentError('No updatable fields provided');
@@ -106,7 +107,8 @@ class ProfileService {
         'updatedAt': Timestamp.now(),
       });
     } on FirebaseException catch (e) {
-      throw Exception('Failed to update banner: ${e.message ?? 'Firebase storage/firestore error'}');
+      throw Exception(
+          'Failed to update banner: ${e.message ?? 'Firebase storage/firestore error'}');
     } catch (e) {
       throw Exception('Failed to update banner: $e');
     }
@@ -195,7 +197,9 @@ class ProfileService {
       }
       updates['comment'] = comment.trim();
     }
-    if (updates.isEmpty) throw ArgumentError('No updatable review fields provided');
+    if (updates.isEmpty) {
+      throw ArgumentError('No updatable review fields provided');
+    }
 
     await _ratings(targetUserId).doc(reviewId).update(updates);
   }
@@ -245,8 +249,8 @@ class ProfileService {
     return user;
   }
 
-  Future<void> _requireAdmin(String uid) async {    
-    final doc = await _users.doc(uid).get();  
+  Future<void> _requireAdmin(String uid) async {
+    final doc = await _users.doc(uid).get();
     if (doc.data()?['role'] != 'admin') throw Exception('Permission denied');
   }
 

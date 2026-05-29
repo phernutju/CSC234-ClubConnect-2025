@@ -6,7 +6,6 @@ import '../../../services/category_service.dart';
 import '../../home/widgets/interest_chip.dart';
 import '../widgets/step_progress_bar.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/category_provider.dart';
 import 'package:provider/provider.dart';
 
 class CategoryScreen extends StatefulWidget {
@@ -20,8 +19,10 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   final Set<String> _selected = {};
-  late final Future<List<String>> _categoriesFuture =
-      CategoryService().getApprovedCategories().map((list) => list.map((c) => c.name).toList()).first;
+  late final Future<List<String>> _categoriesFuture = CategoryService()
+      .getApprovedCategories()
+      .map((list) => list.map((c) => c.name).toList())
+      .first;
 
   void _toggleCategory(String label) {
     setState(() {
@@ -77,13 +78,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: 48),
               const StepProgressBar(currentStep: 4),
               const SizedBox(height: AppSizes.paddingL),
-
               GestureDetector(
                 onTap: () => context.pop(),
                 child: const Icon(Icons.arrow_back, color: AppColors.textDark),
               ),
               const SizedBox(height: AppSizes.paddingM),
-
               Text(
                 AppStrings.categoryHeading,
                 style: AppTextStyles.title(
@@ -93,7 +92,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingXS),
-
               Text(
                 AppStrings.categorySubtitle,
                 style: AppTextStyles.body(
@@ -103,14 +101,14 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.paddingL),
-
               Expanded(
                 child: FutureBuilder<List<String>>(
                   future: _categoriesFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState != ConnectionState.done) {
                       return const Center(
-                        child: CircularProgressIndicator(color: AppColors.primary),
+                        child:
+                            CircularProgressIndicator(color: AppColors.primary),
                       );
                     }
                     if (snapshot.hasError) {
@@ -120,7 +118,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           child: Text(
                             'Could not load categories.\n${snapshot.error}',
                             textAlign: TextAlign.center,
-                            style: AppTextStyles.body(color: AppColors.textGray),
+                            style:
+                                AppTextStyles.body(color: AppColors.textGray),
                           ),
                         ),
                       );

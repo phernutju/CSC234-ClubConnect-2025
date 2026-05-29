@@ -48,7 +48,8 @@ class InterestChip extends StatelessWidget {
               style: AppTextStyles.poppins(
                 fontSize: AppSizes.fontSM,
                 fontWeight: FontWeight.w600,
-                color: selected ? AppColors.chipSelectedText : AppColors.textDark,
+                color:
+                    selected ? AppColors.chipSelectedText : AppColors.textDark,
               ),
             ),
           ],

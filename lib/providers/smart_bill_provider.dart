@@ -63,9 +63,7 @@ class SmartBillProvider extends ChangeNotifier {
         notifyListeners();
         if (b != null && b.id != prevId) {
           _itemsSub?.cancel();
-          _itemsSub = _service
-              .streamItems(communityId, eventId, b.id)
-              .listen(
+          _itemsSub = _service.streamItems(communityId, eventId, b.id).listen(
             (list) {
               items = list;
               notifyListeners();
@@ -102,9 +100,8 @@ class SmartBillProvider extends ChangeNotifier {
 
   void loadAllPayments(String communityId, String eventId, String billId) {
     _allPaymentsSub?.cancel();
-    _allPaymentsSub = _service
-        .streamAllPayments(communityId, eventId, billId)
-        .listen(
+    _allPaymentsSub =
+        _service.streamAllPayments(communityId, eventId, billId).listen(
       (list) {
         allPayments = list;
         notifyListeners();
@@ -143,8 +140,8 @@ class SmartBillProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> verifyMemberPayment(String communityId, String eventId,
-      String billId, String userId) async {
+  Future<void> verifyMemberPayment(
+      String communityId, String eventId, String billId, String userId) async {
     try {
       await _service.verifyPaymentManually(
           communityId, eventId, billId, userId);
@@ -154,8 +151,8 @@ class SmartBillProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> rejectMemberPayment(String communityId, String eventId,
-      String billId, String userId) async {
+  Future<void> rejectMemberPayment(
+      String communityId, String eventId, String billId, String userId) async {
     try {
       await _service.rejectPaymentManually(
           communityId, eventId, billId, userId);
@@ -165,8 +162,8 @@ class SmartBillProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> unverifyMemberPayment(String communityId, String eventId,
-      String billId, String userId) async {
+  Future<void> unverifyMemberPayment(
+      String communityId, String eventId, String billId, String userId) async {
     try {
       await _service.unverifyPaymentManually(
           communityId, eventId, billId, userId);
@@ -325,8 +322,7 @@ class SmartBillProvider extends ChangeNotifier {
             id: member.uid,
             userId: member.uid,
             amountDue: memberAmounts[member.uid] ?? 0,
-            status:
-                member.uid == existingBill.hostId ? 'verified' : 'pending',
+            status: member.uid == existingBill.hostId ? 'verified' : 'pending',
           ),
         );
       }
@@ -386,8 +382,7 @@ class SmartBillProvider extends ChangeNotifier {
           final payerName = (bill?.members ?? const [])
               .firstWhere(
                 (m) => m.uid == userId,
-                orElse: () =>
-                    const SmartBillMember(uid: '', name: 'Member'),
+                orElse: () => const SmartBillMember(uid: '', name: 'Member'),
               )
               .name;
           final displayName = payerName.isEmpty ? 'Member' : payerName;

@@ -19,10 +19,10 @@ class EditEventScreen extends StatefulWidget {
 }
 
 class _EditEventScreenState extends State<EditEventScreen> {
-  final _nameController     = TextEditingController();
+  final _nameController = TextEditingController();
   final _hostNameController = TextEditingController();
   final _locationController = TextEditingController();
-  final _detailController   = TextEditingController();
+  final _detailController = TextEditingController();
 
   DateTime? _startDate;
   DateTime? _endDate;
@@ -33,7 +33,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   String _existingCoverUrl = '';
   bool _isClosing = false;
 
-  static const int _nameMax   = 50;
+  static const int _nameMax = 50;
   static const int _detailMax = 500;
   static const int _memberMin = 0;
   static const int _memberMax = 999;
@@ -41,15 +41,15 @@ class _EditEventScreenState extends State<EditEventScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController.text     = widget.event.title;
+    _nameController.text = widget.event.title;
     _hostNameController.text = widget.event.createdBy;
     _locationController.text = widget.event.location;
-    _detailController.text   = widget.event.description;
-    _startDate        = widget.event.startDate.toDate();
-    _endDate          = widget.event.endDate.toDate();
-    _startTime        = TimeOfDay(hour: _startDate!.hour, minute: _startDate!.minute);
-    _endTime          = TimeOfDay(hour: _endDate!.hour, minute: _endDate!.minute);
-    _memberLimit      = widget.event.maxAttendees ?? 0;
+    _detailController.text = widget.event.description;
+    _startDate = widget.event.startDate.toDate();
+    _endDate = widget.event.endDate.toDate();
+    _startTime = TimeOfDay(hour: _startDate!.hour, minute: _startDate!.minute);
+    _endTime = TimeOfDay(hour: _endDate!.hour, minute: _endDate!.minute);
+    _memberLimit = widget.event.maxAttendees ?? 0;
     _existingCoverUrl = widget.event.imageUrl ?? '';
   }
 
@@ -101,9 +101,13 @@ class _EditEventScreenState extends State<EditEventScreen> {
           backgroundColor: Colors.white,
           dialBackgroundColor: const Color(0xFFF5F5F5),
           dayPeriodColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected) ? const Color(0xFFFF6B4A) : Colors.white),
+              states.contains(WidgetState.selected)
+                  ? const Color(0xFFFF6B4A)
+                  : Colors.white),
           dayPeriodTextColor: WidgetStateColor.resolveWith((states) =>
-              states.contains(WidgetState.selected) ? Colors.white : Colors.black),
+              states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : Colors.black),
         ),
       );
 
@@ -114,7 +118,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
       initialDate: _startDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _datePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _startDate = picked);
   }
@@ -126,7 +131,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
       initialDate: _endDate ?? _startDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(data: _datePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _datePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _endDate = picked);
   }
@@ -136,7 +142,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
       context: context,
       initialTime: _startTime ?? TimeOfDay.now(),
       initialEntryMode: TimePickerEntryMode.input,
-      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _timePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _startTime = picked);
   }
@@ -146,7 +153,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
       context: context,
       initialTime: _endTime ?? _startTime ?? TimeOfDay.now(),
       initialEntryMode: TimePickerEntryMode.input,
-      builder: (ctx, child) => Theme(data: _timePickerTheme(ctx), child: child!),
+      builder: (ctx, child) =>
+          Theme(data: _timePickerTheme(ctx), child: child!),
     );
     if (picked != null) setState(() => _endTime = picked);
   }
@@ -204,7 +212,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
     if (confirmed != true || !mounted) return;
     setState(() => _isClosing = true);
     try {
-      await EventService().deleteEvent(widget.event.communityId, widget.event.id);
+      await EventService()
+          .deleteEvent(widget.event.communityId, widget.event.id);
       if (!mounted) return;
       // pop edit → event_chat → event_detail → events list
       context.pop();
@@ -232,13 +241,19 @@ class _EditEventScreenState extends State<EditEventScreen> {
     final st = _startTime ?? const TimeOfDay(hour: 0, minute: 0);
     final et = _endTime ?? st;
     final startDateTime = DateTime(
-      _startDate!.year, _startDate!.month, _startDate!.day,
-      st.hour, st.minute,
+      _startDate!.year,
+      _startDate!.month,
+      _startDate!.day,
+      st.hour,
+      st.minute,
     );
     final endBase = _endDate ?? _startDate!;
     final endDateTime = DateTime(
-      endBase.year, endBase.month, endBase.day,
-      et.hour, et.minute,
+      endBase.year,
+      endBase.month,
+      endBase.day,
+      et.hour,
+      et.minute,
     );
 
     try {
@@ -390,10 +405,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
                           value: _memberLimit,
                           min: _memberMin,
                           max: _memberMax,
-                          onDecrement: () => setState(
-                              () => _memberLimit = (_memberLimit - 1).clamp(_memberMin, _memberMax)),
-                          onIncrement: () => setState(
-                              () => _memberLimit = (_memberLimit + 1).clamp(_memberMin, _memberMax)),
+                          onDecrement: () => setState(() => _memberLimit =
+                              (_memberLimit - 1).clamp(_memberMin, _memberMax)),
+                          onIncrement: () => setState(() => _memberLimit =
+                              (_memberLimit + 1).clamp(_memberMin, _memberMax)),
                         ),
                         const SizedBox(height: AppSizes.paddingXL),
 
@@ -410,9 +425,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                     side: const BorderSide(color: Colors.red),
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                      borderRadius: BorderRadius.circular(
+                                          AppSizes.radiusPill),
                                     ),
-                                    padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: AppSizes.paddingM),
                                   ),
                                   child: _isClosing
                                       ? const SizedBox(
@@ -440,12 +457,15 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                 onPressed: _isClosing ? null : _onSave,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
-                                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+                                  disabledBackgroundColor:
+                                      AppColors.primary.withValues(alpha: 0.6),
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                    borderRadius: BorderRadius.circular(
+                                        AppSizes.radiusPill),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: AppSizes.paddingM),
                                 ),
                                 child: Text(
                                   'Save',
@@ -629,7 +649,9 @@ class _LimitedTextField extends StatelessWidget {
           maxLength: maxLength,
           maxLines: maxLines,
           onChanged: onChanged,
-          buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
+          buildCounter: (_,
+                  {required currentLength, required isFocused, maxLength}) =>
+              null,
           style: AppTextStyles.poppins(fontSize: AppSizes.fontSM),
           decoration: InputDecoration(
             hintText: hint,
@@ -741,7 +763,9 @@ class _PickerField extends StatelessWidget {
                 style: AppTextStyles.poppins(
                   fontSize: AppSizes.fontSM,
                   fontWeight: isPlaceholder ? FontWeight.w300 : FontWeight.w400,
-                  color: isPlaceholder ? AppColors.fieldPlaceholder : AppColors.textDark,
+                  color: isPlaceholder
+                      ? AppColors.fieldPlaceholder
+                      : AppColors.textDark,
                 ),
               ),
             ),
@@ -771,7 +795,8 @@ class _MemberCounter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _CounterButton(icon: Icons.remove, onTap: value > min ? onDecrement : null),
+        _CounterButton(
+            icon: Icons.remove, onTap: value > min ? onDecrement : null),
         const SizedBox(width: AppSizes.paddingM),
         Text(
           value.toString(),
@@ -781,7 +806,8 @@ class _MemberCounter extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSizes.paddingM),
-        _CounterButton(icon: Icons.add, onTap: value < max ? onIncrement : null),
+        _CounterButton(
+            icon: Icons.add, onTap: value < max ? onIncrement : null),
       ],
     );
   }
@@ -805,7 +831,9 @@ class _CounterButton extends StatelessWidget {
           color: enabled ? AppColors.primary : const Color(0xFFBDBDBD),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 18, color: enabled ? AppColors.cardWhite : const Color(0xFF757575)),
+        child: Icon(icon,
+            size: 18,
+            color: enabled ? AppColors.cardWhite : const Color(0xFF757575)),
       ),
     );
   }

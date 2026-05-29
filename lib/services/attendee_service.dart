@@ -27,8 +27,7 @@ class AttendeeService {
 
   // ── Read ───────────────────────────────────────────────────────────────────
 
-  Stream<List<AttendeeModel>> getAttendees(
-      String communityId, String eventId) {
+  Stream<List<AttendeeModel>> getAttendees(String communityId, String eventId) {
     return _attendees(communityId, eventId)
         .orderBy('joinedAt', descending: false)
         .snapshots()
@@ -58,8 +57,7 @@ class AttendeeService {
     if (alreadyIn.exists) throw Exception('Already attending this event');
 
     final userDoc = await _db.collection('users').doc(user.uid).get();
-    final displayName =
-        userDoc.data()?['displayName'] as String? ?? 'User';
+    final displayName = userDoc.data()?['displayName'] as String? ?? 'User';
     final avatarUrl = userDoc.data()?['avatarUrl'] as String?;
 
     final batch = _db.batch();
@@ -78,8 +76,7 @@ class AttendeeService {
   Future<void> leaveEvent(String communityId, String eventId) async {
     final user = _requireAuth();
 
-    final doc =
-        await _attendees(communityId, eventId).doc(user.uid).get();
+    final doc = await _attendees(communityId, eventId).doc(user.uid).get();
     if (!doc.exists) throw Exception('Not attending this event');
 
     final attendee = AttendeeModel.fromJson(doc.data()!, doc.id);
@@ -101,8 +98,7 @@ class AttendeeService {
     String uid,
   ) async {
     final userDoc = await _db.collection('users').doc(uid).get();
-    final displayName =
-        userDoc.data()?['displayName'] as String? ?? 'User';
+    final displayName = userDoc.data()?['displayName'] as String? ?? 'User';
     final avatarUrl = userDoc.data()?['avatarUrl'] as String?;
 
     await _attendees(communityId, eventId).doc(uid).set({

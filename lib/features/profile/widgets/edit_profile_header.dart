@@ -104,8 +104,7 @@ class EditProfileHeader extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: AppColors.avatarSalmon,
-                      border:
-                          Border.all(color: AppColors.cardWhite, width: 3),
+                      border: Border.all(color: AppColors.cardWhite, width: 3),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: avatarBytes != null

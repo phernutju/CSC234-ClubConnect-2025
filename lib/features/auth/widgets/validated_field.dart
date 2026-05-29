@@ -60,7 +60,9 @@ class _ValidatedFieldState extends State<ValidatedField> {
   bool get _wantPopup {
     if (widget.rules.isEmpty) return false;
     final v = widget.controller.text;
-    return _hasFocus && v.isNotEmpty && !widget.rules.every((r) => r.validate(v));
+    return _hasFocus &&
+        v.isNotEmpty &&
+        !widget.rules.every((r) => r.validate(v));
   }
 
   @override
@@ -167,7 +169,8 @@ class _ValidatedFieldState extends State<ValidatedField> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              borderSide:
+                  const BorderSide(color: AppColors.primary, width: 1.5),
             ),
             suffixIcon: widget.isObscurable
                 ? IconButton(
@@ -244,8 +247,8 @@ class _RuleRow extends StatelessWidget {
   const _RuleRow({required this.rule, required this.value});
 
   static const _green = Color(0xFF43A047);
-  static const _red   = Color(0xFFE53935);
-  static const _dark  = Color(0xFF1A1A1A);
+  static const _red = Color(0xFFE53935);
+  static const _dark = Color(0xFF1A1A1A);
 
   @override
   Widget build(BuildContext context) {

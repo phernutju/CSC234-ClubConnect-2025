@@ -45,8 +45,9 @@ class _EventCardState extends State<EventCard> {
   late final Future<String?> _communityNameFuture;
   late final Future<String> _hostNameFuture;
 
-  String get _effectiveCommunityId =>
-      widget.communityId.isNotEmpty ? widget.communityId : widget.event.communityId;
+  String get _effectiveCommunityId => widget.communityId.isNotEmpty
+      ? widget.communityId
+      : widget.event.communityId;
 
   @override
   void initState() {
@@ -95,7 +96,8 @@ class _EventCardState extends State<EventCard> {
     final dateLine = widget.event.formattedDateRange;
     final isClosed = widget.event.status == EventStatus.closed;
     final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final isJoined = currentUid.isNotEmpty && widget.event.isAttending(currentUid);
+    final isJoined =
+        currentUid.isNotEmpty && widget.event.isAttending(currentUid);
 
     return GestureDetector(
       onTap: isClosed
@@ -146,8 +148,8 @@ class _EventCardState extends State<EventCard> {
                     if (isClosed) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
                           borderRadius: BorderRadius.circular(4),
@@ -243,7 +245,9 @@ class _EventCardState extends State<EventCard> {
                       future: _communityNameFuture,
                       builder: (context, snap) {
                         final name = snap.data;
-                        if (name == null || name.isEmpty) return const SizedBox.shrink();
+                        if (name == null || name.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
                         return Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
@@ -400,7 +404,8 @@ class _MemberAvatars extends StatelessWidget {
             Positioned(
               left: i * (_size - _overlap),
               child: _AvatarCircle(
-                label: visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
+                label:
+                    visible[i].isNotEmpty ? visible[i][0].toUpperCase() : '?',
                 color: colors[i % colors.length],
               ),
             ),

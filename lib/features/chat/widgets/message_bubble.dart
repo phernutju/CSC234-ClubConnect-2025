@@ -13,11 +13,11 @@ class ChatMessage {
   /// Non-null means this is an image message.
   final Uint8List? imageBytes;
 
-  final bool isSent;        // true = current user's message (right side)
-  final bool isFlagged;     // true = content was flagged by moderation
+  final bool isSent; // true = current user's message (right side)
+  final bool isFlagged; // true = content was flagged by moderation
   final String senderName;
-  final String time;        // displayed as "HH:mm"
-  final String? readCount;  // e.g. "Read 3" — only used for sent messages
+  final String time; // displayed as "HH:mm"
+  final String? readCount; // e.g. "Read 3" — only used for sent messages
   final String? replyToName;
   final String? replyToText;
 
@@ -83,16 +83,16 @@ class _SentBubble extends StatelessWidget {
   const _SentBubble({required this.message});
 
   static final _shape = BorderRadius.only(
-    topLeft:     Radius.circular(AppSizes.radiusBubble),
-    topRight:    Radius.circular(AppSizes.radiusBubble),
-    bottomLeft:  Radius.circular(AppSizes.radiusBubble),
+    topLeft: Radius.circular(AppSizes.radiusBubble),
+    topRight: Radius.circular(AppSizes.radiusBubble),
+    bottomLeft: Radius.circular(AppSizes.radiusBubble),
     bottomRight: Radius.circular(AppSizes.radiusBubbleTail),
   );
 
   @override
   Widget build(BuildContext context) {
-    final isImage    = message.imageBytes != null;
-    final isFlagged  = message.isFlagged;
+    final isImage = message.imageBytes != null;
+    final isFlagged = message.isFlagged;
 
     return Align(
       alignment: Alignment.centerRight,
@@ -144,7 +144,9 @@ class _SentBubble extends StatelessWidget {
                       ),
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  color: isFlagged ? AppColors.flaggedBubble : AppColors.sentBubble,
+                  color: isFlagged
+                      ? AppColors.flaggedBubble
+                      : AppColors.sentBubble,
                   borderRadius: _shape,
                   boxShadow: const [
                     BoxShadow(color: Color(0x0A000000), blurRadius: 4),
@@ -157,7 +159,6 @@ class _SentBubble extends StatelessWidget {
               ),
             ],
           ),
-
         ],
       ),
     );
@@ -173,9 +174,9 @@ class _ReceivedBubble extends StatelessWidget {
   const _ReceivedBubble({required this.message, this.onSenderTap});
 
   static final _shape = BorderRadius.only(
-    topLeft:     Radius.circular(AppSizes.radiusBubbleTail),
-    topRight:    Radius.circular(AppSizes.radiusBubble),
-    bottomLeft:  Radius.circular(AppSizes.radiusBubble),
+    topLeft: Radius.circular(AppSizes.radiusBubbleTail),
+    topRight: Radius.circular(AppSizes.radiusBubble),
+    bottomLeft: Radius.circular(AppSizes.radiusBubble),
     bottomRight: Radius.circular(AppSizes.radiusBubble),
   );
 
@@ -197,7 +198,6 @@ class _ReceivedBubble extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSizes.paddingS),
-
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -213,7 +213,6 @@ class _ReceivedBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -238,7 +237,6 @@ class _ReceivedBubble extends StatelessWidget {
                   child: _BubbleBody(message: message),
                 ),
                 const SizedBox(width: 4),
-
                 Text(
                   message.time,
                   style: AppTextStyles.poppins(
@@ -419,7 +417,6 @@ class _ReplyStrip extends StatelessWidget {
               ],
             ),
           ),
-
           if (snippet != null)
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 200),

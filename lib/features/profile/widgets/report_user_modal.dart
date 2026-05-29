@@ -176,16 +176,22 @@ class _ReportUserModalState extends State<ReportUserModal> {
                             vertical: AppSizes.paddingS,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                            borderSide: const BorderSide(color: AppColors.reportFieldBg),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusS),
+                            borderSide: const BorderSide(
+                                color: AppColors.reportFieldBg),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                            borderSide: const BorderSide(color: AppColors.reportFieldBg),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusS),
+                            borderSide: const BorderSide(
+                                color: AppColors.reportFieldBg),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                            borderSide: const BorderSide(color: AppColors.reportFieldBg),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusS),
+                            borderSide: const BorderSide(
+                                color: AppColors.reportFieldBg),
                           ),
                         ),
                       ),
@@ -202,7 +208,8 @@ class _ReportUserModalState extends State<ReportUserModal> {
                           backgroundColor: AppColors.reportAccent,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusXL),
                           ),
                         ),
                         child: Text(

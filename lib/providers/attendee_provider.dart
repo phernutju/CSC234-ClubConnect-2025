@@ -49,14 +49,12 @@ class AttendeeProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> joinEvent(String communityId, String eventId) =>
-      _run(() async {
+  Future<void> joinEvent(String communityId, String eventId) => _run(() async {
         await _service.joinEvent(communityId, eventId);
         isAttending = true;
       });
 
-  Future<void> leaveEvent(String communityId, String eventId) =>
-      _run(() async {
+  Future<void> leaveEvent(String communityId, String eventId) => _run(() async {
         await _service.leaveEvent(communityId, eventId);
         isAttending = false;
       });

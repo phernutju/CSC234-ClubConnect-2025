@@ -62,7 +62,7 @@ class EventProvider extends ChangeNotifier {
     _publishedSub?.cancel();
     notifyListeners();
   }
-  
+
   void loadEvents(String communityId) {
     _eventsSub?.cancel();
     _eventsSub = _service.getEvents(communityId).listen(
@@ -157,7 +157,7 @@ class EventProvider extends ChangeNotifier {
     required String roomId,
     String? imageUrl,
     int? maxAttendees,
-    required bool isPublished,  
+    required bool isPublished,
   }) =>
       _run(() => _service.createEvent(
             communityId: communityId,

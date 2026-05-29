@@ -25,7 +25,8 @@ class CommunityInfoModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
+        borderRadius:
+            BorderRadius.all(Radius.circular(AppSizes.rateModalRadius)),
       ),
       clipBehavior: Clip.hardEdge,
       insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
@@ -38,7 +39,10 @@ class CommunityInfoModal extends StatelessWidget {
             // ── Cover image with X button overlay ────────────────────────
             Stack(
               children: [
-                _CoverArea(imageUrl: community.coverImageURL.isEmpty ? null : community.coverImageURL),
+                _CoverArea(
+                    imageUrl: community.coverImageURL.isEmpty
+                        ? null
+                        : community.coverImageURL),
                 Positioned(
                   top: AppSizes.paddingS,
                   right: AppSizes.paddingS,
@@ -136,7 +140,8 @@ class CommunityInfoModal extends StatelessWidget {
                             height: AppSizes.modalActionButtonHeight,
                             decoration: BoxDecoration(
                               color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                              borderRadius:
+                                  BorderRadius.circular(AppSizes.radiusPill),
                             ),
                             alignment: Alignment.center,
                             child: Text(
@@ -148,8 +153,8 @@ class CommunityInfoModal extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -174,7 +179,10 @@ class _CoverArea extends StatelessWidget {
       height: AppSizes.communityInfoCoverHeight,
       width: double.infinity,
       child: imageUrl != null
-          ? Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppColors.inputFill))
+          ? Image.network(imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  Container(color: AppColors.inputFill))
           : Container(color: AppColors.inputFill),
     );
   }

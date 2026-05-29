@@ -47,11 +47,11 @@ class _RateUserModalState extends State<RateUserModal> {
         : '${'★' * _stars}${'☆' * (5 - _stars)}';
     try {
       await context.read<ProfileProvider>().createReview(
-        widget.userId,
-        communityId: widget.communityId,
-        score: _stars.toDouble(),
-        comment: comment,
-      );
+            widget.userId,
+            communityId: widget.communityId,
+            score: _stars.toDouble(),
+            comment: comment,
+          );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {

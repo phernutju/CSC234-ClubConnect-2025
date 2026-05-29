@@ -15,24 +15,27 @@ class ContextMessage {
 }
 
 enum ReportStatus { pending, urgent, reviewed, resolved, dismissed, banned }
+
 enum ReportReason { hateSpeech, scam, harassment, threat, other }
+
 enum ReportTargetType { message, post, user }
+
 enum ReportSource { user, aiDetected, userAiDetected }
 
 class ReportModel {
   final String reportId;
-  final String reporterId;      // who submitted the report
-  final String targetUserId;    // who got reported
-  final String communityId;     // which chatroom/community
-  final String messageId;       // reported message id
-  final String messageText;     // snapshot of reported message text
+  final String reporterId; // who submitted the report
+  final String targetUserId; // who got reported
+  final String communityId; // which chatroom/community
+  final String messageId; // reported message id
+  final String messageText; // snapshot of reported message text
   final ReportReason reason;
   final ReportTargetType targetType;
   final ReportSource source;
   final ReportStatus status;
-  final String? description;    // optional note from reporter
-  final String? reviewedBy;     // admin uid who handled it
-  final DateTime? reviewedAt;   // when admin acted on it
+  final String? description; // optional note from reporter
+  final String? reviewedBy; // admin uid who handled it
+  final DateTime? reviewedAt; // when admin acted on it
   final DateTime createdAt;
 
   const ReportModel({

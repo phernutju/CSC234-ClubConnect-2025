@@ -52,10 +52,9 @@ class ClubCard extends StatelessWidget {
                   ),
               ],
             ),
-
             const SizedBox(width: AppSizes.paddingM),
-
-            Expanded(child: _ClubInfo(
+            Expanded(
+                child: _ClubInfo(
               name: name,
               description: description,
               category: category,
@@ -78,7 +77,8 @@ class _GlowDot extends StatefulWidget {
   State<_GlowDot> createState() => _GlowDotState();
 }
 
-class _GlowDotState extends State<_GlowDot> with SingleTickerProviderStateMixin {
+class _GlowDotState extends State<_GlowDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _pulse;
 
@@ -213,7 +213,6 @@ class _ClubInfo extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 2),
-
         Text(
           description,
           maxLines: 2,
@@ -224,7 +223,6 @@ class _ClubInfo extends StatelessWidget {
           ).copyWith(height: 1.4),
         ),
         const SizedBox(height: 4),
-
         Row(
           children: [
             Expanded(

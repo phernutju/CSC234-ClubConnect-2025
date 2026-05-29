@@ -57,7 +57,8 @@ class MessageService {
       // 3a. Increment violation count and ban if threshold reached
       await _recordViolation(user.uid);
       final newStatus = await getBanStatus(user.uid);
-      return SendResult.flagged(isBanned: newStatus.isBanned, banUntil: newStatus.bannedUntil);
+      return SendResult.flagged(
+          isBanned: newStatus.isBanned, banUntil: newStatus.bannedUntil);
     }
 
     // 3b. Save message to Firestore
@@ -130,7 +131,8 @@ class SendResult {
     this.newBan = false,
   });
 
-  factory SendResult.success() => const SendResult._(status: SendStatus.success);
+  factory SendResult.success() =>
+      const SendResult._(status: SendStatus.success);
 
   factory SendResult.flagged({bool isBanned = false, DateTime? banUntil}) =>
       SendResult._(

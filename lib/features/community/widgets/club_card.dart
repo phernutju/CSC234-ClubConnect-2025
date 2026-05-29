@@ -37,10 +37,9 @@ class ClubCard extends StatelessWidget {
         child: Row(
           children: [
             _ClubThumbnail(imageBytes: coverImage),
-
             const SizedBox(width: AppSizes.paddingM),
-
-            Expanded(child: _ClubInfo(
+            Expanded(
+                child: _ClubInfo(
               name: name,
               description: description,
               memberCount: memberCount,
@@ -101,7 +100,6 @@ class _ClubInfo extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-
         Text(
           description,
           maxLines: 2,
@@ -112,7 +110,6 @@ class _ClubInfo extends StatelessWidget {
           ).copyWith(height: 1.4),
         ),
         const SizedBox(height: 4),
-
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

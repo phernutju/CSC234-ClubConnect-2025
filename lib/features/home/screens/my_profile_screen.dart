@@ -81,7 +81,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Future<void> _pickCover() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return; 
+    if (picked == null) return;
     final bytes = await picked.readAsBytes();
     setState(() => _coverBytes = bytes);
     if (mounted) await context.read<ProfileProvider>().updateCover(bytes);
@@ -101,14 +101,14 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final uid = context.read<AppAuthProvider>().user?.uid;
     if (uid == null) return;
     context.read<ProfileProvider>().updateProfile(
-      uid,
-      {
-        'displayName': _usernameController.text.trim(),
-        'bio': _bioController.text.trim(),
-        'interests': _selectedInterests.toList(),
-      },
-      avatarBytes: _avatarBytes,
-    );
+          uid,
+          {
+            'displayName': _usernameController.text.trim(),
+            'bio': _bioController.text.trim(),
+            'interests': _selectedInterests.toList(),
+          },
+          avatarBytes: _avatarBytes,
+        );
     setState(() => _isEditing = false);
   }
 
@@ -163,7 +163,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     coverBannerUrl: pp.coverBannerUrl,
                     photoURL: profile?.photoURL,
                   ),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSizes.paddingL,
@@ -180,7 +179,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                         onSaveTap: _saveProfile,
                       ),
                       const SizedBox(height: AppSizes.paddingL),
-
                       const _SectionLabel(AppStrings.profileAbout),
                       const SizedBox(height: AppSizes.paddingXS),
                       if (_isEditing)
@@ -195,7 +193,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                           ),
                         ),
                       const SizedBox(height: AppSizes.paddingL),
-
                       const _SectionLabel(AppStrings.profileInterests),
                       const SizedBox(height: AppSizes.paddingS),
                       if (_isEditing)
@@ -216,7 +213,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                           ),
                         ),
                       const SizedBox(height: AppSizes.paddingL),
-
                       _CommentsSection(
                         reviews: reviews,
                         onViewAll: () => _showViewAllModal(context, reviews),
@@ -360,7 +356,6 @@ class _ProfileHeader extends StatelessWidget {
                         ),
             ),
           ),
-
           Positioned(
             left: AppSizes.paddingL,
             bottom: 0,
@@ -448,7 +443,6 @@ class _UserInfoRow extends StatelessWidget {
               ),
             ),
           ),
-
         if (!isEditing) ...[
           const SizedBox(width: AppSizes.paddingXS),
           const Icon(
@@ -467,7 +461,6 @@ class _UserInfoRow extends StatelessWidget {
           ),
           const SizedBox(width: AppSizes.paddingS),
         ],
-
         if (isEditing)
           GestureDetector(
             onTap: onSaveTap,
@@ -671,7 +664,8 @@ class _SelectedInterestsViewState extends State<_SelectedInterestsView> {
 
     final interests = widget.selectedInterests.toList();
     final showToggle = interests.length > 10;
-    final displayed = (!_showAll && showToggle) ? interests.take(10).toList() : interests;
+    final displayed =
+        (!_showAll && showToggle) ? interests.take(10).toList() : interests;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,7 +680,8 @@ class _SelectedInterestsViewState extends State<_SelectedInterestsView> {
                 vertical: AppSizes.paddingXS,
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
+                borderRadius:
+                    BorderRadius.circular(AppSizes.interestChipRadius),
                 border: Border.all(color: AppColors.inputBorder),
               ),
               child: Text(
@@ -776,7 +771,6 @@ class _CommentsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSizes.paddingS),
-
         if (reviews.isEmpty)
           Text(
             AppStrings.rateNoComments,

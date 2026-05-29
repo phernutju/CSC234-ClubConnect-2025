@@ -7,7 +7,8 @@ import '../../../constants/app_constants.dart';
 /// The avatar circle also has a camera-icon overlay for picking a profile picture.
 class EditProfileHeader extends StatelessWidget {
   final Uint8List? avatarBytes;
-  final String? photoUrl; // existing Firestore URL shown before a new image is picked
+  final String?
+      photoUrl; // existing Firestore URL shown before a new image is picked
   final VoidCallback onAvatarTap;
   final Uint8List? coverBytes;
   final VoidCallback onCoverTap;
@@ -98,8 +99,7 @@ class EditProfileHeader extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: AppColors.avatarSalmon,
-                      border:
-                          Border.all(color: AppColors.cardWhite, width: 3),
+                      border: Border.all(color: AppColors.cardWhite, width: 3),
                     ),
                     clipBehavior: Clip.antiAlias,
                     // Priority: newly picked bytes → existing network URL → blank.
@@ -109,7 +109,8 @@ class EditProfileHeader extends StatelessWidget {
                             ? Image.network(
                                 photoUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                errorBuilder: (_, __, ___) =>
+                                    const SizedBox.shrink(),
                               )
                             : null,
                   ),

@@ -70,11 +70,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   /// Pick cover photo and persist immediately via provider (no Save required).
   Future<void> _pickCover() async {
-    print('Picking cover photo...');
+    debugPrint('Picking cover photo...');
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
-    final bytes = await picked.readAsBytes(); 
+    final bytes = await picked.readAsBytes();
     if (mounted) await context.read<ProfileProvider>().updateCover(bytes);
   }
 
@@ -97,10 +97,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   void _saveProfile() {
     final newName = _usernameController.text.trim();
     context.read<ProfileProvider>().saveProfile(
-      username: newName.isEmpty ? 'Username' : newName,
-      bio: _bioController.text.trim(),
-      interests: _editInterests,
-    );
+          username: newName.isEmpty ? 'Username' : newName,
+          bio: _bioController.text.trim(),
+          interests: _editInterests,
+        );
     if (mounted) setState(() => _isEditing = false);
   }
 
@@ -174,8 +174,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   ),
 
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.paddingL),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -191,7 +191,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                                 height: AppSizes.saveButtonHeight,
                                 decoration: BoxDecoration(
                                   color: AppColors.saveButtonColor,
-                                  borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                                  borderRadius: BorderRadius.circular(
+                                      AppSizes.radiusPill),
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
@@ -347,7 +348,8 @@ class _ProfileAppBar extends StatelessWidget {
             ),
             GestureDetector(
               onTap: onLogoutTap,
-              child: const Icon(Icons.logout, color: AppColors.cardWhite, size: 26),
+              child: const Icon(Icons.logout,
+                  color: AppColors.cardWhite, size: 26),
             ),
             const SizedBox(width: AppSizes.paddingM),
           ],
@@ -472,7 +474,8 @@ class _UserInfoRow extends StatelessWidget {
               ),
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
+                contentPadding:
+                    EdgeInsets.symmetric(vertical: AppSizes.paddingXS),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -492,10 +495,10 @@ class _UserInfoRow extends StatelessWidget {
               ),
             ),
           ),
-
         if (!isEditing) ...[
           const SizedBox(width: AppSizes.paddingXS),
-          const Icon(Icons.star, color: AppColors.starColor, size: AppSizes.starIconSize),
+          const Icon(Icons.star,
+              color: AppColors.starColor, size: AppSizes.starIconSize),
           const SizedBox(width: 2),
           Text(
             avgRating.toStringAsFixed(1),
@@ -507,7 +510,6 @@ class _UserInfoRow extends StatelessWidget {
           ),
           const SizedBox(width: AppSizes.paddingS),
         ],
-
         if (!isEditing)
           GestureDetector(
             onTap: onEditTap,
@@ -633,8 +635,7 @@ class _SelectedInterestsView extends StatelessWidget {
             width: AppSizes.interestChipHeight,
             height: AppSizes.interestChipHeight,
             decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(AppSizes.interestChipRadius),
+              borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
               border: Border.all(color: AppColors.inputBorder),
             ),
             child: const Icon(Icons.add, size: 16, color: AppColors.textDark),
@@ -653,8 +654,7 @@ class _SelectedInterestsView extends StatelessWidget {
             vertical: AppSizes.paddingXS,
           ),
           decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(AppSizes.interestChipRadius),
+            borderRadius: BorderRadius.circular(AppSizes.interestChipRadius),
             border: Border.all(color: AppColors.inputBorder),
           ),
           child: Text(
@@ -732,7 +732,6 @@ class _CommentsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSizes.paddingS),
-
         if (ratings.isEmpty)
           Text(
             AppStrings.rateNoComments,

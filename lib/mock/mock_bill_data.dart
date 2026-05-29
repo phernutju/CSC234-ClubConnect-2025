@@ -2,9 +2,9 @@
 import '../models/smart_bill_model.dart';
 import '../models/smart_pay_bill_args.dart';
 
-const mockBillId    = 'bill_mock_001';
+const mockBillId = 'bill_mock_001';
 const mockHostQrUrl = 'https://storage.example.com/qr/alice_promptpay.png';
-const mockSlipUrl   = 'https://storage.example.com/slips/pay_001.jpg';
+const mockSlipUrl = 'https://storage.example.com/slips/pay_001.jpg';
 
 final mockBillMembers = [
   SmartBillMember(uid: 'user_001', name: 'Alice Nakamura'),
@@ -61,8 +61,8 @@ final mockBobPayArgs = SmartPayBillArgs(
   myShare: 182.5,
   myItems: [
     SmartPayBillItem(name: 'Pizza Margherita (large)', myShare: 80.0),
-    SmartPayBillItem(name: 'Craft Beer (x2)',          myShare: 90.0),
-    SmartPayBillItem(name: 'Service Charge (10%)',     myShare: 12.5),
+    SmartPayBillItem(name: 'Craft Beer (x2)', myShare: 90.0),
+    SmartPayBillItem(name: 'Service Charge (10%)', myShare: 12.5),
   ],
   qrImageUrl: mockHostQrUrl,
   hostName: 'Alice Nakamura',

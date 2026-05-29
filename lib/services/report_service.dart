@@ -34,7 +34,6 @@ class ReportService {
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error submitting report: $e');
       rethrow;
     }
   }

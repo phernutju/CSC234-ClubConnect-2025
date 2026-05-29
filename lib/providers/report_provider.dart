@@ -48,8 +48,7 @@ class ReportProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadReportsByCommunity(String communityId) =>
-      _run(() async {
+  Future<void> loadReportsByCommunity(String communityId) => _run(() async {
         reports = await _service.getReportsByCommunity(communityId);
       });
 
