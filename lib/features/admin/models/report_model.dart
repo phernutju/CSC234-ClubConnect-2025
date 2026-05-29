@@ -149,8 +149,7 @@ class AdminReportModel {
     final isUser = r.source == fs.ReportSource.user;
     return AdminReportModel(
       id: r.reportId.isNotEmpty ? r.reportId : 'R-???',
-      aiDetectedLabel:
-          r.source != fs.ReportSource.user ? 'AI detected' : 'User report',
+      aiDetectedLabel: r.source != fs.ReportSource.user ? 'AI detected' : 'Reported',
       category: categoryLabel(reason),
       reportedText: '"${r.messageText}"',
       username: r.targetUserId,

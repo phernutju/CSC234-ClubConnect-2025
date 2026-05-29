@@ -4,10 +4,17 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
 
 /// A single validation rule: human-readable [label] + pure [validate] function.
+/// Set [isLoading] to true while an async check is in flight — the row will
+/// show a spinner instead of the pass/fail icon.
 class FieldRule {
   final String label;
   final bool Function(String) validate;
-  const FieldRule({required this.label, required this.validate});
+  final bool isLoading;
+  const FieldRule({
+    required this.label,
+    required this.validate,
+    this.isLoading = false,
+  });
 }
 
 /// Text field that manages its own [FocusNode] and shows a floating rule-card
@@ -228,10 +235,11 @@ class _RulePopup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (int i = 0; i < rules.length; i++) ...[
-            if (i > 0) const SizedBox(height: 8),
-            _RuleRow(rule: rules[i], value: value),
-          ],
+          for (int i = 0, shown = 0; i < rules.length; i++)
+            if (rules[i].isLoading || !rules[i].validate(value)) ...[
+              if (shown++ > 0) const SizedBox(height: 8),
+              _RuleRow(rule: rules[i], value: value),
+            ],
         ],
       ),
     );
@@ -255,18 +263,25 @@ class _RuleRow extends StatelessWidget {
     final pass = rule.validate(value);
     return Row(
       children: [
-        Container(
+        SizedBox(
           width: 22,
           height: 22,
-          decoration: BoxDecoration(
-            color: pass ? _green : _red,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            pass ? Icons.check : Icons.close,
-            color: Colors.white,
-            size: 14,
-          ),
+          child: rule.isLoading
+              ? const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF797979),
+                )
+              : Container(
+                  decoration: BoxDecoration(
+                    color: pass ? _green : _red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    pass ? Icons.check : Icons.close,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
         ),
         const SizedBox(width: 8),
         Text(
@@ -274,7 +289,7 @@ class _RuleRow extends StatelessWidget {
           style: GoogleFonts.nunito(
             fontWeight: FontWeight.w700,
             fontSize: 14,
-            color: pass ? _green : _dark,
+            color: rule.isLoading ? _dark : (pass ? _green : _dark),
           ),
         ),
       ],

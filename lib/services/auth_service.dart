@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
-import '../models/auth_result.dart';
 
 /// Carries Google OAuth tokens + profile info for the multi-step registration
 /// flow. No Firebase Auth session is created until onboarding completes.
@@ -45,7 +44,7 @@ class AuthService {
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'displayName': displayName,
-        'email': email,
+        'email': email.trim().toLowerCase(),
         'phoneNumber': phoneNumber,
         'photoURL': photoURL ?? '',
         'bio': bio,
@@ -53,10 +52,11 @@ class AuthService {
         'role': 'user',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'mutedCommunities':
-            [], // Initialize with empty list for muted communities
+        'mutedCommunities': [],
       });
       return credential.user!;
+    } on FirebaseAuthException {
+      rethrow;
     } catch (e) {
       throw Exception(e.toString());
     }
@@ -117,7 +117,7 @@ class AuthService {
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'displayName': user.displayName ?? '',
-        'email': user.email ?? '',
+        'email': (user.email ?? '').toLowerCase(),
         'phoneNumber': '',
         'photoURL': user.photoURL ?? '',
         'bio': '',
@@ -192,7 +192,7 @@ class AuthService {
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'displayName': displayName,
-        'email': user.email ?? '',
+        'email': (user.email ?? '').toLowerCase(),
         'phoneNumber': phoneNumber,
         'photoURL': photoURL,
         'bio': bio,
@@ -238,19 +238,33 @@ class AuthService {
     await _auth.signInWithCredential(credential);
   }
 
-  /// Mock pre-check used by the register form before navigating to the phone
-  /// verification step. Returns [EmailAlreadyRegistered] for
-  /// 'existing@test.com'; otherwise [Success].
-  ///
-  /// Replace with a real Firebase email-availability check in production.
-  static Future<AuthResult> preCheckSignUp(String email) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (email.toLowerCase() == 'existing@test.com') {
-      return const EmailAlreadyRegistered();
-    }
-    return const Success();
+  /// Writes the Firestore user document for an already-authenticated user.
+  /// Called at the end of email-signup onboarding when the Firebase Auth
+  /// account was created at the start of the flow.
+  Future<void> writeUserDocument({
+    required User user,
+    required String displayName,
+    required String phoneNumber,
+    required List<String> interests,
+    required String bio,
+    required String photoURL,
+  }) async {
+    await _db.collection('users').doc(user.uid).set({
+      'uid': user.uid,
+      'displayName': displayName,
+      'email': (user.email ?? '').trim().toLowerCase(),
+      'phoneNumber': phoneNumber,
+      'photoURL': photoURL,
+      'bio': bio,
+      'interests': interests,
+      'role': 'user',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'mutedCommunities': [],
+    });
   }
 }
+
 
 class _AuthServiceException implements Exception {
   final String message;
