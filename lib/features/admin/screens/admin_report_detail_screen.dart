@@ -118,31 +118,19 @@ class _SeverityRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFFFF6B4A),
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Text(
-            'Reported',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFE5A0),
+            color: report.aiDetectedLabel == 'AI detected'
+                ? const Color(0xFFFFE5A0)
+                : const Color(0xFFFF6B4A),
             borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
             report.aiDetectedLabel,
             style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-              color: const Color(0xFF000000),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: report.aiDetectedLabel == 'AI detected'
+                  ? const Color(0xFF000000)
+                  : Colors.white,
             ),
           ),
         ),

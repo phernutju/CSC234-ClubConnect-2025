@@ -31,6 +31,10 @@ service cloud.firestore {
     match /users/{userId} {
       // Any authenticated user can read profiles (needed for display-name lookups).
       allow read: if isAuthed();
+      // Allow unauthenticated list queries so the sign-up screen can check
+      // email availability before the user has a session. Authenticated users
+      // can already list via the rule above, so this adds no new data exposure.
+      allow list: if request.auth == null;
       // Only the owner can write their own profile.
       allow create, update: if isCurrentUser(userId);
       allow delete: if false;

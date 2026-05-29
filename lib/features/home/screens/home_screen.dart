@@ -138,7 +138,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   _WelcomeHeading(),
                   const SizedBox(height: AppSizes.paddingM),
                   _SearchRow(
-                    onCreateTap: () => context.push('/create-community'),
+                    onCreateTap: () => context.push(
+                      _selectedTab == 3 ? '/create-event' : '/create-community',
+                    ),
                     onChanged: (q) => setState(() => _searchQuery = q),
                   ),
                   const SizedBox(height: AppSizes.paddingM),

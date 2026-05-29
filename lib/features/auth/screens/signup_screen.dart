@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,9 +30,19 @@ class _SignupScreenState extends State<SignupScreen> {
   // Post-submit auth error — null when no error is present.
   AuthResult? _authError;
 
-  static const _emailRules = [
-    FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
-    FieldRule(label: 'No spaces',          validate: hasNoSpaces),
+  // Real-time email availability check state.
+  bool? _emailAvailable;   // null = unchecked, true = free, false = taken
+  bool  _emailChecking = false;
+  Timer? _debounceTimer;
+
+  List<FieldRule> get _emailRules => [
+    const FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
+    const FieldRule(label: 'No spaces',          validate: hasNoSpaces),
+    FieldRule(
+      label: 'Email not already registered',
+      validate: (_) => _emailAvailable == true,
+      isLoading: _emailChecking,
+    ),
   ];
 
   static const _passwordRules = [
@@ -58,13 +69,14 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController.addListener(_onFieldChanged);
+    _emailController.addListener(_onEmailChanged);
     _passwordController.addListener(_onFieldChanged);
     _confirmController.addListener(_onFieldChanged);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -72,6 +84,35 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   void _onFieldChanged() => setState(() => _authError = null);
+
+  void _onEmailChanged() {
+    setState(() => _authError = null);
+    _scheduleEmailCheck(_emailController.text);
+  }
+
+  void _scheduleEmailCheck(String raw) {
+    _debounceTimer?.cancel();
+    final email = raw.trim();
+    // Don't bother checking until the format rules pass.
+    if (!isValidEmailFormat(email) || !hasNoSpaces(email)) {
+      setState(() { _emailAvailable = null; _emailChecking = false; });
+      return;
+    }
+    setState(() { _emailChecking = true; _emailAvailable = null; });
+    _debounceTimer = Timer(const Duration(milliseconds: 600), () async {
+      debugPrint('[SignupScreen] debounce fired — checking "$email"');
+      try {
+        final available = await AuthService.isEmailAvailable(email);
+        debugPrint('[SignupScreen] result: available=$available → ${available ? "green" : "red"}');
+        if (mounted) setState(() { _emailAvailable = available; _emailChecking = false; });
+      } catch (e) {
+        debugPrint('[SignupScreen] check failed: $e');
+        // Leave _emailAvailable as null (rule shows red) rather than pretending
+        // the email is free. The user will see the cross until the check works.
+        if (mounted) setState(() { _emailAvailable = null; _emailChecking = false; });
+      }
+    });
+  }
 
   Future<void> _onNext() async {
     setState(() { _submitting = true; _authError = null; });
