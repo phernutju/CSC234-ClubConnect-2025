@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../services/auth_service.dart';
@@ -72,7 +73,13 @@ class AppAuthProvider extends ChangeNotifier {
   String? _googleEmail;
   String? _googlePhotoURL;
 
+  // Email registration state — true from createEmailAuthAccount() until
+  // signUp() completes. Keeps the router from redirecting auth routes to
+  // /home while the user is mid-onboarding.
+  bool _pendingEmailRegistration = false;
+
   bool get pendingGoogleRegistration => _pendingGoogleRegistration;
+  bool get pendingEmailRegistration => _pendingEmailRegistration;
   String? get googleDisplayName => _googleDisplayName;
   String? get googleEmail => _googleEmail;
 
@@ -149,7 +156,13 @@ class AppAuthProvider extends ChangeNotifier {
         muteExpiresAt = muteExpiresTs?.toDate();
       }
       _safeNotify();
-    }, onError: (_) {
+    }, onError: (Object e, StackTrace st) {
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider user-doc stream failure',
+        information: ['uid=$uid'],
+      );
       role = 'user';
       isBanned = false;
       isMuted = false;
@@ -189,6 +202,30 @@ class AppAuthProvider extends ChangeNotifier {
 
   void setInterests(List<String> tags) => _tags = tags;
 
+  /// Creates the Firebase Auth account at signup time (step 1 of the
+  /// email-registration flow). Throws [FirebaseAuthException] on failure so
+  /// the signup screen can map error codes to field-level messages.
+  Future<void> createEmailAuthAccount(String email, String password) async {
+    _pendingEmailRegistration = true;
+    notifyListeners();
+    try {
+      await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      _email = email;
+      _password = password; // kept for re-auth after OTP phone sign-out
+    } on FirebaseAuthException {
+      _pendingEmailRegistration = false;
+      notifyListeners();
+      rethrow;
+    } catch (e) {
+      _pendingEmailRegistration = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> sendOtp() async {
     if (_phone == null || _phone!.isEmpty) return;
     _otpState = OtpState.sendingOtp;
@@ -205,10 +242,15 @@ class AppAuthProvider extends ChangeNotifier {
           notifyListeners();
         },
       );
-    } catch (e) {
+    } catch (e, st) {
       _otpState = OtpState.error;
       _otpError = e.toString();
       _canResend = true;
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.sendOtp failed',
+      );
       notifyListeners();
     }
   }
@@ -228,13 +270,26 @@ class AppAuthProvider extends ChangeNotifier {
         verificationId: _verificationId!,
         smsCode: smsCode,
       );
-      await _authService
-          .signOut(); // clear phone-auth session; account created later at CategoryScreen
+      // Clear the temporary phone-auth session. For the email registration
+      // flow, immediately re-authenticate with the email account that was
+      // created at signup time, which was displaced by the phone credential.
+      await _authService.signOut();
+      if (_pendingEmailRegistration && _email != null && _password != null) {
+        await _auth.signInWithEmailAndPassword(
+          email: _email!,
+          password: _password!,
+        );
+      }
       _otpState = OtpState.verified;
       notifyListeners();
-    } catch (e) {
+    } catch (e, st) {
       _otpState = OtpState.error;
       _otpError = e.toString();
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.verifyOtp failed',
+      );
       notifyListeners();
     }
   }
@@ -265,32 +320,40 @@ class AppAuthProvider extends ChangeNotifier {
               : (_googlePhotoURL ?? ''),
         );
       } else {
-        // Email / password registration path.
-        if (_email == null || _password == null || _displayName == null) {
+        // Email registration path — Firebase Auth account was already created
+        // in createEmailAuthAccount(). Just write the Firestore document.
+        final currentUser = _auth.currentUser;
+        if (currentUser == null || _displayName == null) {
           throw Exception('Missing required signup data');
         }
-        debugPrint(
-            '[SignUp] _imageBytes before upload: ${_imageBytes?.length}');
-        final newUser = await _authService.signUp(
-          email: _email!,
-          password: _password!,
+        debugPrint('[SignUp] currentUser uid: ${currentUser.uid}');
+        await _authService.writeUserDocument(
+          user: currentUser,
           displayName: _displayName!,
           phoneNumber: _phone ?? '',
           interests: _tags ?? [],
           bio: _bio ?? '',
           photoURL: _photoURL ?? '',
         );
-        debugPrint('[SignUp] newUser uid: ${newUser.uid}');
         if (_imageBytes != null) {
-          final url =
-              await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
-          await _authService.updatePhotoURL(newUser.uid, url);
+          final url = await _storageService.uploadUserAvatar(
+              _imageBytes!, currentUser.uid);
+          await _authService.updatePhotoURL(currentUser.uid, url);
         }
       }
 
       _clearSignupData();
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('SignUp error: $e');
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.signUp failed',
+        information: [
+          'isGoogle=${_googleCredential != null}',
+          'email=${_email ?? _googleEmail ?? ''}',
+        ],
+      );
       rethrow;
     } finally {
       _isLoading = false;
@@ -310,8 +373,31 @@ class AppAuthProvider extends ChangeNotifier {
         password: password,
       );
       user = credential.user;
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, st) {
+      // Only log non-credential errors — wrong-password / user-not-found are
+      // expected user mistakes and would otherwise spam the dashboard.
+      const expectedCodes = {
+        'wrong-password',
+        'user-not-found',
+        'invalid-email',
+        'invalid-credential',
+      };
+      if (!expectedCodes.contains(e.code)) {
+        FirebaseCrashlytics.instance.recordError(
+          e,
+          st,
+          reason: 'AppAuthProvider.signIn FirebaseAuth error',
+          information: ['code=${e.code}'],
+        );
+      }
       throw AuthException(_mapError(e.code));
+    } catch (e, st) {
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.signIn unexpected error',
+      );
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -348,8 +434,13 @@ class AppAuthProvider extends ChangeNotifier {
       _googleDisplayName = data.displayName;
       _googleEmail = data.email;
       _googlePhotoURL = data.photoURL;
-    } catch (e) {
+    } catch (e, st) {
       _pendingGoogleRegistration = false;
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        reason: 'AppAuthProvider.startGoogleRegistration failed',
+      );
       rethrow;
     } finally {
       _isLoading = false;
@@ -372,6 +463,7 @@ class AppAuthProvider extends ChangeNotifier {
     _googleEmail = null;
     _googlePhotoURL = null;
     _pendingGoogleRegistration = false;
+    _pendingEmailRegistration = false;
     _imageBytes = null;
   }
 

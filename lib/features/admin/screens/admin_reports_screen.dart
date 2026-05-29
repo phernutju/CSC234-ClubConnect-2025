@@ -289,14 +289,18 @@ class _ReportsTabState extends State<_ReportsTab> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFE5A0),
+                            color: r.aiDetectedLabel == 'AI detected'
+                                ? const Color(0xFFFFE5A0)
+                                : const Color(0xFFFF6B4A),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(r.aiDetectedLabel,
                               style: GoogleFonts.poppins(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w400,
-                                  color: Colors.black)),
+                                  color: r.aiDetectedLabel == 'AI detected'
+                                      ? Colors.black
+                                      : Colors.white)),
                         ),
                         const SizedBox(width: 8),
                         Text(r.category,

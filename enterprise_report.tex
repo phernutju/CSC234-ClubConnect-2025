@@ -1,0 +1,586 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[a4paper,top=1.9cm,bottom=2.0cm,left=2.0cm,right=2.0cm,headsep=10pt]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+\usepackage{parskip}
+
+% ── Spacing tightening ────────────────────────────────────────────────────────
+\setlength{\parskip}{3pt plus 1pt minus 1pt}
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{3pt}
+\setlength{\belowcaptionskip}{0pt}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\setlist[itemize]{nosep,leftmargin=1.4em,topsep=2pt,partopsep=0pt}
+\setlist[enumerate]{nosep,leftmargin=1.4em,topsep=2pt,partopsep=0pt}
+\flushbottom
+
+% ── Colours ───────────────────────────────────────────────────────────────────
+\definecolor{kbdgray}{HTML}{F4F4F4}
+\definecolor{rulekey}{HTML}{2A4D8F}
+\definecolor{rulecomment}{HTML}{6C7A89}
+\definecolor{accent}{HTML}{C0392B}
+
+% ── Listings (code/rules) ─────────────────────────────────────────────────────
+\lstdefinestyle{tinycode}{
+    basicstyle=\ttfamily\footnotesize,
+    backgroundcolor=\color{kbdgray},
+    keywordstyle=\color{rulekey}\bfseries,
+    commentstyle=\color{rulecomment}\itshape,
+    stringstyle=\color{accent},
+    breaklines=true,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    frame=single,
+    rulecolor=\color{kbdgray},
+    framerule=0pt,
+    framesep=3pt,
+    aboveskip=3pt,
+    belowskip=3pt,
+    xleftmargin=3pt,
+    xrightmargin=3pt,
+    morekeywords={match,allow,if,function,return,service,rules_version,async,await,final,const,if,else,Future,Stream,class,extends,void,bool,String,int,double,List,Map}
+}
+\lstset{style=tinycode}
+
+% ── Section formatting ────────────────────────────────────────────────────────
+\titleformat{\section}{\large\bfseries\color{rulekey}}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{0.7\baselineskip}{0.15\baselineskip}
+\titlespacing*{\subsection}{0pt}{0.35\baselineskip}{0.05\baselineskip}
+
+% ── Header ────────────────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small ClubConnect --- Enterprise Audit \& Orchestration Report}
+\fancyhead[R]{\small Page \thepage}
+
+% ── Title block is rendered manually below for tight, even spacing ───────────
+
+\begin{document}
+\thispagestyle{fancy}
+
+\begingroup
+\centering
+{\LARGE\bfseries D2 Enterprise Audit \& Orchestration Report\par}
+\vspace{2pt}
+{\large ClubConnect --- Flutter community room application\par}
+\vspace{2pt}
+{\small 2026-05-29\par}
+\endgroup
+\vspace{4pt}
+\hrule height 0.3pt
+\vspace{6pt}
+
+\noindent\textbf{Scope.} This report audits the ClubConnect Flutter application across four
+dimensions: (1) the multi-agent orchestration workflow used during development;
+(2) the domain architecture and Firestore data model; (3) the role-based access
+control (RBAC) matrix and Firestore Security Rules; and (4) the observability
+posture (Firebase Crashlytics) together with a forward-looking feature-flag
+rollback plan. The report cites the repository at the commit on branch
+\texttt{backend/google\_auth}. File paths in this document are repository-relative.
+
+% ═══════════════════════════════════════════════════════════════════════════════
+\section{Agent Workflow}
+\label{sec:agent}
+
+\subsection{Orchestration model}
+
+Development of ClubConnect made systematic use of Claude Code as a multi-agent
+orchestration platform. Two agent tiers were used: a \emph{primary} agent
+handling synthesis, file edits, and human dialogue; and \emph{subagents}
+(notably the read-only \texttt{Explore} agent) dispatched for codebase-wide
+investigation. The primary agent never read the full \texttt{lib/} tree
+directly; instead it delegated wide reads to the \texttt{Explore} subagent and
+consumed a structured markdown report in return. This pattern keeps the primary
+context window free of raw file noise, allowing longer multi-turn sessions
+without compaction.
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Agent} & \textbf{Responsibility} & \textbf{Tools used} \\
+\midrule
+Primary (Opus 4.7) & Synthesis, edits, user dialogue, plan & \texttt{Edit, Write, Bash} \\
+\texttt{Explore} subagent & Read-only codebase survey & \texttt{Read, Grep, Glob} \\
+\texttt{Plan} subagent & Architecture decisions (selective) & read-only \\
+\bottomrule
+\end{tabularx}
+\caption{Agent tiers used during the build and audit phases.}
+\end{table}
+
+\subsection{Representative prompts}
+
+Prompts were written as briefings rather than commands --- each subagent
+prompt opens with the user-goal, the prior work already done, and the required
+output shape. A representative invocation for the audit pass:
+
+\begin{lstlisting}[language=,basicstyle=\ttfamily\scriptsize]
+Agent({ description: "Audit models, providers, services",
+        subagent_type: "Explore",
+        prompt:
+  "Inventory every model under lib/models/, every Firestore collection
+   path touched in lib/services/, every provider in lib/providers/. For
+   each provider list service deps and exposed state. Cross-check for
+   firebase_crashlytics usages, feature flags, and analytics. Return
+   structured markdown, 1500-2500 words. Cite file paths." })
+\end{lstlisting}
+
+Prompts that produced shallow output were rewritten to include (i) explicit
+file lists, (ii) a target word count, and (iii) the consumer's downstream
+need (``so I can cite this in a LaTeX security section'').
+
+\subsection{Challenges: drift, mismatched references, and handoff cost}
+
+Three recurring frictions were observed.
+
+\textbf{Hallucinated file references.} A user instruction once referred to
+\texttt{payment\_service.dart}, which does not exist; the actual payment
+logic lives in \texttt{smart\_bill\_service.dart}. The orchestration policy
+adopted was: \emph{verify before instrumenting}. The primary agent confirmed
+the absence with \texttt{find lib -name "payment*"} before applying the
+edit, and surfaced the mismatch in the response.
+
+\textbf{Role-name collision.} The token \texttt{admin} denotes two distinct
+concepts in this codebase --- a \emph{global} application role
+(\texttt{users/\{uid\}.role}) and a \emph{community-scoped} role
+(\texttt{communities/\{cid\}/members/\{uid\}.role}). Early prompts conflated
+the two; later prompts and rule audits scope the word explicitly.
+
+\textbf{Context drift between turns.} Long sessions risked summarisation
+clipping load-bearing facts (e.g.\ ``the rules file does not cover
+\texttt{events}''). The mitigation was to record critical findings into
+durable artefacts (this report, in-code comments, structured commit
+messages) rather than rely on transcript memory.
+
+\subsection{Feature branch management}
+
+The team used a feature-branch model on top of \texttt{main}. Recent active
+branches included \texttt{backend/google\_auth} (current),
+\texttt{backend/events}, and short-lived integration branches for the bill /
+payment subsystem. Conventions in observed commit history:
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item Feature work is scoped per subsystem (\texttt{backend/events},
+        \texttt{backend/google\_auth}); cross-cutting concerns
+        (\texttt{firebase\_crashlytics}) were applied on the active branch
+        and merged forward.
+  \item Agent-assisted edits are reviewed locally before commit; the
+        primary agent never pushes or force-pushes without explicit
+        user authorisation.
+  \item Generated files (\texttt{lib/firebase\_options.dart}) are
+        excluded from agent-driven edits per the working rules in
+        \texttt{CLAUDE.md}; only \texttt{flutterfire configure}
+        regenerates them.
+\end{itemize}
+
+% ═══════════════════════════════════════════════════════════════════════════════
+\section{Architecture \& Data}
+\label{sec:arch}
+
+\subsection{Layered architecture}
+
+ClubConnect follows a four-layer separation:
+\textbf{UI} (\texttt{features/*}) $\rightarrow$
+\textbf{Providers} (\texttt{providers/*}) $\rightarrow$
+\textbf{Services} (\texttt{services/*}) $\rightarrow$
+\textbf{Firebase / AI}.
+No screen imports Firebase or the AI client directly; all I/O is routed
+through services. Models are plain Dart (no Flutter imports), exposing
+only \texttt{fromFirestore} / \texttt{toFirestore} round-trips.
+
+\subsection{Domain model inventory}
+
+Twenty-three model classes are defined in \texttt{lib/models/}. The
+following grouping summarises the production-relevant entities:
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Model} & \textbf{Purpose} & \textbf{Primary collection} \\
+\midrule
+\texttt{UserModel}          & Profile, role, ban / mute state          & \texttt{users/\{uid\}} \\
+\texttt{CommunityModel}     & Community metadata, trending stats       & \texttt{communities/\{cid\}} \\
+\texttt{MemberModel}        & Community membership + role              & \texttt{communities/\{cid\}/members} \\
+\texttt{MessageModel}       & Chat message, mentions, reply threading  & \texttt{communities/\{cid\}/messages} \\
+\texttt{EventModel}         & Event in a community                     & \texttt{communities/\{cid\}/events} \\
+\texttt{AttendeeModel}      & Event attendance / host flag             & \texttt{.../events/\{eid\}/attendees} \\
+\texttt{SmartBillModel}     & Event bill (split payments, AI verify)   & \texttt{.../events/\{eid\}/event\_bills} \\
+\texttt{SmartBillItemModel} & Line item, per-payer share               & \texttt{.../event\_bills/\{bid\}/items} \\
+\texttt{SmartPaymentModel}  & Per-user payment + AI verification       & \texttt{.../event\_bills/\{bid\}/payments} \\
+\texttt{NotificationModel}  & User-scoped notification                 & \texttt{users/\{uid\}/notifications} \\
+\texttt{ReviewModel}        & Numeric community review                 & \texttt{users/\{uid\}/rating} \\
+\texttt{CategoryModel}      & Global tag registry                      & \texttt{categories/\{cid\}} \\
+\texttt{ReportModel}        & Content / user report (admin queue)      & \texttt{reports/\{rid\}} \\
+\texttt{RuleModel}          & Community rules (AI moderation input)    & embedded in community \\
+\bottomrule
+\end{tabularx}
+\caption{Domain models and the Firestore documents they project to.}
+\end{table}
+
+\subsection{Sub-collection hierarchy}
+
+The Firestore tree is intentionally nested so that authorisation can be
+derived from the document path. Full paths in use:
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+users/{uid}
+users/{uid}/notifications/{notificationId}
+users/{uid}/rating/{ratingId}
+users/{uid}/interestScores/{tagSlug}
+
+communities/{communityId}
+communities/{communityId}/members/{userId}
+communities/{communityId}/messages/{messageId}
+communities/{communityId}/events/{eventId}
+communities/{communityId}/events/{eventId}/attendees/{userId}
+communities/{communityId}/events/{eventId}/messages/{messageId}
+communities/{communityId}/events/{eventId}/event_bills/{billId}
+communities/{communityId}/events/{eventId}/event_bills/{billId}/items/{itemId}
+communities/{communityId}/events/{eventId}/event_bills/{billId}/payments/{userId}
+
+community_activity/{communityId}/activeUsers/{userId}
+categories/{categoryId}
+reports/{reportId}
+\end{lstlisting}
+
+The deepest live path is six levels deep (a payment under a bill under an
+event under a community). This is intentional: it lets a single security
+predicate at the \texttt{community} level transitively gate every nested
+document via membership / role checks.
+
+\subsection{State management}
+
+The team chose the \texttt{provider} package (\texttt{ChangeNotifier}) over
+Riverpod or BLoC. The justification is three-fold:
+
+\begin{enumerate}[leftmargin=*,nosep]
+  \item \textbf{Ceremony cost.} \texttt{ChangeNotifier} requires no code
+        generation and no learning curve beyond \texttt{setState}. For a
+        capstone team, build velocity outranked compile-time guarantees.
+  \item \textbf{Stream-friendly.} Each provider holds named
+        \texttt{StreamSubscription} handles to Firestore queries
+        (\texttt{\_billSub}, \texttt{\_itemsSub}, \texttt{\_paymentSub} in
+        \texttt{SmartBillProvider}) and cancels them in
+        \texttt{dispose()}, eliminating the listener-leak class of bugs.
+  \item \textbf{Boundary discipline.} The strict layer rule (\emph{screens
+        never call services}) is naturally enforced by exposing only
+        provider methods on UI widgets.
+\end{enumerate}
+
+Ten providers are wired at the root in \texttt{lib/main.dart}, one per
+domain (\texttt{AppAuthProvider}, \texttt{CommunityProvider},
+\texttt{EventProvider}, \texttt{SmartBillProvider}, etc.). Cross-provider
+coordination is achieved by injection: e.g.\ \texttt{SmartBillProvider}
+takes a \texttt{NotificationService} constructor argument so that a
+verified payment can write a notification to the host.
+
+\subsection{Key design decisions}
+
+\begin{description}[leftmargin=*,style=nextline,nosep]
+  \item[Route argument wrappers.] Complex inter-route data
+        (\texttt{EventDetailArgs}, \texttt{ChatArgs},
+        \texttt{SmartPayBillArgs}) is passed via typed wrapper classes
+        through \texttt{GoRouter}'s \texttt{extra} channel rather than raw
+        maps, keeping the router contract type-safe.
+  \item[Pre-write AI moderation.] \texttt{GeminiService.moderateMessage()}
+        is invoked \emph{before} any Firestore write in
+        \texttt{chat\_screen.dart}; blocked content never persists. This
+        avoids retroactive cleanup, which is expensive on a nested
+        schema.
+  \item[Event-scoped chat rooms.] \texttt{RoomModel} distinguishes
+        community rooms (permanent) from event rooms (\texttt{expiresAt}
+        bound to event end). Expiry is a query filter, not a delete.
+  \item[Lazy stats windows.] \texttt{CommunityStats} carries a 24-hour
+        rolling window with a lazy reset (\texttt{statsWindowStart}),
+        avoiding scheduled Cloud Functions for the trending feed.
+\end{description}
+
+% ═══════════════════════════════════════════════════════════════════════════════
+\section{Security Matrix}
+\label{sec:sec}
+
+\subsection{RBAC matrix}
+
+ClubConnect recognises three role tokens in two namespaces. Global roles
+live on the user document; community roles live on each membership record.
+
+\begin{table}[h]
+\centering\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{@{}lXXX@{}}
+\toprule
+\textbf{Capability} & \textbf{user (default)} & \textbf{admin (global)} & \textbf{admin / creator (community)} \\
+\midrule
+Read user profiles                 & Yes & Yes & Yes \\
+Edit own profile                   & Yes & Yes & Yes \\
+Edit another user's profile        & No  & No  & No \\
+Browse communities                 & Yes & Yes & Yes \\
+Create community                   & Yes & Yes & Yes \\
+Edit community metadata            & No  & No  & Yes \\
+Add / remove members               & Self only & Self only & Yes \\
+Change member roles                & No  & No  & Yes (creator only for admin promotion) \\
+Post / read messages               & If member & If member & If member \\
+Delete others' messages            & No  & No  & Yes (admin / creator of community) \\
+Submit report                      & Yes & Yes & Yes \\
+Review / resolve reports           & No  & Yes (server-side) & No \\
+Ban / mute user                    & No  & Yes & No \\
+Access \texttt{/admin} routes      & No  & Yes & No \\
+\bottomrule
+\end{tabularx}
+\caption{Role $\times$ capability matrix. ``Server-side'' indicates
+operations that the client cannot perform directly --- the security rules
+forbid the write, and the admin UI must invoke a privileged path (Cloud
+Function or trusted service account).}
+\end{table}
+
+The global \texttt{admin} check is enforced at two points: the router
+redirect in \texttt{lib/router/app\_router.dart} blocks navigation to
+\texttt{/admin*} routes if \texttt{authProvider.role != 'admin'}, and the
+\texttt{AdminReportsScreen} guard re-checks the role on mount as a
+defence-in-depth measure.
+
+\subsection{Firestore Security Rules}
+
+The deployed rule file (\texttt{firestore.rules}) declares five reusable
+predicates and four explicit resource matches before falling through to a
+deny-everything catch-all.
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+function isMember(communityId) {
+  return isAuthed() &&
+    exists(/databases/$(database)/documents/communities/$(communityId)
+           /members/$(request.auth.uid));
+}
+function isAdminOrCreator(communityId) {
+  return isMember(communityId) &&
+    memberRole(communityId) in ['admin', 'creator'];
+}
+\end{lstlisting}
+
+The rules are summarised below; predicates in parentheses are the
+constraint enforced by the rule.
+
+\begin{table}[h]
+\centering\small
+\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\linewidth}{@{}lXX@{}}
+\toprule
+\textbf{Path} & \textbf{Read} & \textbf{Write} \\
+\midrule
+\texttt{users/\{uid\}}                          & \texttt{isAuthed()} & \texttt{create/update}: \texttt{isCurrentUser}; \texttt{delete}: deny \\
+\texttt{users/\{uid\}/notifications/\{n\}}      & owner only           & owner only \\
+\texttt{communities/\{cid\}}                    & \texttt{isAuthed()}  & \texttt{create}: any authed; \texttt{update}: \texttt{isAdminOrCreator}; \texttt{delete}: deny \\
+\texttt{.../members/\{uid\}}                    & \texttt{isAuthed()}  & \texttt{create}: self or admin / creator; \texttt{update}: admin / creator; \texttt{delete}: self or admin / creator \\
+\texttt{.../messages/\{mid\}}                   & \texttt{isMember}    & \texttt{create}: \texttt{isMember}; \texttt{update}: sender, or \texttt{seenBy}-only diff; \texttt{delete}: sender or admin / creator \\
+\texttt{reports/\{rid\}}                        & \texttt{isAuthed()}  & \texttt{create}: any authed; \texttt{update/delete}: deny \\
+\texttt{/\{document=**\}}                       & deny                 & deny \\
+\bottomrule
+\end{tabularx}
+\caption{Effective rule matrix as written in \texttt{firestore.rules}.}
+\end{table}
+
+The \texttt{messages.update} rule is particularly defensive: a non-sender
+may update a message \emph{only} if the diff affects exclusively the
+\texttt{seenBy} field. This permits read-receipts without enabling content
+tampering.
+
+\subsection{Findings and gaps}
+
+The repository's \texttt{firestore.rules} explicitly grants access to
+\texttt{users}, \texttt{users/notifications}, \texttt{communities},
+\texttt{communities/members}, \texttt{communities/messages}, and
+\texttt{reports}. Because the rule set ends with
+\texttt{match /\{document=**\} \{ allow read, write: if false; \}}, every
+unlisted path is denied.
+
+The following live application paths are \emph{not} covered by any
+\texttt{allow} rule and would currently be blocked by the catch-all if the
+rules in source were the deployed rules:
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item \texttt{communities/\{cid\}/events/\{eid\}} and all nested
+        subcollections (\texttt{attendees}, \texttt{messages},
+        \texttt{event\_bills}, \texttt{items}, \texttt{payments}).
+  \item \texttt{community\_activity/\{cid\}/activeUsers/\{uid\}}.
+  \item \texttt{categories/\{cid\}}.
+  \item \texttt{users/\{uid\}/rating/\{rid\}} (consumed by
+        \texttt{RatingProvider} and \texttt{ReviewModel}).
+\end{itemize}
+
+\textbf{Remediation.} Add explicit \texttt{match} blocks for each path
+above, gated on \texttt{isMember(communityId)} for community-scoped paths
+and \texttt{isCurrentUser(userId)} for user-scoped paths, before the next
+deployment. Until this is done, the deployed rule set must remain a
+superset (typically a console-edited permissive policy) or production will
+break.
+
+% ═══════════════════════════════════════════════════════════════════════════════
+\section{Observability \& Rollback}
+\label{sec:obs}
+
+\subsection{Crashlytics integration map}
+
+Firebase Crashlytics has been added to \texttt{pubspec.yaml}
+(\texttt{firebase\_crashlytics: \^{}4.0.0}, resolved to 4.3.10) and wired
+at five sites. Suppressed-error policy: \emph{expected} authentication
+failures (\texttt{wrong-password}, \texttt{user-not-found},
+\texttt{invalid-email}, \texttt{invalid-credential}) are \emph{not}
+recorded --- only unexpected codes are.
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{File} & \textbf{Coverage} & \textbf{Severity} \\
+\midrule
+\texttt{lib/main.dart}                       & Zone-level catch via \texttt{runZonedGuarded}; \texttt{FlutterError.onError}; \texttt{PlatformDispatcher.instance.onError}; collection disabled in debug & fatal \\
+\texttt{lib/services/notification\_service.dart} & try / catch on every write (\texttt{createNotification}, \texttt{markAsRead}, \texttt{markAllAsRead}, \texttt{deleteNotification}, \texttt{getNotifications}) plus stream \texttt{handleError} on \texttt{watchNotifications} & non-fatal \\
+\texttt{lib/providers/smart\_bill\_provider.dart} & \texttt{\_recordError} helper invoked in every catch (\texttt{deleteBill}, \texttt{settleBill}, \texttt{verifyMemberPayment}, \texttt{submitAndVerify}, \texttt{submitPaymentWithSlip}, \texttt{verifySlip}, \texttt{create / updateAndPublishBill}) & non-fatal \\
+\texttt{lib/services/smart\_bill\_service.dart} & try / catch around \texttt{uploadQrImage}, \texttt{uploadSlip}, \texttt{verifySlip} (AI call) & non-fatal \\
+\texttt{lib/providers/auth\_provider.dart} & \texttt{sendOtp}, \texttt{verifyOtp}, \texttt{signUp}, \texttt{startGoogleRegistration}, user-doc stream \texttt{onError}; \texttt{signIn} suppresses expected codes & non-fatal \\
+\bottomrule
+\end{tabularx}
+\caption{Crashlytics instrumentation sites and severity.}
+\end{table}
+
+\subsection{Initialization}
+
+The application entry point in \texttt{lib/main.dart} wraps the runtime in
+a guarded zone, attaches the framework- and platform-level error
+forwarders, and disables collection in debug builds:
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+void main() {
+  runZonedGuarded<Future<void>>(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await dotenv.load(fileName: '.env');
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+
+    await FirebaseCrashlytics.instance
+        .setCrashlyticsCollectionEnabled(!kDebugMode);
+
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+
+    runApp(const ClubConnectApp());
+  }, (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  });
+}
+\end{lstlisting}
+
+Per-call records include a \texttt{reason} string and a contextual
+\texttt{information} payload (community / event / bill / user IDs) so that
+incidents can be triaged without raw stack archaeology.
+
+\subsection{Feature flags --- current state and proposed plan}
+
+\textbf{Current state.} ClubConnect has \emph{no} runtime feature-flag
+mechanism. There are no usages of \texttt{firebase\_remote\_config}, no
+kill switches, and no environment-driven gating beyond the
+\texttt{kDebugMode} check that scopes Crashlytics collection. Rollback
+today is exclusively a code-revert-and-redeploy operation.
+
+\textbf{Proposed plan.} Introduce Firebase Remote Config with a small set
+of flags, each gating an externally dependent or experimental subsystem.
+Suggested flag set:
+
+\begin{table}[h]
+\centering\small
+\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Flag} & \textbf{Gates} & \textbf{Default} \\
+\midrule
+\texttt{ai\_moderation\_enabled}         & Pre-send AI moderation in \texttt{chat\_screen.dart}      & true  \\
+\texttt{ai\_bill\_verification\_enabled} & AI slip verification in \texttt{SmartBillService.verifySlip} & true  \\
+\texttt{google\_auth\_enabled}           & Google sign-in button on welcome / signup screens         & true  \\
+\texttt{phone\_otp\_enabled}             & Phone OTP path in signup flow                              & true  \\
+\texttt{trending\_feed\_enabled}         & Trending-communities computation on home tab               & true  \\
+\bottomrule
+\end{tabularx}
+\caption{Proposed Remote Config flags. All default to \texttt{true}; an
+incident toggles to \texttt{false} as the first rollback step.}
+\end{table}
+
+\subsection{Rollback plan and reversibility tiers}
+
+Operational rollback should escalate through three reversibility tiers,
+matching the \texttt{CLAUDE.md} convention:
+
+\begin{enumerate}[leftmargin=*,nosep]
+  \item \textbf{R2 (easily reversed) --- Remote Config flip.} Set the
+        offending flag to \texttt{false} in the Firebase console.
+        Propagation time is bounded by the client fetch interval (default
+        12 hours; recommend setting \texttt{minimumFetchInterval} to 1
+        hour for fast incident response). No deploy required.
+  \item \textbf{R1 (costly to reverse) --- Tighten Firestore rules.} If
+        a write path is the root cause (e.g.\ a malformed bill document
+        type), publish a rule revision that denies the offending write
+        shape. This is fast (seconds) but requires a rule audit afterwards
+        because the change is global.
+  \item \textbf{R0 (irreversible without effort) --- App rollback.}
+        Re-release a prior signed build via the Play Store /
+        TestFlight rollout channel. Requires user reinstall or
+        background update; only used when client logic is irrecoverably
+        broken.
+\end{enumerate}
+
+\textbf{Crashlytics as the rollback trigger.} The Crashlytics dashboard is
+the primary signal: a crash-free-users-rate drop below 99.0\% or any
+non-fatal recorded under \texttt{SmartBillProvider.submitAndVerify} (a
+revenue-adjacent path) should escalate to a Remote Config flip within
+fifteen minutes. The \texttt{information} fields recorded at each
+instrumentation site (community / event / bill IDs) are sufficient to
+scope the flip to a specific cohort without disabling the feature
+globally if a future flag scheme supports targeting.
+
+% ═══════════════════════════════════════════════════════════════════════════════
+\section*{Appendix A --- File inventory}
+
+\noindent\textbf{Touched by the Crashlytics integration:} \texttt{pubspec.yaml},
+\texttt{lib/main.dart}, \texttt{lib/services/notification\_service.dart},
+\texttt{lib/services/smart\_bill\_service.dart},
+\texttt{lib/providers/smart\_bill\_provider.dart},
+\texttt{lib/providers/auth\_provider.dart}.
+
+\noindent\textbf{Touched by the data hardening pass:}
+\texttt{lib/models/review\_model.dart} (numeric coercion fix:
+\texttt{(json['score'] as num?)?.toDouble()} replaces the unsafe
+\texttt{as double} cast that crashed on integer Firestore values).
+
+\noindent\textbf{Not yet touched (remediation candidates):}
+\texttt{firestore.rules} (missing event / bill / payment / category /
+review paths; see \S\ref{sec:sec}); \texttt{pubspec.yaml} (no
+\texttt{firebase\_remote\_config}; see \S\ref{sec:obs});
+\texttt{android/app/build.gradle} (Crashlytics Gradle plugin for native
+symbol upload is not yet wired --- Dart-side reporting works without it,
+but native NDK symbolication would not).
+
+\vspace{0.6em}\noindent\rule{\linewidth}{0.3pt}\\
+\small \emph{End of report. Compiled from repository state on
+branch \texttt{backend/google\_auth} as of 29 May 2026.}
+
+\end{document}

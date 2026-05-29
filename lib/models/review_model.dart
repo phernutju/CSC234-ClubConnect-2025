@@ -25,7 +25,7 @@ class ReviewModel {
         raterId: (json['raterId'] as String? ?? '').trim(),
         communityId: (json['communityId'] as String? ?? '').trim(),
         communityName: (json['communityName'] as String? ?? '').trim(),
-        score: json['score'] as double? ?? 0.0,
+        score: (json['score'] as num?)?.toDouble() ?? 0.0,
         comment: (json['comment'] as String? ?? '').trim(),
         createdAt: json['createdAt'] as Timestamp? ?? Timestamp.now(),
       );
