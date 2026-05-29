@@ -164,8 +164,8 @@ class SmartBillService {
   Future<String> uploadQrImage(String communityId, String eventId,
       String billId, Uint8List bytes) async {
     try {
-      final ref = _storage.ref(
-          'communities/$communityId/events/$eventId/bills/$billId/qr.jpg');
+      final ref = _storage
+          .ref('communities/$communityId/events/$eventId/bills/$billId/qr.jpg');
       final task =
           await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
       return task.ref.getDownloadURL();

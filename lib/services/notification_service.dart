@@ -86,9 +86,7 @@ class NotificationService {
 
   Future<void> markAsRead(String userId, String notificationId) async {
     try {
-      await _notifications(userId)
-          .doc(notificationId)
-          .update({'isRead': true});
+      await _notifications(userId).doc(notificationId).update({'isRead': true});
     } catch (e, st) {
       await FirebaseCrashlytics.instance.recordError(
         e,
@@ -102,9 +100,8 @@ class NotificationService {
 
   Future<void> markAllAsRead(String userId) async {
     try {
-      final snapshot = await _notifications(userId)
-          .where('isRead', isEqualTo: false)
-          .get();
+      final snapshot =
+          await _notifications(userId).where('isRead', isEqualTo: false).get();
 
       if (snapshot.docs.isEmpty) return;
 
@@ -124,8 +121,7 @@ class NotificationService {
     }
   }
 
-  Future<void> deleteNotification(
-      String userId, String notificationId) async {
+  Future<void> deleteNotification(String userId, String notificationId) async {
     try {
       await _notifications(userId).doc(notificationId).delete();
     } catch (e, st) {

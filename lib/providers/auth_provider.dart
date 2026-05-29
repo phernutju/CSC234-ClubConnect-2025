@@ -79,7 +79,7 @@ class AppAuthProvider extends ChangeNotifier {
   bool _pendingEmailRegistration = false;
 
   bool get pendingGoogleRegistration => _pendingGoogleRegistration;
-  bool get pendingEmailRegistration  => _pendingEmailRegistration;
+  bool get pendingEmailRegistration => _pendingEmailRegistration;
   String? get googleDisplayName => _googleDisplayName;
   String? get googleEmail => _googleEmail;
 
@@ -213,7 +213,7 @@ class AppAuthProvider extends ChangeNotifier {
         email: email,
         password: password,
       );
-      _email    = email;
+      _email = email;
       _password = password; // kept for re-auth after OTP phone sign-out
     } on FirebaseAuthException {
       _pendingEmailRegistration = false;
@@ -336,11 +336,12 @@ class AppAuthProvider extends ChangeNotifier {
           photoURL: _photoURL ?? '',
         );
         if (_imageBytes != null) {
-          final url = await _storageService.uploadUserAvatar(_imageBytes!, currentUser.uid);
+          final url = await _storageService.uploadUserAvatar(
+              _imageBytes!, currentUser.uid);
           await _authService.updatePhotoURL(currentUser.uid, url);
         }
       }
-      
+
       _clearSignupData();
     } catch (e, st) {
       debugPrint('SignUp error: $e');

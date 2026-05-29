@@ -118,8 +118,11 @@ class SmartBillProvider extends ChangeNotifier {
       return true;
     } catch (e, st) {
       error = e.toString();
-      _recordError(e, st, 'deleteBill',
-          info: ['communityId=$communityId', 'eventId=$eventId', 'billId=$billId']);
+      _recordError(e, st, 'deleteBill', info: [
+        'communityId=$communityId',
+        'eventId=$eventId',
+        'billId=$billId'
+      ]);
       notifyListeners();
       return false;
     }
@@ -136,8 +139,11 @@ class SmartBillProvider extends ChangeNotifier {
       return true;
     } catch (e, st) {
       error = e.toString();
-      _recordError(e, st, 'settleBill',
-          info: ['communityId=$communityId', 'eventId=$eventId', 'billId=$billId']);
+      _recordError(e, st, 'settleBill', info: [
+        'communityId=$communityId',
+        'eventId=$eventId',
+        'billId=$billId'
+      ]);
       return false;
     } finally {
       isLoading = false;
@@ -266,8 +272,11 @@ class SmartBillProvider extends ChangeNotifier {
       return created;
     } catch (e, st) {
       error = e.toString();
-      _recordError(e, st, 'createAndPublishBill',
-          info: ['communityId=$communityId', 'eventId=$eventId', 'hostId=$hostId']);
+      _recordError(e, st, 'createAndPublishBill', info: [
+        'communityId=$communityId',
+        'eventId=$eventId',
+        'hostId=$hostId'
+      ]);
       return null;
     } finally {
       isLoading = false;
@@ -344,8 +353,11 @@ class SmartBillProvider extends ChangeNotifier {
       return updated;
     } catch (e, st) {
       error = e.toString();
-      _recordError(e, st, 'updateAndPublishBill',
-          info: ['communityId=$communityId', 'eventId=$eventId', 'billId=${existingBill.id}']);
+      _recordError(e, st, 'updateAndPublishBill', info: [
+        'communityId=$communityId',
+        'eventId=$eventId',
+        'billId=${existingBill.id}'
+      ]);
       return null;
     } finally {
       isLoading = false;
@@ -423,14 +435,13 @@ class SmartBillProvider extends ChangeNotifier {
       return result;
     } catch (e, st) {
       error = e.toString();
-      _recordError(e, st, 'submitAndVerify',
-          info: [
-            'communityId=$communityId',
-            'eventId=$eventId',
-            'billId=$billId',
-            'userId=$userId',
-            'amountDue=$amountDue',
-          ]);
+      _recordError(e, st, 'submitAndVerify', info: [
+        'communityId=$communityId',
+        'eventId=$eventId',
+        'billId=$billId',
+        'userId=$userId',
+        'amountDue=$amountDue',
+      ]);
       return null;
     } finally {
       isLoading = false;
@@ -468,13 +479,12 @@ class SmartBillProvider extends ChangeNotifier {
       return payment;
     } catch (e, st) {
       error = e.toString();
-      _recordError(e, st, 'submitPaymentWithSlip',
-          info: [
-            'communityId=$communityId',
-            'eventId=$eventId',
-            'billId=$billId',
-            'userId=$userId',
-          ]);
+      _recordError(e, st, 'submitPaymentWithSlip', info: [
+        'communityId=$communityId',
+        'eventId=$eventId',
+        'billId=$billId',
+        'userId=$userId',
+      ]);
       return null;
     } finally {
       isLoading = false;
@@ -493,8 +503,10 @@ class SmartBillProvider extends ChangeNotifier {
       return result;
     } catch (e, st) {
       error = e.toString();
-      _recordError(e, st, 'verifySlip',
-          info: ['expectedAmount=$expectedAmount', 'slipBytes=${slipBytes.length}']);
+      _recordError(e, st, 'verifySlip', info: [
+        'expectedAmount=$expectedAmount',
+        'slipBytes=${slipBytes.length}'
+      ]);
       return null;
     } finally {
       isVerifying = false;

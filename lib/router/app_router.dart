@@ -47,7 +47,7 @@ GoRouter createAppRouter(AppAuthProvider authProvider) {
     // During registration flows the user may be briefly authenticated before
     // onboarding is complete. Allow all auth routes while either flag is set.
     if (authProvider.pendingGoogleRegistration) return null;
-    if (authProvider.pendingEmailRegistration)  return null;
+    if (authProvider.pendingEmailRegistration) return null;
 
     final signedIn = authProvider.user != null;
 

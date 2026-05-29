@@ -265,7 +265,6 @@ class AuthService {
   }
 }
 
-
 class _AuthServiceException implements Exception {
   final String message;
   _AuthServiceException(this.message);

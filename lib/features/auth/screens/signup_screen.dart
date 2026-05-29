@@ -70,17 +70,21 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _onEmailChanged()    => setState(() => _emailError = null);
+  void _onEmailChanged() => setState(() => _emailError = null);
   void _onPasswordChanged() => setState(() => _passwordError = null);
-  void _onFieldChanged()    => setState(() {});
+  void _onFieldChanged() => setState(() {});
 
   Future<void> _onNext() async {
-    setState(() { _submitting = true; _emailError = null; _passwordError = null; });
+    setState(() {
+      _submitting = true;
+      _emailError = null;
+      _passwordError = null;
+    });
     try {
       await context.read<AppAuthProvider>().createEmailAuthAccount(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+            _emailController.text.trim(),
+            _passwordController.text,
+          );
       if (!mounted) return;
       context.push('/verify-phone');
     } on FirebaseAuthException catch (e) {
@@ -91,7 +95,8 @@ class _SignupScreenState extends State<SignupScreen> {
         case 'weak-password':
           setState(() => _passwordError = 'Password is too weak');
         default:
-          setState(() => _emailError = 'Something went wrong. Please try again.');
+          setState(
+              () => _emailError = 'Something went wrong. Please try again.');
       }
     } catch (_) {
       if (!mounted) return;
@@ -187,7 +192,6 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-
                             ValidatedField(
                               label: AppStrings.signupEmail,
                               controller: _emailController,
@@ -205,7 +209,6 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ],
                             const SizedBox(height: 16),
-
                             ValidatedField(
                               label: AppStrings.signupPassword,
                               controller: _passwordController,
@@ -223,7 +226,6 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ],
                             const SizedBox(height: 16),
-
                             ValidatedField(
                               label: AppStrings.signupConfirm,
                               controller: _confirmController,
@@ -231,7 +233,6 @@ class _SignupScreenState extends State<SignupScreen> {
                               rules: _confirmRules,
                             ),
                             const SizedBox(height: 24),
-
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
@@ -268,7 +269,6 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-
                             GoogleSignInButton(
                               isLoading: _googleLoading,
                               onPressed: _onGoogleSignIn,
