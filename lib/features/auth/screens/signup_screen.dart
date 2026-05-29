@@ -1,14 +1,11 @@
-import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../constants/app_constants.dart';
-import '../../../models/auth_result.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/auth_service.dart';
 import '../../../utils/validators.dart';
-import '../widgets/auth_error_banner.dart';
 import '../widgets/validated_field.dart';
 import '../widgets/google_sign_in_button.dart';
 
@@ -27,22 +24,13 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _submitting    = false;
   bool _googleLoading = false;
 
-  // Post-submit auth error — null when no error is present.
-  AuthResult? _authError;
+  // Field-level errors shown after a failed submission.
+  String? _emailError;
+  String? _passwordError;
 
-  // Real-time email availability check state.
-  bool? _emailAvailable;   // null = unchecked, true = free, false = taken
-  bool  _emailChecking = false;
-  Timer? _debounceTimer;
-
-  List<FieldRule> get _emailRules => [
-    const FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
-    const FieldRule(label: 'No spaces',          validate: hasNoSpaces),
-    FieldRule(
-      label: 'Email not already registered',
-      validate: (_) => _emailAvailable == true,
-      isLoading: _emailChecking,
-    ),
+  static const _emailRules = [
+    FieldRule(label: 'Valid email format', validate: isValidEmailFormat),
+    FieldRule(label: 'No spaces',          validate: hasNoSpaces),
   ];
 
   static const _passwordRules = [
@@ -70,69 +58,44 @@ class _SignupScreenState extends State<SignupScreen> {
   void initState() {
     super.initState();
     _emailController.addListener(_onEmailChanged);
-    _passwordController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onPasswordChanged);
     _confirmController.addListener(_onFieldChanged);
   }
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
   }
 
-  void _onFieldChanged() => setState(() => _authError = null);
-
-  void _onEmailChanged() {
-    setState(() => _authError = null);
-    _scheduleEmailCheck(_emailController.text);
-  }
-
-  void _scheduleEmailCheck(String raw) {
-    _debounceTimer?.cancel();
-    final email = raw.trim();
-    // Don't bother checking until the format rules pass.
-    if (!isValidEmailFormat(email) || !hasNoSpaces(email)) {
-      setState(() { _emailAvailable = null; _emailChecking = false; });
-      return;
-    }
-    setState(() { _emailChecking = true; _emailAvailable = null; });
-    _debounceTimer = Timer(const Duration(milliseconds: 600), () async {
-      debugPrint('[SignupScreen] debounce fired — checking "$email"');
-      try {
-        final available = await AuthService.isEmailAvailable(email);
-        debugPrint('[SignupScreen] result: available=$available → ${available ? "green" : "red"}');
-        if (mounted) setState(() { _emailAvailable = available; _emailChecking = false; });
-      } catch (e) {
-        debugPrint('[SignupScreen] check failed: $e');
-        // Leave _emailAvailable as null (rule shows red) rather than pretending
-        // the email is free. The user will see the cross until the check works.
-        if (mounted) setState(() { _emailAvailable = null; _emailChecking = false; });
-      }
-    });
-  }
+  void _onEmailChanged()    => setState(() => _emailError = null);
+  void _onPasswordChanged() => setState(() => _passwordError = null);
+  void _onFieldChanged()    => setState(() {});
 
   Future<void> _onNext() async {
-    setState(() { _submitting = true; _authError = null; });
+    setState(() { _submitting = true; _emailError = null; _passwordError = null; });
     try {
-      final result = await AuthService.preCheckSignUp(
+      await context.read<AppAuthProvider>().createEmailAuthAccount(
         _emailController.text.trim(),
+        _passwordController.text,
       );
       if (!mounted) return;
-      switch (result) {
-        case Success():
-          context.read<AppAuthProvider>().setEmailPassword(
-            _emailController.text.trim(),
-            _passwordController.text,
-          );
-          context.push('/verify-phone');
-        case EmailAlreadyRegistered():
-          setState(() => _authError = result);
+      context.push('/verify-phone');
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      switch (e.code) {
+        case 'email-already-in-use':
+          setState(() => _emailError = 'This email is already registered');
+        case 'weak-password':
+          setState(() => _passwordError = 'Password is too weak');
         default:
-          setState(() => _authError = const NetworkError());
+          setState(() => _emailError = 'Something went wrong. Please try again.');
       }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _emailError = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -225,43 +188,22 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Auth-error banner — only after a failed submit.
-                            if (_authError != null) ...[
-                              AuthErrorBanner(
-                                message: switch (_authError!) {
-                                  EmailAlreadyRegistered() =>
-                                    'This email is already registered. '
-                                    'Try logging in instead.',
-                                  _ => 'Something went wrong. Please try again.',
-                                },
-                                onClose: () => setState(() => _authError = null),
-                                action: _authError is EmailAlreadyRegistered
-                                    ? GestureDetector(
-                                        onTap: () => context.go('/login'),
-                                        child: const Text(
-                                          'Log in',
-                                          style: TextStyle(
-                                            color: Color(0xFFC62828),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            decoration:
-                                                TextDecoration.underline,
-                                            decorationColor:
-                                                Color(0xFFC62828),
-                                          ),
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-
                             ValidatedField(
                               label: AppStrings.signupEmail,
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               rules: _emailRules,
                             ),
+                            if (_emailError != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _emailError!,
+                                style: AppTextStyles.body(
+                                  fontSize: AppSizes.fontXS,
+                                  color: const Color(0xFFE53935),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 16),
 
                             ValidatedField(
@@ -270,6 +212,16 @@ class _SignupScreenState extends State<SignupScreen> {
                               isObscurable: true,
                               rules: _passwordRules,
                             ),
+                            if (_passwordError != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _passwordError!,
+                                style: AppTextStyles.body(
+                                  fontSize: AppSizes.fontXS,
+                                  color: const Color(0xFFE53935),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 16),
 
                             ValidatedField(

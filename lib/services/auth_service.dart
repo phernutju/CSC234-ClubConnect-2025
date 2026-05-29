@@ -1,9 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:async' show TimeoutException;
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
-import '../models/auth_result.dart';
 
 /// Carries Google OAuth tokens + profile info for the multi-step registration
 /// flow. No Firebase Auth session is created until onboarding completes.
@@ -238,67 +236,33 @@ class AuthService {
     await _auth.signInWithCredential(credential);
   }
 
-  /// Returns true when [email] has no matching document in the Firestore users
-  /// collection (address is not yet registered), false when it is taken.
-  /// Throws on Firestore / permission errors so callers can handle them
-  /// explicitly. Only [TimeoutException] is suppressed (returns true) so a
-  /// slow network never blocks the sign-up spinner.
-  static Future<bool> isEmailAvailable(String email) async {
-    final trimmed   = email.trim();
-    final normalised = trimmed.toLowerCase();
-    // Query both forms: accounts created before the lowercase-normalisation fix
-    // may be stored with their original casing (e.g. "Zanoopy@gmail.com").
-    // Using whereIn with both values catches either storage format in one round-trip.
-    final queryValues = (normalised == trimmed)
-        ? [normalised]
-        : [normalised, trimmed];
-
-    debugPrint('[EmailCheck] called for: $email');
-    debugPrint('[EmailCheck] whereIn $queryValues');
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', whereIn: queryValues)
-          .limit(1)
-          .get()
-          .timeout(const Duration(seconds: 5));
-      final available = snap.docs.isEmpty;
-      debugPrint(
-        '[EmailCheck] docs=${snap.docs.length} → '
-        'available=$available → ${available ? "GREEN ✓" : "RED ✗"}',
-      );
-      if (snap.docs.isNotEmpty) {
-        debugPrint('[EmailCheck] matched stored email: ${snap.docs.first.data()['email']}');
-      }
-      return available;
-    } on TimeoutException {
-      debugPrint('[EmailCheck] timed out — treating as available, submit will re-check');
-      return true;
-    } on FirebaseException catch (e) {
-      // Do NOT return true on permission-denied — that would silently pass every
-      // existing email. Rethrow so the caller can surface the error honestly.
-      // Root cause: run `firebase deploy --only firestore:rules` to activate the
-      // `allow list: if request.auth == null` rule in firestore.rules.
-      debugPrint('[EmailCheck] FirebaseException (${e.code}): ${e.message}');
-      rethrow;
-    } catch (e) {
-      debugPrint('[EmailCheck] unexpected error: $e');
-      rethrow;
-    }
-  }
-
-  /// Pre-check run before the phone-verification step. Returns
-  /// [EmailAlreadyRegistered] when the address is taken, [Success] when it is
-  /// free, or [NetworkError] on failure.
-  static Future<AuthResult> preCheckSignUp(String email) async {
-    try {
-      final available = await isEmailAvailable(email.trim());
-      return available ? const Success() : const EmailAlreadyRegistered();
-    } catch (_) {
-      return const NetworkError();
-    }
+  /// Writes the Firestore user document for an already-authenticated user.
+  /// Called at the end of email-signup onboarding when the Firebase Auth
+  /// account was created at the start of the flow.
+  Future<void> writeUserDocument({
+    required User user,
+    required String displayName,
+    required String phoneNumber,
+    required List<String> interests,
+    required String bio,
+    required String photoURL,
+  }) async {
+    await _db.collection('users').doc(user.uid).set({
+      'uid': user.uid,
+      'displayName': displayName,
+      'email': (user.email ?? '').trim().toLowerCase(),
+      'phoneNumber': phoneNumber,
+      'photoURL': photoURL,
+      'bio': bio,
+      'interests': interests,
+      'role': 'user',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'mutedCommunities': [],
+    });
   }
 }
+
 
 class _AuthServiceException implements Exception {
   final String message;

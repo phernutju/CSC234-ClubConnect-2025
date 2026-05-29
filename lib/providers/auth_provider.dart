@@ -72,7 +72,13 @@ class AppAuthProvider extends ChangeNotifier {
   String? _googleEmail;
   String? _googlePhotoURL;
 
+  // Email registration state — true from createEmailAuthAccount() until
+  // signUp() completes. Keeps the router from redirecting auth routes to
+  // /home while the user is mid-onboarding.
+  bool _pendingEmailRegistration = false;
+
   bool get pendingGoogleRegistration => _pendingGoogleRegistration;
+  bool get pendingEmailRegistration  => _pendingEmailRegistration;
   String? get googleDisplayName => _googleDisplayName;
   String? get googleEmail => _googleEmail;
 
@@ -184,6 +190,30 @@ class AppAuthProvider extends ChangeNotifier {
 
   void setInterests(List<String> tags) => _tags = tags;
 
+  /// Creates the Firebase Auth account at signup time (step 1 of the
+  /// email-registration flow). Throws [FirebaseAuthException] on failure so
+  /// the signup screen can map error codes to field-level messages.
+  Future<void> createEmailAuthAccount(String email, String password) async {
+    _pendingEmailRegistration = true;
+    notifyListeners();
+    try {
+      await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      _email    = email;
+      _password = password; // kept for re-auth after OTP phone sign-out
+    } on FirebaseAuthException {
+      _pendingEmailRegistration = false;
+      notifyListeners();
+      rethrow;
+    } catch (e) {
+      _pendingEmailRegistration = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> sendOtp() async {
     if (_phone == null || _phone!.isEmpty) return;
     _otpState = OtpState.sendingOtp;
@@ -223,7 +253,16 @@ class AppAuthProvider extends ChangeNotifier {
         verificationId: _verificationId!,
         smsCode: smsCode,
       );
-      await _authService.signOut(); // clear phone-auth session; account created later at CategoryScreen
+      // Clear the temporary phone-auth session. For the email registration
+      // flow, immediately re-authenticate with the email account that was
+      // created at signup time, which was displaced by the phone credential.
+      await _authService.signOut();
+      if (_pendingEmailRegistration && _email != null && _password != null) {
+        await _auth.signInWithEmailAndPassword(
+          email: _email!,
+          password: _password!,
+        );
+      }
       _otpState = OtpState.verified;
       notifyListeners();
     } catch (e) {
@@ -259,25 +298,25 @@ class AppAuthProvider extends ChangeNotifier {
               : (_googlePhotoURL ?? ''),
         );
       } else {
-        // Email / password registration path.
-        if (_email == null || _password == null || _displayName == null) {
+        // Email registration path — Firebase Auth account was already created
+        // in createEmailAuthAccount(). Just write the Firestore document.
+        final currentUser = _auth.currentUser;
+        if (currentUser == null || _displayName == null) {
           throw Exception('Missing required signup data');
         }
-        debugPrint('[SignUp] _imageBytes before upload: ${_imageBytes?.length}');
-        final newUser = await _authService.signUp(
-          email: _email!,
-          password: _password!,
+        debugPrint('[SignUp] currentUser uid: ${currentUser.uid}');
+        await _authService.writeUserDocument(
+          user: currentUser,
           displayName: _displayName!,
           phoneNumber: _phone ?? '',
           interests: _tags ?? [],
           bio: _bio ?? '',
           photoURL: _photoURL ?? '',
         );
-        debugPrint('[SignUp] newUser uid: ${newUser.uid}');
         if (_imageBytes != null) {
-        final url = await _storageService.uploadUserAvatar(_imageBytes!, newUser.uid);
-        await _authService.updatePhotoURL(newUser.uid, url);
-      }
+          final url = await _storageService.uploadUserAvatar(_imageBytes!, currentUser.uid);
+          await _authService.updatePhotoURL(currentUser.uid, url);
+        }
       }
       
       _clearSignupData();
@@ -363,6 +402,7 @@ class AppAuthProvider extends ChangeNotifier {
     _googleEmail = null;
     _googlePhotoURL = null;
     _pendingGoogleRegistration = false;
+    _pendingEmailRegistration = false;
     _imageBytes = null;
   }
 

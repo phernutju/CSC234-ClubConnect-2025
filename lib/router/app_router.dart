@@ -46,10 +46,10 @@ import 'package:flutter/material.dart';
 
 GoRouter createAppRouter(AppAuthProvider authProvider) {
   String? redirect(BuildContext context, GoRouterState state) {
-    // During Google registration the web popup briefly signs in to capture the
-    // credential before signing out again. Allow onboarding routes while this
-    // flag is set to prevent the guard from bouncing the user to /home.
+    // During registration flows the user may be briefly authenticated before
+    // onboarding is complete. Allow all auth routes while either flag is set.
     if (authProvider.pendingGoogleRegistration) return null;
+    if (authProvider.pendingEmailRegistration)  return null;
 
     final signedIn = authProvider.user != null;
 
