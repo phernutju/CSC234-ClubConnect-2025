@@ -8,7 +8,6 @@ import '../../../models/category_model.dart';
 import '../../../providers/category_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../../../models/rule_model.dart';
-import '../../../services/category_service.dart';
 import '../widgets/category_picker_popup.dart';
 import '../widgets/interest_chip.dart';
 
@@ -431,10 +430,6 @@ class _CategoryEditRow extends StatefulWidget {
 }
 
 class _CategoryEditRowState extends State<_CategoryEditRow> {
-  late final Future<List<String>> _categoriesFuture = CategoryService()
-      .getDefaultCategories()
-      .then((list) => list.map((c) => c.name).toList());
-
   void _openPopup(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -460,11 +455,13 @@ class _CategoryEditRowState extends State<_CategoryEditRow> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<String>>(
-      future: _categoriesFuture,
-      builder: (context, snapshot) {
-        final preview = _buildPreview(snapshot.data ?? []);
-        return Column(
+    final categories = context
+        .watch<CategoryProvider>()
+        .approvedCategories
+        .map((c) => c.name)
+        .toList();
+    final preview = _buildPreview(categories);
+    return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(
@@ -508,8 +505,6 @@ class _CategoryEditRowState extends State<_CategoryEditRow> {
             ],
           ],
         );
-      },
-    );
   }
 }
 
