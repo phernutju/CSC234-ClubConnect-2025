@@ -85,8 +85,6 @@ class FakeAuthProvider extends ChangeNotifier implements AppAuthProvider {
   Future<void> startGoogleRegistration() async {}
   @override
   Future<void> signOut() async {}
-  @override
-  void dispose() => super.dispose();
 }
 
 // ─── Community ────────────────────────────────────────────────────────────────
@@ -230,8 +228,6 @@ class FakeCommunityProvider extends ChangeNotifier
       {String? orderField, bool? descending}) async {}
   @override
   Future<void> goToDiscoverPage(int page) async {}
-  @override
-  void dispose() => super.dispose();
 }
 
 // ─── Event ────────────────────────────────────────────────────────────────────
@@ -302,8 +298,6 @@ class FakeEventProvider extends ChangeNotifier implements EventProvider {
   @override
   Future<void> deleteEventMessage(
       String communityId, String eventId, String messageId) async {}
-  @override
-  void dispose() => super.dispose();
 }
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
@@ -406,8 +400,6 @@ class FakeProfileProvider extends ChangeNotifier implements ProfileProvider {
   @override
   Future<ReviewsResult> fetchReviewsForUser(String userId) async =>
       const ReviewsResult(reviews: [], averageScore: 0);
-  @override
-  void dispose() => super.dispose();
 }
 
 // ─── Report ───────────────────────────────────────────────────────────────────
@@ -431,8 +423,6 @@ class FakeReportProvider extends ChangeNotifier implements ReportProvider {
   Future<void> loadReportsByCommunity(String communityId) async {}
   @override
   Future<void> updateReportStatus(String reportId, ReportStatus status) async {}
-  @override
-  void dispose() => super.dispose();
 }
 
 // ─── Category ─────────────────────────────────────────────────────────────────
@@ -452,8 +442,6 @@ class FakeCategoryProvider extends ChangeNotifier implements CategoryProvider {
   Future<void> createUserCategory(String name, String createdBy) async {}
   @override
   Future<void> incrementUsageCount(String categoryId) async {}
-  @override
-  void dispose() => super.dispose();
 }
 
 // ─── Rating ───────────────────────────────────────────────────────────────────
@@ -469,7 +457,4 @@ class FakeRatingProvider extends ChangeNotifier implements RatingProvider {
     _ratings.add(rating);
     notifyListeners();
   }
-
-  @override
-  void dispose() => super.dispose();
 }
