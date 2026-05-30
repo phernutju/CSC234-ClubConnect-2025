@@ -462,49 +462,49 @@ class _CategoryEditRowState extends State<_CategoryEditRow> {
         .toList();
     final preview = _buildPreview(categories);
     return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: AppSizes.paddingS,
+          runSpacing: AppSizes.paddingS,
           children: [
-            Wrap(
-              spacing: AppSizes.paddingS,
-              runSpacing: AppSizes.paddingS,
-              children: [
-                ...preview.map(
-                  (cat) => InterestChip(
-                    label: cat,
-                    selected: widget.selected == cat,
-                    onTap: () => widget.onToggle(cat),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _openPopup(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.paddingM,
-                      vertical: AppSizes.paddingXS,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(AppSizes.interestChipRadius),
-                      border: Border.all(color: AppColors.chipBorder),
-                    ),
-                    child: const Icon(Icons.add,
-                        size: 14, color: AppColors.textDark),
-                  ),
-                ),
-              ],
-            ),
-            if (widget.errorText != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                widget.errorText!,
-                style: AppTextStyles.poppins(
-                  fontSize: AppSizes.fontXS,
-                  color: Colors.red,
-                ),
+            ...preview.map(
+              (cat) => InterestChip(
+                label: cat,
+                selected: widget.selected == cat,
+                onTap: () => widget.onToggle(cat),
               ),
-            ],
+            ),
+            GestureDetector(
+              onTap: () => _openPopup(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingM,
+                  vertical: AppSizes.paddingXS,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius:
+                      BorderRadius.circular(AppSizes.interestChipRadius),
+                  border: Border.all(color: AppColors.chipBorder),
+                ),
+                child:
+                    const Icon(Icons.add, size: 14, color: AppColors.textDark),
+              ),
+            ),
           ],
-        );
+        ),
+        if (widget.errorText != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            widget.errorText!,
+            style: AppTextStyles.poppins(
+              fontSize: AppSizes.fontXS,
+              color: Colors.red,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 

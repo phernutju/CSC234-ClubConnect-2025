@@ -45,7 +45,8 @@ void main() {
       expect(find.text('test@example.com'), findsOneWidget);
     });
 
-    testWidgets('shows Google sign-in button (GestureDetector)', (tester) async {
+    testWidgets('shows Google sign-in button (GestureDetector)',
+        (tester) async {
       await tester.pumpWidget(
           makeTestApp(child: const LoginScreen(), auth: FakeAuthProvider()));
       await tester.pumpAndSettle();

@@ -77,7 +77,8 @@ class FakeAuthProvider extends ChangeNotifier implements AppAuthProvider {
   @override
   Future<void> signUp() async {}
   @override
-  Future<void> signIn({required String email, required String password}) async {}
+  Future<void> signIn(
+      {required String email, required String password}) async {}
   @override
   Future<User?> signInWithGoogle() async => null;
   @override
@@ -212,14 +213,12 @@ class FakeCommunityProvider extends ChangeNotifier
   @override
   Future<void> sendImageMessage(String communityId, Uint8List bytes) async {}
   @override
-  Future<void> markMessageSeen(
-      String communityId, String messageId) async {}
+  Future<void> markMessageSeen(String communityId, String messageId) async {}
   @override
   Future<void> markMessagesSeenBatch(
       String communityId, List<String> messageIds) async {}
   @override
-  Future<void> deleteMessage(
-      String communityId, String messageId) async {}
+  Future<void> deleteMessage(String communityId, String messageId) async {}
   @override
   void loadTrendingCommunities({int limit = 20}) {}
   @override
@@ -343,9 +342,7 @@ class FakeProfileProvider extends ChangeNotifier implements ProfileProvider {
 
   @override
   void saveProfile(
-      {required String username,
-      required String bio,
-      Set<String>? interests}) {
+      {required String username, required String bio, Set<String>? interests}) {
     _username = username;
     _bio = bio;
     notifyListeners();
@@ -433,8 +430,7 @@ class FakeReportProvider extends ChangeNotifier implements ReportProvider {
   @override
   Future<void> loadReportsByCommunity(String communityId) async {}
   @override
-  Future<void> updateReportStatus(
-      String reportId, ReportStatus status) async {}
+  Future<void> updateReportStatus(String reportId, ReportStatus status) async {}
   @override
   void dispose() => super.dispose();
 }

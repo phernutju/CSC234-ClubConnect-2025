@@ -33,7 +33,8 @@ void main() {
       expect(find.text('TestRoom (12)'), findsOneWidget);
     });
 
-    testWidgets('renders message input bar (TextField present)', (tester) async {
+    testWidgets('renders message input bar (TextField present)',
+        (tester) async {
       await tester.pumpWidget(makeTestApp(
         child: const ChatScreen(
           communityName: 'TestRoom',

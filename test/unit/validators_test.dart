@@ -11,8 +11,7 @@ void main() {
         () => expect(v.isValidEmailFormat('userexample.com'), isFalse));
     test('missing domain fails',
         () => expect(v.isValidEmailFormat('user@'), isFalse));
-    test('empty string fails',
-        () => expect(v.isValidEmailFormat(''), isFalse));
+    test('empty string fails', () => expect(v.isValidEmailFormat(''), isFalse));
     test('trims whitespace before checking', () {
       expect(v.isValidEmailFormat('  user@example.com  '), isTrue);
     });
@@ -22,8 +21,7 @@ void main() {
     test('no spaces passes', () => expect(v.hasNoSpaces('hello'), isTrue));
     test('space in middle fails',
         () => expect(v.hasNoSpaces('hel lo'), isFalse));
-    test('leading space fails',
-        () => expect(v.hasNoSpaces(' hello'), isFalse));
+    test('leading space fails', () => expect(v.hasNoSpaces(' hello'), isFalse));
     test('empty string passes', () => expect(v.hasNoSpaces(''), isTrue));
   });
 
@@ -55,10 +53,8 @@ void main() {
   });
 
   group('hasMinLength8', () {
-    test('exactly 8 passes',
-        () => expect(v.hasMinLength8('12345678'), isTrue));
-    test('9 chars passes',
-        () => expect(v.hasMinLength8('123456789'), isTrue));
+    test('exactly 8 passes', () => expect(v.hasMinLength8('12345678'), isTrue));
+    test('9 chars passes', () => expect(v.hasMinLength8('123456789'), isTrue));
     test('7 chars fails', () => expect(v.hasMinLength8('1234567'), isFalse));
     test('empty fails', () => expect(v.hasMinLength8(''), isFalse));
   });

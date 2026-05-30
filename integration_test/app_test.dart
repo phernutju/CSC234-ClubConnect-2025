@@ -19,8 +19,7 @@ void main() {
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));
       // Welcome screen visible for unauthenticated users
-      final hasWelcome =
-          tester.widgetList(find.text('Login')).isNotEmpty ||
+      final hasWelcome = tester.widgetList(find.text('Login')).isNotEmpty ||
           tester.widgetList(find.text('Drop-in !')).isNotEmpty ||
           tester.widgetList(find.text('Sign Up')).isNotEmpty;
       expect(hasWelcome, isTrue);

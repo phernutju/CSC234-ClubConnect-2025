@@ -26,9 +26,8 @@ void main() {
       await tester.pumpWidget(makeTestApp(child: const WelcomeScreen()));
       await tester.pumpAndSettle();
       // 'Sign Up' is a TextSpan inside a RichText; match via full rendered text
-      final richTextFinder = find.byWidgetPredicate((w) =>
-          w is RichText &&
-          w.text.toPlainText().contains('Sign Up'));
+      final richTextFinder = find.byWidgetPredicate(
+          (w) => w is RichText && w.text.toPlainText().contains('Sign Up'));
       expect(richTextFinder, findsWidgets);
     });
 

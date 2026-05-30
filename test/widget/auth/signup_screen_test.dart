@@ -19,8 +19,7 @@ void main() {
       await tester.pumpWidget(
           makeTestApp(child: const SignupScreen(), auth: FakeAuthProvider()));
       await tester.pumpAndSettle();
-      expect(find.byType(TextField).evaluate().length,
-          greaterThanOrEqualTo(3));
+      expect(find.byType(TextField).evaluate().length, greaterThanOrEqualTo(3));
     });
 
     testWidgets('Next button is present', (tester) async {
