@@ -470,18 +470,27 @@ class AppAuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Returns true on success. Returns false if local auth was cancelled/failed.
+  // Throws [AuthException] if local auth passed but Firebase rejected the credentials
+  // (caller should clear stored creds and prompt re-enrollment).
   Future<bool> loginWithBiometric() async {
     try {
       final cred = await _authService.signInWithBiometric();
-      if (cred != null) {
-        user = cred.user;
-        notifyListeners();
-        return true;
-      }
-    } catch (e) {
+      if (cred == null) return false; // local auth cancelled or no creds stored
+      user = cred.user;
       notifyListeners();
+      return true;
+    } on Exception catch (e) {
+      debugPrint('[BiometricLogin] Firebase sign-in failed: $e');
+      // Stored credentials rejected — wipe them so the button stops showing.
+      await BiometricService().clearCredentials();
+      _biometricEnrolled = false;
+      // Reset enrollment offer so the dialog re-appears after next password login.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('biometric_offer_shown');
+      notifyListeners();
+      rethrow;
     }
-    return false;
   }
 
   void clearCachedCredentials() {
@@ -507,7 +516,14 @@ class AppAuthProvider extends ChangeNotifier {
   /// Saves cached login credentials to biometric secure storage, then clears cache.
   /// Returns true on success, false if the underlying save failed (e.g. WebAuthn cancelled).
   Future<bool> saveBiometricCredentials() async {
-    if (_cachedEmail == null || _cachedPassword == null) return false;
+    debugPrint('[AuthProvider] saveBiometric cachedEmail=$_cachedEmail cachedPasswordLen=${_cachedPassword?.length}');
+    if (_cachedEmail == null ||
+        _cachedPassword == null ||
+        _cachedEmail!.isEmpty ||
+        _cachedPassword!.isEmpty) {
+      debugPrint('[AuthProvider] saveBiometric blocked — empty/null credentials');
+      return false;
+    }
     final ok =
         await BiometricService().saveCredentials(_cachedEmail!, _cachedPassword!);
     if (ok) clearCachedCredentials();

@@ -26,7 +26,10 @@ class BiometricService {
       final supported = await _localAuth.isDeviceSupported();
       final canCheck = await _localAuth.canCheckBiometrics;
       debugPrint('[BiometricService] native supported=$supported canCheck=$canCheck');
-      return supported && canCheck;
+      // isDeviceSupported covers PIN/pattern/password; canCheckBiometrics is
+      // only true when a biometric sensor is present. We allow PIN fallback
+      // (biometricOnly: false), so supported alone is sufficient.
+      return supported;
     } catch (e) {
       debugPrint('[BiometricService] isAvailable error: $e');
       return false;
@@ -46,40 +49,59 @@ class BiometricService {
 
   Future<bool> saveCredentials(String email, String password) async {
     if (kIsWeb) {
-      return bio_web.bioWebRegister(email);
+      return bio_web.bioWebRegister(email, password);
     }
+    debugPrint('[BiometricService] SAVE email=$email passwordLen=${password.length}');
     await _storage.write(
       key: _credKey,
       value: jsonEncode({'email': email, 'password': password}),
     );
+    final verify = await _storage.read(key: _credKey);
+    debugPrint('[BiometricService] VERIFY stored=${verify != null} rawLen=${verify?.length}');
     return true;
   }
 
   Future<Map<String, String>?> authenticate() async {
     if (kIsWeb) {
-      final username = await bio_web.bioWebAuthenticate();
-      if (username == null) return null;
-      return {'email': username, 'password': ''};
+      final creds = await bio_web.bioWebAuthenticate();
+      if (creds == null) return null;
+      final email = creds['email'] ?? '';
+      final password = creds['password'] ?? '';
+      if (email.isEmpty || password.isEmpty) {
+        throw Exception('BiometricService: web credentials are incomplete');
+      }
+      return creds;
     }
+    final bool ok;
     try {
-      final ok = await _localAuth.authenticate(
+      ok = await _localAuth.authenticate(
         localizedReason: 'Sign in to ClubConnect',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,
         ),
       );
-      if (!ok) return null;
-      final raw = await _storage.read(key: _credKey);
-      if (raw == null) return null;
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      return {
-        'email': map['email'] as String,
-        'password': map['password'] as String,
-      };
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[BiometricService] local_auth error: $e');
       return null;
     }
+    if (!ok) return null; // user cancelled — do NOT clear credentials
+
+    // Local auth passed. Validate stored credentials separately so bad data
+    // throws instead of silently returning null (caller clears enrollment).
+    final raw = await _storage.read(key: _credKey);
+    if (raw == null) {
+      throw Exception('BiometricService: no credentials in storage');
+    }
+    final map = jsonDecode(raw) as Map<String, dynamic>;
+    final email = (map['email'] as String?) ?? '';
+    final password = (map['password'] as String?) ?? '';
+    debugPrint('[BiometricService] READ email=$email passwordLen=${password.length}');
+    if (email.isEmpty || password.isEmpty) {
+      debugPrint('[BiometricService] READ incomplete — throwing');
+      throw Exception('BiometricService: stored credentials are incomplete');
+    }
+    return {'email': email, 'password': password};
   }
 
   Future<void> clearCredentials() async {

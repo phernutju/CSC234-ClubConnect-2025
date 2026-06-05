@@ -3,6 +3,6 @@ Future<bool> bioWebAvailable() async { print('[BiometricStub] STUB used — not 
 // ignore: avoid_print
 Future<bool> bioWebEnrolled() async { print('[BiometricStub] STUB used'); return false; }
 // ignore: avoid_print
-Future<bool> bioWebRegister(String email) async { print('[BiometricStub] STUB used'); return false; }
+Future<bool> bioWebRegister(String email, String password) async { print('[BiometricStub] STUB used'); return false; }
 // ignore: avoid_print
-Future<String?> bioWebAuthenticate() async { print('[BiometricStub] STUB used'); return null; }
+Future<Map<String, String>?> bioWebAuthenticate() async { print('[BiometricStub] STUB used'); return null; }

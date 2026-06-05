@@ -62,12 +62,24 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _onBiometricTap() async {
-    final success = await context.read<AppAuthProvider>().loginWithBiometric();
-    if (!mounted) return;
-    if (success) {
-      context.go('/home');
-    } else {
-      setState(() => _showPasswordForm = true);
+    try {
+      final success = await context.read<AppAuthProvider>().loginWithBiometric();
+      if (!mounted) return;
+      if (success) {
+        context.go('/home');
+      }
+      // false = local auth cancelled — stay on biometric view, no message needed
+    } catch (e) {
+      if (!mounted) return;
+      // Credentials were invalid and have been cleared; fall back to password.
+      setState(() => _showBiometric = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Saved login expired. Please sign in with your password to re-enable biometrics.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
     }
   }
 
