@@ -56,6 +56,14 @@ class FakeAuthProvider extends ChangeNotifier implements AppAuthProvider {
   String? get googleDisplayName => null;
   @override
   String? get googleEmail => null;
+  @override
+  String? get cachedEmail => null;
+  @override
+  String? get cachedPassword => null;
+  @override
+  bool get biometricAvailable => false;
+  @override
+  bool get biometricEnrolled => false;
 
   @override
   void setEmailPassword(String email, String password) {}
@@ -85,6 +93,16 @@ class FakeAuthProvider extends ChangeNotifier implements AppAuthProvider {
   Future<void> startGoogleRegistration() async {}
   @override
   Future<void> signOut() async {}
+  @override
+  Future<void> initBiometric() async {}
+  @override
+  Future<bool> loginWithBiometric() async => false;
+  @override
+  void clearCachedCredentials() {}
+  @override
+  Future<bool> shouldOfferBiometricEnrollment() async => false;
+  @override
+  Future<bool> saveBiometricCredentials() async => false;
 }
 
 // ─── Community ────────────────────────────────────────────────────────────────

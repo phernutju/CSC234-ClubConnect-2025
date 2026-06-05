@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../constants/app_constants.dart';
 import '../../../models/chat_args.dart';
 import '../../../models/community_model.dart';
@@ -42,7 +43,53 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<ProfileProvider>().loadProfile(auth.user!.uid);
         context.read<EventProvider>().loadPublishedEvents();
       }
+      _offerEnrollment();
     });
+  }
+
+  Future<void> _offerEnrollment() async {
+    debugPrint('[Biometric] _offerEnrollment called');
+    final ap = context.read<AppAuthProvider>();
+    final should = await ap.shouldOfferBiometricEnrollment();
+    debugPrint('[Biometric] shouldOffer=$should');
+    if (!should) return;
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'Enable biometric login?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Sign in faster next time using your fingerprint or face.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not now'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final enrolled =
+          await context.read<AppAuthProvider>().saveBiometricCredentials();
+      if (!enrolled && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Biometric setup failed — try again from settings.'),
+          ),
+        );
+      }
+    }
   }
 
   void _selectCategory(String category) {

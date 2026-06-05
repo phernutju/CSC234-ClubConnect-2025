@@ -23,6 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _submitting = false;
   bool _googleLoading = false;
+  bool _showBiometric = false;
+  bool _showPasswordForm = false;
 
   // Post-submit auth error — null when no error is present.
   AuthResult? _authError;
@@ -47,6 +49,26 @@ class _LoginScreenState extends State<LoginScreen> {
     // Rebuild for _canSubmit; clear any existing auth-error banner on edit.
     _emailController.addListener(_onFieldChanged);
     _passwordController.addListener(_onFieldChanged);
+    _checkBiometric();
+  }
+
+  Future<void> _checkBiometric() async {
+    final ap = context.read<AppAuthProvider>();
+    await ap.initBiometric();
+    if (!mounted) return;
+    if (ap.biometricAvailable && ap.biometricEnrolled) {
+      setState(() => _showBiometric = true);
+    }
+  }
+
+  Future<void> _onBiometricTap() async {
+    final success = await context.read<AppAuthProvider>().loginWithBiometric();
+    if (!mounted) return;
+    if (success) {
+      context.go('/home');
+    } else {
+      setState(() => _showPasswordForm = true);
+    }
   }
 
   @override
@@ -177,79 +199,119 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Auth-error banner — only after a failed submit.
-                            if (_authError != null) ...[
-                              AuthErrorBanner(
-                                message: switch (_authError!) {
-                                  InvalidCredentials() =>
-                                    'Email or password is incorrect.',
-                                  _ =>
-                                    'Something went wrong. Please try again.',
-                                },
-                                onClose: () =>
-                                    setState(() => _authError = null),
+                            if (_showBiometric && !_showPasswordForm) ...[
+                              SizedBox(height: screenHeight * 0.04),
+                              Center(
+                                child: Semantics(
+                                  label: 'Sign in with biometrics',
+                                  button: true,
+                                  child: GestureDetector(
+                                    onTap: _onBiometricTap,
+                                    child: Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF6B4A),
+                                        borderRadius: BorderRadius.circular(40),
+                                      ),
+                                      child: const Icon(
+                                        Icons.fingerprint,
+                                        size: 48,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 16),
-                            ],
-
-                            ValidatedField(
-                              label: AppStrings.loginEmail,
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              rules: _emailRules,
-                            ),
-                            const SizedBox(height: 16),
-
-                            ValidatedField(
-                              label: AppStrings.loginPassword,
-                              controller: _passwordController,
-                              isObscurable: true,
-                              rules: _passwordRules,
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(height: screenHeight * 0.07),
-
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _canSubmit ? _onNext : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFF6B4A),
-                                  disabledBackgroundColor:
-                                      const Color(0xFFFF6B4A)
-                                          .withValues(alpha: 0.4),
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
+                              Center(
+                                child: TextButton(
+                                  onPressed: () =>
+                                      setState(() => _showPasswordForm = true),
+                                  child: Text(
+                                    'Use password instead',
+                                    style: GoogleFonts.poppins(
+                                      color: const Color(0xFFFF6B4A),
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
                                 ),
-                                child: _submitting
-                                    ? const SizedBox(
-                                        height: 24,
-                                        width: 24,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        AppStrings.loginNext,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                            ] else ...[
+                              // Auth-error banner — only after a failed submit.
+                              if (_authError != null) ...[
+                                AuthErrorBanner(
+                                  message: switch (_authError!) {
+                                    InvalidCredentials() =>
+                                      'Email or password is incorrect.',
+                                    _ =>
+                                      'Something went wrong. Please try again.',
+                                  },
+                                  onClose: () =>
+                                      setState(() => _authError = null),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
 
-                            GoogleSignInButton(
-                              isLoading: _googleLoading,
-                              onPressed: _onGoogleSignIn,
-                            ),
+                              ValidatedField(
+                                label: AppStrings.loginEmail,
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                rules: _emailRules,
+                              ),
+                              const SizedBox(height: 16),
+
+                              ValidatedField(
+                                label: AppStrings.loginPassword,
+                                controller: _passwordController,
+                                isObscurable: true,
+                                rules: _passwordRules,
+                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(height: screenHeight * 0.07),
+
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _canSubmit ? _onNext : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF6B4A),
+                                    disabledBackgroundColor:
+                                        const Color(0xFFFF6B4A)
+                                            .withValues(alpha: 0.4),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                  ),
+                                  child: _submitting
+                                      ? const SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          AppStrings.loginNext,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              GoogleSignInButton(
+                                isLoading: _googleLoading,
+                                onPressed: _onGoogleSignIn,
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -5,7 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import '../services/biometric_service.dart';
 import '../services/storage_service.dart';
 
 class AuthException implements Exception {
@@ -44,6 +46,16 @@ class AppAuthProvider extends ChangeNotifier {
   OtpState get otpState => _otpState;
   String? get otpError => _otpError;
   bool get canResend => _canResend;
+
+  String? _cachedEmail;
+  String? _cachedPassword;
+  bool _biometricAvailable = false;
+  bool _biometricEnrolled = false;
+
+  String? get cachedEmail => _cachedEmail;
+  String? get cachedPassword => _cachedPassword;
+  bool get biometricAvailable => _biometricAvailable;
+  bool get biometricEnrolled => _biometricEnrolled;
 
   bool _pendingNotify = false;
 
@@ -84,6 +96,7 @@ class AppAuthProvider extends ChangeNotifier {
   String? get googleEmail => _googleEmail;
 
   AppAuthProvider() {
+    initBiometric();
     _auth.authStateChanges().listen((u) {
       user = u;
       if (u != null) {
@@ -373,6 +386,8 @@ class AppAuthProvider extends ChangeNotifier {
         password: password,
       );
       user = credential.user;
+      _cachedEmail = email;
+      _cachedPassword = password;
     } on FirebaseAuthException catch (e, st) {
       // Only log non-credential errors — wrong-password / user-not-found are
       // expected user mistakes and would otherwise spam the dashboard.
@@ -446,6 +461,57 @@ class AppAuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> initBiometric() async {
+    final bio = BiometricService();
+    _biometricAvailable = await bio.isAvailable();
+    _biometricEnrolled = await bio.hasEnrolled();
+    notifyListeners();
+  }
+
+  Future<bool> loginWithBiometric() async {
+    try {
+      final cred = await _authService.signInWithBiometric();
+      if (cred != null) {
+        user = cred.user;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      notifyListeners();
+    }
+    return false;
+  }
+
+  void clearCachedCredentials() {
+    _cachedEmail = null;
+    _cachedPassword = null;
+  }
+
+  /// Returns true if the enrollment dialog should be shown (first time, available, not yet enrolled).
+  Future<bool> shouldOfferBiometricEnrollment() async {
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyShown = prefs.getBool('biometric_offer_shown') == true;
+    debugPrint('[Biometric] alreadyShown=$alreadyShown');
+    if (alreadyShown) return false;
+    await prefs.setBool('biometric_offer_shown', true);
+    final bio = BiometricService();
+    final available = await bio.isAvailable();
+    final enrolled = await bio.hasEnrolled();
+    debugPrint('[Biometric] available=$available enrolled=$enrolled');
+    if (!available || enrolled) return false;
+    return true;
+  }
+
+  /// Saves cached login credentials to biometric secure storage, then clears cache.
+  /// Returns true on success, false if the underlying save failed (e.g. WebAuthn cancelled).
+  Future<bool> saveBiometricCredentials() async {
+    if (_cachedEmail == null || _cachedPassword == null) return false;
+    final ok =
+        await BiometricService().saveCredentials(_cachedEmail!, _cachedPassword!);
+    if (ok) clearCachedCredentials();
+    return ok;
   }
 
   Future<void> signOut() async => _auth.signOut();
