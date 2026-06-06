@@ -1,7 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'biometric_service.dart';
 
 /// Carries Google OAuth tokens + profile info for the multi-step registration
 /// flow. No Firebase Auth session is created until onboarding completes.
@@ -208,6 +209,21 @@ class AuthService {
     }
   }
 
+  Future<UserCredential?> signInWithBiometric() async {
+    final creds = await BiometricService().authenticate();
+    if (creds == null) return null;
+    try {
+      return await _auth.signInWithEmailAndPassword(
+        email: creds['email']!,
+        password: creds['password']!,
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          '[BiometricSignIn] Firebase code=${e.code} email=${creds['email']}');
+      throw _AuthServiceException(_mapError(e.code));
+    }
+  }
+
   Future<void> signOut() async => _auth.signOut();
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
@@ -268,6 +284,8 @@ class AuthService {
 class _AuthServiceException implements Exception {
   final String message;
   _AuthServiceException(this.message);
+  @override
+  String toString() => message;
 }
 
 String _mapError(String code) {
