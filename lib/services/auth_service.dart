@@ -218,7 +218,8 @@ class AuthService {
         password: creds['password']!,
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint('[BiometricSignIn] Firebase code=${e.code} email=${creds['email']}');
+      debugPrint(
+          '[BiometricSignIn] Firebase code=${e.code} email=${creds['email']}');
       throw _AuthServiceException(_mapError(e.code));
     }
   }

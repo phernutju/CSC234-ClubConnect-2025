@@ -457,7 +457,7 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       final isMatch = isReal && amountMatch;
       // ignore: avoid_print
       print('[SLIP] AI Verification Reason: $reason');
-      
+      // ignore: avoid_print
       print('[SLIP] AI Verification Result: $isMatch ');
       return AiVerificationResult(
         detectedAmount: detected,

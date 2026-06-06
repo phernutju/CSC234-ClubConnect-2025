@@ -25,7 +25,8 @@ class BiometricService {
     try {
       final supported = await _localAuth.isDeviceSupported();
       final canCheck = await _localAuth.canCheckBiometrics;
-      debugPrint('[BiometricService] native supported=$supported canCheck=$canCheck');
+      debugPrint(
+          '[BiometricService] native supported=$supported canCheck=$canCheck');
       // isDeviceSupported covers PIN/pattern/password; canCheckBiometrics is
       // only true when a biometric sensor is present. We allow PIN fallback
       // (biometricOnly: false), so supported alone is sufficient.
@@ -51,13 +52,15 @@ class BiometricService {
     if (kIsWeb) {
       return bio_web.bioWebRegister(email, password);
     }
-    debugPrint('[BiometricService] SAVE email=$email passwordLen=${password.length}');
+    debugPrint(
+        '[BiometricService] SAVE email=$email passwordLen=${password.length}');
     await _storage.write(
       key: _credKey,
       value: jsonEncode({'email': email, 'password': password}),
     );
     final verify = await _storage.read(key: _credKey);
-    debugPrint('[BiometricService] VERIFY stored=${verify != null} rawLen=${verify?.length}');
+    debugPrint(
+        '[BiometricService] VERIFY stored=${verify != null} rawLen=${verify?.length}');
     return true;
   }
 
@@ -96,7 +99,8 @@ class BiometricService {
     final map = jsonDecode(raw) as Map<String, dynamic>;
     final email = (map['email'] as String?) ?? '';
     final password = (map['password'] as String?) ?? '';
-    debugPrint('[BiometricService] READ email=$email passwordLen=${password.length}');
+    debugPrint(
+        '[BiometricService] READ email=$email passwordLen=${password.length}');
     if (email.isEmpty || password.isEmpty) {
       debugPrint('[BiometricService] READ incomplete — throwing');
       throw Exception('BiometricService: stored credentials are incomplete');

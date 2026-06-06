@@ -19,10 +19,8 @@ Future<bool> bioWebAvailable() async {
 
 Future<bool> bioWebEnrolled() async {
   try {
-    final ls =
-        js_util.getProperty<Object>(js_util.globalThis, 'localStorage');
-    final id =
-        js_util.callMethod<Object?>(ls, 'getItem', ['webauthn_id']);
+    final ls = js_util.getProperty<Object>(js_util.globalThis, 'localStorage');
+    final id = js_util.callMethod<Object?>(ls, 'getItem', ['webauthn_id']);
     // ignore: avoid_print
     print('[BiometricWeb] bioWebEnrolled webauthn_id=$id');
     return id != null;
@@ -36,8 +34,7 @@ Future<bool> bioWebEnrolled() async {
 Future<bool> bioWebRegister(String email, String password) async {
   try {
     // Store credentials in localStorage before WebAuthn registration.
-    final ls =
-        js_util.getProperty<Object>(js_util.globalThis, 'localStorage');
+    final ls = js_util.getProperty<Object>(js_util.globalThis, 'localStorage');
     js_util.callMethod<void>(ls, 'setItem', [
       _webCredKey,
       jsonEncode({'email': email, 'password': password}),
@@ -61,7 +58,8 @@ Future<bool> bioWebRegister(String email, String password) async {
 Future<Map<String, String>?> bioWebAuthenticate() async {
   try {
     // ignore: avoid_print
-    print('[BiometricWeb] bioWebAuthenticate calling JS webAuthnAuthenticate()');
+    print(
+        '[BiometricWeb] bioWebAuthenticate calling JS webAuthnAuthenticate()');
     final result = await js_util.promiseToFuture<Object?>(
       js_util.callMethod(js_util.globalThis, 'webAuthnAuthenticate', []),
     );
@@ -69,10 +67,8 @@ Future<Map<String, String>?> bioWebAuthenticate() async {
     print('[BiometricWeb] bioWebAuthenticate result=$result');
     if (result == null) return null;
 
-    final ls =
-        js_util.getProperty<Object>(js_util.globalThis, 'localStorage');
-    final raw =
-        js_util.callMethod<Object?>(ls, 'getItem', [_webCredKey]);
+    final ls = js_util.getProperty<Object>(js_util.globalThis, 'localStorage');
+    final raw = js_util.callMethod<Object?>(ls, 'getItem', [_webCredKey]);
     if (raw == null) {
       // ignore: avoid_print
       print('[BiometricWeb] bioWebAuthenticate: no stored creds');

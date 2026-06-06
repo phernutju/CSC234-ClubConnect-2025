@@ -63,7 +63,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _onBiometricTap() async {
     try {
-      final success = await context.read<AppAuthProvider>().loginWithBiometric();
+      final success =
+          await context.read<AppAuthProvider>().loginWithBiometric();
       if (!mounted) return;
       if (success) {
         context.go('/home');
@@ -210,7 +211,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-
                             if (_showBiometric && !_showPasswordForm) ...[
                               SizedBox(height: screenHeight * 0.04),
                               Center(

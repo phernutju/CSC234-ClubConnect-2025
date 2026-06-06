@@ -516,16 +516,18 @@ class AppAuthProvider extends ChangeNotifier {
   /// Saves cached login credentials to biometric secure storage, then clears cache.
   /// Returns true on success, false if the underlying save failed (e.g. WebAuthn cancelled).
   Future<bool> saveBiometricCredentials() async {
-    debugPrint('[AuthProvider] saveBiometric cachedEmail=$_cachedEmail cachedPasswordLen=${_cachedPassword?.length}');
+    debugPrint(
+        '[AuthProvider] saveBiometric cachedEmail=$_cachedEmail cachedPasswordLen=${_cachedPassword?.length}');
     if (_cachedEmail == null ||
         _cachedPassword == null ||
         _cachedEmail!.isEmpty ||
         _cachedPassword!.isEmpty) {
-      debugPrint('[AuthProvider] saveBiometric blocked — empty/null credentials');
+      debugPrint(
+          '[AuthProvider] saveBiometric blocked — empty/null credentials');
       return false;
     }
-    final ok =
-        await BiometricService().saveCredentials(_cachedEmail!, _cachedPassword!);
+    final ok = await BiometricService()
+        .saveCredentials(_cachedEmail!, _cachedPassword!);
     if (ok) clearCachedCredentials();
     return ok;
   }
