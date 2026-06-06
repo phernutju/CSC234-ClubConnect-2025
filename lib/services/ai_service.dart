@@ -456,7 +456,9 @@ If safe: {"isViolating":false,"violatedRules":[],"reason":""}
       final reason = parsed['reason'] as String? ?? '';
       final isMatch = isReal && amountMatch;
       // ignore: avoid_print
-      print('[SLIP] AI Verification Result: $isMatch');
+      print('[SLIP] AI Verification Reason: $reason');
+      
+      print('[SLIP] AI Verification Result: $isMatch ');
       return AiVerificationResult(
         detectedAmount: detected,
         expectedAmount: expectedAmount,

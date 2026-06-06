@@ -32,7 +32,8 @@
       "Bash(findstr /S /N \"onPressed.*async\\\\|onTap.*async\" lib\\\\features\\\\community\\\\screens\\\\*.dart)",
       "Bash(git commit -m ' *)",
       "Bash(dart format *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(xargs grep -l \"Semantics\\\\|tooltip:\\\\|focusNode\\\\|FocusScope\\\\|label:\")"
     ]
   }
 }
